@@ -88,6 +88,8 @@
     "input-otp": "1.2.4",
     "jotai": "2.6.0",
     "jsonwebtoken": "9.0.2",
+    "jspdf": "^4.1.0",
+    "jspdf-autotable": "^5.0.7",
     "lodash": "4.17.21",
     "lucide-react": "0.446.0",
     "mapbox-gl": "1.13.3",

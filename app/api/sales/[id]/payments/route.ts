@@ -39,7 +39,7 @@ export async function POST(
     });
 
     // Find the starting payment
-    const startingPaymentIndex = allPayments.findIndex(p => p.id === paymentId);
+    const startingPaymentIndex = allPayments.findIndex((p: any) => p.id === paymentId);
     if (startingPaymentIndex === -1) {
       return NextResponse.json({ error: 'Pago no encontrado' }, { status: 404 });
     }
@@ -77,7 +77,7 @@ export async function POST(
       where: { bookingId },
     });
 
-    const allPaid = refreshedPayments.every((p) => p.status === 'PAID');
+    const allPaid = refreshedPayments.every((p: any) => p.status === 'PAID');
 
     if (allPaid) {
       await prisma.booking.update({
@@ -125,6 +125,7 @@ export async function GET(
         payments: {
           orderBy: { paymentNumber: 'asc' },
         },
+        tenant: true,
       },
     });
 

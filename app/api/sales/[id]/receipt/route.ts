@@ -37,7 +37,7 @@ export async function GET(
       return NextResponse.json({ error: 'Venta no encontrada' }, { status: 404 });
     }
 
-    const totalPaid = booking.payments.reduce((sum, p) => sum + (p.paidAmount || 0), 0);
+    const totalPaid = booking.payments.reduce((sum: number, p: any) => sum + (p.paidAmount || 0), 0);
     const remaining = booking.totalPrice - totalPaid;
     const progress = Math.round((totalPaid / booking.totalPrice) * 100);
 
@@ -343,11 +343,11 @@ export async function GET(
               <th>Abonado</th>
               <th>Pendiente</th>
               <th>Estado</th>
-              ${booking.payments.some(p => p.paidDate) ? '<th>Fecha de Pago</th>' : ''}
+              ${booking.payments.some((p: any) => p.paidDate) ? '<th>Fecha de Pago</th>' : ''}
             </tr>
           </thead>
           <tbody>
-            ${booking.payments.map((payment) => {
+            ${booking.payments.map((payment: any) => {
               const pending = Math.max(0, payment.amount - (payment.paidAmount || 0));
               const statusClass = payment.status === 'PAID' ? 'status-paid' : payment.status === 'PENDING' ? 'status-pending' : 'status-overdue';
               const statusText = payment.status === 'PAID' ? 'Pagado' : payment.status === 'PENDING' ? 'Pendiente' : 'Vencido';
@@ -359,7 +359,7 @@ export async function GET(
                   <td>${formatCurrency(payment.paidAmount || 0)}</td>
                   <td>${formatCurrency(pending)}</td>
                   <td class="${statusClass}">${statusText}</td>
-                  ${booking.payments.some(p => p.paidDate) ? `<td>${payment.paidDate ? formatDate(payment.paidDate) : '-'}</td>` : ''}
+                  ${booking.payments.some((p: any) => p.paidDate) ? `<td>${payment.paidDate ? formatDate(payment.paidDate) : '-'}</td>` : ''}
                 </tr>
               `;
             }).join('')}

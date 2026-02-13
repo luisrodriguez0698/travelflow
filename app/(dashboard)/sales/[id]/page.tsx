@@ -39,6 +39,7 @@ import Link from 'next/link';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
+import { generateReceiptPdf } from '@/lib/generate-receipt-pdf';
 
 interface PaymentPlan {
   id: string;
@@ -81,6 +82,13 @@ interface Sale {
     };
   };
   payments: PaymentPlan[];
+  tenant?: {
+    name: string;
+    phone?: string;
+    email?: string;
+    address?: string;
+    logo?: string;
+  };
 }
 
 export default function SaleDetailPage() {
@@ -197,24 +205,10 @@ export default function SaleDetailPage() {
   };
 
   const handleDownloadReceipt = async () => {
+    if (!sale) return;
     setGeneratingPdf(true);
     try {
-      const res = await fetch(`/api/sales/${id}/receipt`);
-      
-      if (!res.ok) {
-        throw new Error('Error generating PDF');
-      }
-
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `estado_cuenta_${sale?.client?.fullName?.replace(/\s+/g, '_') || 'cliente'}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      a.remove();
-
+      await generateReceiptPdf(sale);
       toast({
         title: 'Éxito',
         description: 'PDF descargado correctamente',

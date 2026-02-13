@@ -44,7 +44,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     const { departures, ...packageData } = body;
 
     // Update package and departures in a transaction
-    const pkg = await prisma.$transaction(async (tx) => {
+    const pkg = await prisma.$transaction(async (tx: any) => {
       // Update package data
       await tx.package.update({
         where: { id: params.id },
@@ -151,7 +151,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     }
 
     // Check for existing bookings
-    const hasBookings = pkg.departures.some(d => d.bookings.length > 0);
+    const hasBookings = pkg.departures.some((d: any) => d.bookings.length > 0);
     if (hasBookings) {
       return NextResponse.json(
         { error: 'No se puede eliminar un paquete con ventas asociadas' },
