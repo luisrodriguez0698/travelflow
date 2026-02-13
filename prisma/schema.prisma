@@ -1,0 +1,187 @@
+// TravelFlow - Multi-tenant SaaS for Travel Agencies
+// Prisma Schema
+
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+// ========== TENANT MANAGEMENT ==========
+
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  logo      String?  // Cloud storage path
+  email     String
+  phone     String
+  address   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  users       User[]
+  clients     Client[]
+  packages    Package[]
+  seasons     Season[]
+  bookings    Booking[]
+
+  @@map("tenants")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String?
+  tenantId  String
+  role      String   @default("ADMIN")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("users")
+}
+
+// ========== CLIENT MANAGEMENT ==========
+
+model Client {
+  id        String    @id @default(cuid())
+  tenantId  String
+  fullName  String
+  ine       String?
+  passport  String?
+  curp      String?
+  phone     String
+  email     String?
+  birthDate DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  // Relations
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  bookings Booking[]
+
+  @@index([tenantId])
+  @@map("clients")
+}
+
+// ========== SEASON MANAGEMENT ==========
+
+model Season {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String   // e.g., "Día de las Madres", "Semana Santa"
+  description String   @default("") @db.Text
+  color       String   @default("#3B82F6") // Visual identification color
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  tenant     Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  departures PackageDeparture[]
+
+  @@index([tenantId])
+  @@map("seasons")
+}
+
+// ========== PACKAGE MANAGEMENT ==========
+
+model Package {
+  id                   String   @id @default(cuid())
+  tenantId             String
+  name                 String   // Destination name
+  description          String   @db.Text
+  images               String[] // Array of cloud storage paths
+  servicesIncluded     String   @db.Text // JSON string
+  servicesNotIncluded  String   @db.Text // JSON string
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  // Relations
+  tenant     Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  departures PackageDeparture[]
+
+  @@index([tenantId])
+  @@map("packages")
+}
+
+model PackageDeparture {
+  id             String   @id @default(cuid())
+  packageId      String
+  seasonId       String?  // Optional: assign to a season
+  departureDate  DateTime
+  returnDate     DateTime
+  priceAdult     Float    @default(0)
+  priceChild     Float    @default(0)
+  availableSlots Int      @default(50)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  package  Package   @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  season   Season?   @relation(fields: [seasonId], references: [id], onDelete: SetNull)
+  bookings Booking[]
+
+  @@index([packageId])
+  @@index([seasonId])
+  @@map("package_departures")
+}
+
+// ========== SALES & PAYMENT MANAGEMENT ==========
+
+model Booking {
+  id               String   @id @default(cuid())
+  tenantId         String
+  clientId         String
+  packageId        String
+  departureId      String
+  totalPrice       Float
+  paymentType      String   // CASH or CREDIT
+  downPayment      Float    @default(0)
+  numberOfPayments Int      @default(1)
+  saleDate         DateTime @default(now())
+  status           String   @default("ACTIVE") // ACTIVE, COMPLETED, CANCELLED
+  notes            String?  @db.Text
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relations
+  tenant    Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  client    Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  departure PackageDeparture  @relation(fields: [departureId], references: [id], onDelete: Restrict)
+  payments  PaymentPlan[]
+
+  @@index([tenantId])
+  @@index([clientId])
+  @@index([departureId])
+  @@map("bookings")
+}
+
+model PaymentPlan {
+  id            String    @id @default(cuid())
+  bookingId     String
+  paymentNumber Int
+  dueDate       DateTime
+  amount        Float
+  status        String    @default("PENDING") // PENDING, PAID, OVERDUE
+  paidDate      DateTime?
+  paidAmount    Float     @default(0)
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+  @@index([status])
+  @@index([dueDate])
+  @@map("payment_plans")
+}
