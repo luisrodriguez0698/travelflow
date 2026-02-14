@@ -18,6 +18,7 @@ export async function GET() {
           },
         },
         payments: true,
+        supplier: true,
       },
       orderBy: { saleDate: 'desc' },
     });
@@ -43,6 +44,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Departure not found' }, { status: 400 });
     }
 
+    // Calculate net cost from departure prices
+    const numAdults = body.numAdults || 1;
+    const numChildren = body.numChildren || 0;
+    const netCost = (departure.priceAdult * numAdults) + (departure.priceChild * numChildren);
+
     const booking = await prisma.booking.create({
       data: {
         tenantId,
@@ -50,11 +56,14 @@ export async function POST(request: NextRequest) {
         packageId: departure.packageId,
         departureId: body.departureId,
         totalPrice: body.totalPrice,
+        netCost,
         paymentType: body.paymentType,
         downPayment: body.downPayment || 0,
         numberOfPayments: body.numberOfPayments || 1,
         notes: body.notes || null,
         saleDate: body.saleDate ? new Date(body.saleDate) : new Date(),
+        supplierId: body.supplierId || null,
+        supplierDeadline: body.supplierDeadline ? new Date(body.supplierDeadline) : null,
       },
     });
 
@@ -120,6 +129,7 @@ export async function POST(request: NextRequest) {
           },
         },
         payments: true,
+        supplier: true,
       },
     });
 

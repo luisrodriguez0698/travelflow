@@ -15,6 +15,8 @@ import {
   X,
   CalendarDays,
   Settings,
+  Truck,
+  Landmark,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from './ui/button';
@@ -45,6 +47,16 @@ const menuItems = [
     title: 'Ventas',
     icon: ShoppingCart,
     href: '/sales',
+  },
+  {
+    title: 'Proveedores',
+    icon: Truck,
+    href: '/suppliers',
+  },
+  {
+    title: 'Bancos',
+    icon: Landmark,
+    href: '/banks',
   },
   {
     title: 'Configuración',

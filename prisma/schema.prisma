@@ -27,7 +27,10 @@ model Tenant {
   clients     Client[]
   packages    Package[]
   seasons     Season[]
-  bookings    Booking[]
+  bookings         Booking[]
+  suppliers        Supplier[]
+  bankAccounts     BankAccount[]
+  bankTransactions BankTransaction[]
 
   @@map("tenants")
 }
@@ -143,6 +146,7 @@ model Booking {
   packageId        String
   departureId      String
   totalPrice       Float
+  netCost          Float    @default(0) // Costo neto calculado desde el paquete
   paymentType      String   // CASH or CREDIT
   downPayment      Float    @default(0)
   numberOfPayments Int      @default(1)
@@ -152,16 +156,88 @@ model Booking {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
+  supplierId       String?
+  supplierDeadline DateTime?  // Fecha limite para el proveedor
+
   // Relations
   tenant    Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   client    Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
   departure PackageDeparture  @relation(fields: [departureId], references: [id], onDelete: Restrict)
-  payments  PaymentPlan[]
+  supplier         Supplier?         @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  payments         PaymentPlan[]
+  bankTransactions BankTransaction[]
 
   @@index([tenantId])
   @@index([clientId])
   @@index([departureId])
+  @@index([supplierId])
   @@map("bookings")
+}
+
+// ========== SUPPLIER MANAGEMENT ==========
+
+model Supplier {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  phone       String
+  email       String?
+  serviceType String   @default("OTRO") // HOTEL, TRANSPORTE, TOUR, RESTAURANTE, OTRO
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  bookings Booking[]
+
+  @@index([tenantId])
+  @@map("suppliers")
+}
+
+// ========== BANK MANAGEMENT ==========
+
+model BankAccount {
+  id              String   @id @default(cuid())
+  tenantId        String
+  bankName        String   // BBVA, Banorte, Santander, etc.
+  accountNumber   String   // Numero de cuenta o CLABE
+  accountType     String   // DEBITO, CREDITO, AHORRO
+  referenceName   String   // Nombre de referencia (ej: "Cuenta principal")
+  initialBalance  Float    @default(0)
+  currentBalance  Float    @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  tenant       Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  transactions BankTransaction[]
+
+  @@index([tenantId])
+  @@map("bank_accounts")
+}
+
+model BankTransaction {
+  id                   String   @id @default(cuid())
+  tenantId             String
+  bankAccountId        String
+  type                 String   // INCOME, EXPENSE, TRANSFER
+  amount               Float
+  description          String
+  reference            String?  // Referencia opcional
+  bookingId            String?  // Vinculado a una venta (opcional)
+  destinationAccountId String?  // Para transferencias: cuenta destino
+  date                 DateTime @default(now())
+  createdAt            DateTime @default(now())
+
+  // Relations
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  bankAccount BankAccount  @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+  booking     Booking?     @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([bankAccountId])
+  @@index([bookingId])
+  @@map("bank_transactions")
 }
 
 model PaymentPlan {

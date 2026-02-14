@@ -23,6 +23,7 @@ export async function GET(
           },
         },
         payments: true,
+        supplier: true,
       },
     });
 
@@ -64,6 +65,11 @@ export async function PUT(
       return NextResponse.json({ error: 'Departure not found' }, { status: 400 });
     }
 
+    // Calculate net cost
+    const numAdults = body.numAdults || 1;
+    const numChildren = body.numChildren || 0;
+    const netCost = (departure.priceAdult * numAdults) + (departure.priceChild * numChildren);
+
     // Delete old payment plans if payment type or number changed
     if (
       existing.paymentType !== body.paymentType ||
@@ -83,12 +89,15 @@ export async function PUT(
         packageId: departure.packageId,
         departureId: body.departureId,
         totalPrice: body.totalPrice,
+        netCost,
         paymentType: body.paymentType,
         downPayment: body.downPayment || 0,
         numberOfPayments: body.numberOfPayments || 1,
         notes: body.notes || null,
         saleDate: body.saleDate ? new Date(body.saleDate) : existing.saleDate,
         status: body.status || existing.status,
+        supplierId: body.supplierId || null,
+        supplierDeadline: body.supplierDeadline ? new Date(body.supplierDeadline) : null,
       },
     });
 
@@ -129,6 +138,7 @@ export async function PUT(
           },
         },
         payments: true,
+        supplier: true,
       },
     });
 
@@ -136,6 +146,46 @@ export async function PUT(
   } catch (error) {
     console.error('Error updating sale:', error);
     return NextResponse.json({ error: 'Error updating sale' }, { status: 500 });
+  }
+}
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const tenantId = await requireTenantId();
+    const { id } = await params;
+    const body = await request.json();
+
+    const booking = await prisma.booking.findFirst({
+      where: { id, tenantId },
+    });
+
+    if (!booking) {
+      return NextResponse.json({ error: 'Venta no encontrada' }, { status: 404 });
+    }
+
+    const updateData: any = {};
+    if (body.supplierDeadline !== undefined) {
+      updateData.supplierDeadline = body.supplierDeadline ? new Date(body.supplierDeadline) : null;
+    }
+    if (body.supplierId !== undefined) {
+      updateData.supplierId = body.supplierId || null;
+    }
+    if (body.notes !== undefined) {
+      updateData.notes = body.notes || null;
+    }
+
+    const updated = await prisma.booking.update({
+      where: { id },
+      data: updateData,
+    });
+
+    return NextResponse.json(updated);
+  } catch (error) {
+    console.error('Error updating booking:', error);
+    return NextResponse.json({ error: 'Error al actualizar la venta' }, { status: 500 });
   }
 }
 

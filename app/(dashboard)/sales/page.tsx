@@ -69,10 +69,18 @@ interface PaymentPlan {
   status: string;
 }
 
+interface Supplier {
+  id: string;
+  name: string;
+  serviceType: string;
+}
+
 interface Sale {
   id: string;
   clientId: string;
   departureId: string;
+  supplierId?: string;
+  supplierDeadline?: string;
   totalPrice: number;
   paymentType: string;
   downPayment: number;
@@ -83,6 +91,7 @@ interface Sale {
   client: Client;
   departure: Departure;
   payments: PaymentPlan[];
+  supplier?: Supplier;
 }
 
 interface FormData {
@@ -95,6 +104,8 @@ interface FormData {
   notes: string;
   numAdults: number;
   numChildren: number;
+  supplierId: string;
+  supplierDeadline: string;
 }
 
 const initialFormData: FormData = {
@@ -107,6 +118,8 @@ const initialFormData: FormData = {
   notes: '',
   numAdults: 1,
   numChildren: 0,
+  supplierId: '',
+  supplierDeadline: '',
 };
 
 export default function SalesPage() {
@@ -114,6 +127,7 @@ export default function SalesPage() {
   const [sales, setSales] = useState<Sale[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [packages, setPackages] = useState<(PackageItem & { departures: Departure[] })[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -139,10 +153,11 @@ export default function SalesPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [salesRes, clientsRes, packagesRes] = await Promise.all([
+      const [salesRes, clientsRes, packagesRes, suppliersRes] = await Promise.all([
         fetch('/api/sales'),
         fetch('/api/clients?all=true'),
         fetch('/api/packages'),
+        fetch('/api/suppliers?all=true'),
       ]);
 
       if (salesRes.ok) {
@@ -156,6 +171,10 @@ export default function SalesPage() {
       if (packagesRes.ok) {
         const packagesData = await packagesRes.json();
         setPackages(packagesData);
+      }
+      if (suppliersRes.ok) {
+        const suppliersData = await suppliersRes.json();
+        setSuppliers(suppliersData);
       }
     } catch (error) {
       toast({
@@ -234,6 +253,8 @@ export default function SalesPage() {
       notes: sale.notes || '',
       numAdults,
       numChildren,
+      supplierId: sale.supplierId || '',
+      supplierDeadline: sale.supplierDeadline ? sale.supplierDeadline.split('T')[0] : '',
     });
     setIsModalOpen(true);
   };
@@ -295,7 +316,11 @@ export default function SalesPage() {
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          supplierId: formData.supplierId || null,
+          supplierDeadline: formData.supplierDeadline || null,
+        }),
       });
 
       if (!res.ok) throw new Error('Error saving');
@@ -416,6 +441,7 @@ export default function SalesPage() {
                 <TableHead>Cliente</TableHead>
                 <TableHead>Paquete</TableHead>
                 <TableHead>Salida</TableHead>
+                <TableHead>Proveedor</TableHead>
                 <TableHead>Tipo</TableHead>
                 <TableHead className="text-right">Total</TableHead>
                 <TableHead>Estado</TableHead>
@@ -440,6 +466,13 @@ export default function SalesPage() {
                   </TableCell>
                   <TableCell>
                     {formatDate(sale.departure?.departureDate)}
+                  </TableCell>
+                  <TableCell>
+                    {sale.supplier ? (
+                      <span className="text-sm">{sale.supplier.name}</span>
+                    ) : (
+                      <span className="text-sm text-gray-400">—</span>
+                    )}
                   </TableCell>
                   <TableCell>
                     <Badge variant={sale.paymentType === 'CASH' ? 'default' : 'secondary'}>
@@ -700,6 +733,39 @@ export default function SalesPage() {
                 placeholder="Notas adicionales sobre la venta..."
                 rows={3}
               />
+            </div>
+
+            {/* Supplier */}
+            <div className="border-t pt-4 mt-2">
+              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Proveedor (opcional)</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Proveedor</Label>
+                  <Select
+                    value={formData.supplierId}
+                    onValueChange={(value) => setFormData((prev) => ({ ...prev, supplierId: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecciona proveedor" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {suppliers.map((s) => (
+                        <SelectItem key={s.id} value={s.id}>
+                          {s.name} ({s.serviceType})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Fecha Límite</Label>
+                  <Input
+                    type="date"
+                    value={formData.supplierDeadline}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, supplierDeadline: e.target.value }))}
+                  />
+                </div>
+              </div>
             </div>
           </div>
 

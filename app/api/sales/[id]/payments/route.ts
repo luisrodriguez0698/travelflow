@@ -23,13 +23,29 @@ export async function POST(
       return NextResponse.json({ error: 'Venta no encontrada' }, { status: 404 });
     }
 
-    const { paymentId, amount, notes } = body;
+    const { paymentId, amount, notes, bankAccountId } = body;
 
     if (!paymentId || !amount || amount <= 0) {
       return NextResponse.json(
         { error: 'Se requiere un pago válido y un monto mayor a 0' },
         { status: 400 }
       );
+    }
+
+    if (!bankAccountId) {
+      return NextResponse.json(
+        { error: 'Selecciona una cuenta bancaria' },
+        { status: 400 }
+      );
+    }
+
+    // Verify bank account ownership
+    const bankAccount = await prisma.bankAccount.findFirst({
+      where: { id: bankAccountId, tenantId },
+    });
+
+    if (!bankAccount) {
+      return NextResponse.json({ error: 'Cuenta bancaria no encontrada' }, { status: 404 });
     }
 
     // Get all pending payments ordered by payment number
@@ -86,11 +102,36 @@ export async function POST(
       });
     }
 
-    return NextResponse.json({ 
-      success: true, 
+    // Register bank transaction for the payment
+    const bookingWithClient = await prisma.booking.findFirst({
+      where: { id: bookingId },
+      include: { client: true, departure: { include: { package: true } } },
+    });
+
+    await prisma.$transaction([
+      prisma.bankTransaction.create({
+        data: {
+          tenantId,
+          bankAccountId,
+          type: 'INCOME',
+          amount,
+          description: `Abono venta - ${bookingWithClient?.client?.fullName || ''} - ${bookingWithClient?.departure?.package?.name || ''}`,
+          reference: notes || null,
+          bookingId,
+          date: new Date(),
+        },
+      }),
+      prisma.bankAccount.update({
+        where: { id: bankAccountId },
+        data: { currentBalance: { increment: amount } },
+      }),
+    ]);
+
+    return NextResponse.json({
+      success: true,
       updatedPayments,
-      message: updatedPayments.length > 1 
-        ? `Abono aplicado a ${updatedPayments.length} pagos` 
+      message: updatedPayments.length > 1
+        ? `Abono aplicado a ${updatedPayments.length} pagos`
         : 'Abono registrado correctamente'
     });
   } catch (error) {
@@ -126,6 +167,7 @@ export async function GET(
           orderBy: { paymentNumber: 'asc' },
         },
         tenant: true,
+        supplier: true,
       },
     });
 

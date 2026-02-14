@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Dialog,
   DialogContent,
@@ -34,6 +35,9 @@ import {
   User,
   MapPin,
   CreditCard,
+  Truck,
+  CalendarClock,
+  Check,
 } from 'lucide-react';
 import Link from 'next/link';
 import { format } from 'date-fns';
@@ -52,9 +56,17 @@ interface PaymentPlan {
   notes?: string;
 }
 
+interface BankAccount {
+  id: string;
+  bankName: string;
+  referenceName: string;
+  currentBalance: number;
+}
+
 interface Sale {
   id: string;
   totalPrice: number;
+  netCost: number;
   paymentType: string;
   downPayment: number;
   numberOfPayments: number;
@@ -89,6 +101,15 @@ interface Sale {
     address?: string;
     logo?: string;
   };
+  supplierId?: string;
+  supplierDeadline?: string;
+  supplier?: {
+    id: string;
+    name: string;
+    phone: string;
+    email?: string;
+    serviceType: string;
+  };
 }
 
 export default function SaleDetailPage() {
@@ -100,14 +121,25 @@ export default function SaleDetailPage() {
   const [saving, setSaving] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
 
+  // Bank accounts
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
+  const [selectedBankAccountId, setSelectedBankAccountId] = useState('');
+
   // Modal for payment
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<PaymentPlan | null>(null);
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentNotes, setPaymentNotes] = useState('');
+  const [editingDeadline, setEditingDeadline] = useState(false);
+  const [deadlineValue, setDeadlineValue] = useState('');
+  const [savingDeadline, setSavingDeadline] = useState(false);
 
   useEffect(() => {
     fetchSale();
+    fetch('/api/bank-accounts?all=true')
+      .then((r) => r.json())
+      .then(setBankAccounts)
+      .catch(() => {});
   }, [id]);
 
   const fetchSale = async () => {
@@ -144,6 +176,7 @@ export default function SaleDetailPage() {
     const pendingAmount = payment.amount - (payment.paidAmount || 0);
     setPaymentAmount(pendingAmount.toString());
     setPaymentNotes('');
+    setSelectedBankAccountId('');
     setIsPaymentModalOpen(true);
   };
 
@@ -155,6 +188,15 @@ export default function SaleDetailPage() {
       toast({
         title: 'Error',
         description: 'Ingresa un monto válido',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!selectedBankAccountId) {
+      toast({
+        title: 'Error',
+        description: 'Selecciona una cuenta bancaria',
         variant: 'destructive',
       });
       return;
@@ -179,6 +221,7 @@ export default function SaleDetailPage() {
           paymentId: selectedPayment.id,
           amount,
           notes: paymentNotes,
+          bankAccountId: selectedBankAccountId,
         }),
       });
 
@@ -221,6 +264,26 @@ export default function SaleDetailPage() {
       });
     } finally {
       setGeneratingPdf(false);
+    }
+  };
+
+  const handleSaveDeadline = async () => {
+    setSavingDeadline(true);
+    try {
+      const res = await fetch(`/api/sales/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ supplierDeadline: deadlineValue || null }),
+      });
+      if (res.ok) {
+        toast({ title: 'Fecha limite actualizada' });
+        setEditingDeadline(false);
+        fetchSale();
+      }
+    } catch {
+      toast({ title: 'Error', description: 'No se pudo actualizar', variant: 'destructive' });
+    } finally {
+      setSavingDeadline(false);
     }
   };
 
@@ -353,6 +416,81 @@ export default function SaleDetailPage() {
         </Card>
       </div>
 
+      {/* Supplier Info */}
+      {sale.supplier && (
+        <Card className="p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Truck className="w-5 h-5 text-orange-500" />
+            <h3 className="text-lg font-semibold">Proveedor</h3>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div>
+              <p className="text-sm text-gray-500">Nombre</p>
+              <p className="font-medium">{sale.supplier.name}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Tipo de Servicio</p>
+              <Badge variant="secondary">{sale.supplier.serviceType}</Badge>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Teléfono</p>
+              <p className="font-medium">{sale.supplier.phone}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Fecha Limite</p>
+              {editingDeadline ? (
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="date"
+                    value={deadlineValue}
+                    onChange={(e) => setDeadlineValue(e.target.value)}
+                    className="h-8 w-40"
+                  />
+                  <Button size="sm" variant="ghost" onClick={handleSaveDeadline} disabled={savingDeadline}>
+                    {savingDeadline ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4 text-green-600" />}
+                  </Button>
+                </div>
+              ) : (
+                <p
+                  className="font-medium cursor-pointer hover:text-blue-600 flex items-center gap-1"
+                  onClick={() => {
+                    setDeadlineValue(sale.supplierDeadline ? format(new Date(sale.supplierDeadline), 'yyyy-MM-dd') : '');
+                    setEditingDeadline(true);
+                  }}
+                >
+                  <CalendarClock className="w-4 h-4" />
+                  {sale.supplierDeadline ? formatDate(sale.supplierDeadline) : 'Sin fecha - click para agregar'}
+                </p>
+              )}
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Profit Summary */}
+      {sale.netCost > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <Card className="p-4 bg-gray-50 dark:bg-gray-950/20 border-gray-200 dark:border-gray-800">
+            <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">Costo Neto</p>
+            <p className="text-2xl font-bold text-gray-700 dark:text-gray-300 mt-1">
+              ${sale.netCost?.toLocaleString('es-MX')}
+            </p>
+          </Card>
+          <Card className="p-4 bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800">
+            <p className="text-sm text-emerald-600 dark:text-emerald-400 font-medium">Ganancia</p>
+            <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300 mt-1">
+              ${(sale.totalPrice - sale.netCost).toLocaleString('es-MX')}
+            </p>
+          </Card>
+          <Card className="p-4 bg-cyan-50 dark:bg-cyan-950/20 border-cyan-200 dark:border-cyan-800">
+            <p className="text-sm text-cyan-600 dark:text-cyan-400 font-medium">Margen</p>
+            <p className="text-2xl font-bold text-cyan-700 dark:text-cyan-300 mt-1">
+              {sale.netCost > 0 ? ((sale.totalPrice - sale.netCost) / sale.netCost * 100).toFixed(1) : 0}%
+            </p>
+          </Card>
+        </div>
+      )}
+
       {/* Financial Summary */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card className="p-6 bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800">
@@ -482,6 +620,21 @@ export default function SaleDetailPage() {
                 💡 Puedes abonar cualquier cantidad. Si el monto excede esta cuota, 
                 el excedente se aplicará automáticamente a las siguientes cuotas.
               </p>
+            </div>
+            <div className="space-y-2">
+              <Label>Cuenta Bancaria *</Label>
+              <Select value={selectedBankAccountId} onValueChange={setSelectedBankAccountId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona cuenta destino" />
+                </SelectTrigger>
+                <SelectContent>
+                  {bankAccounts.map((acc) => (
+                    <SelectItem key={acc.id} value={acc.id}>
+                      {acc.referenceName} - {acc.bankName} (${acc.currentBalance.toLocaleString('es-MX')})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label>Monto del Abono *</Label>

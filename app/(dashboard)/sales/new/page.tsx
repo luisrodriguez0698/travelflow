@@ -16,11 +16,13 @@ export default function NewSalePage() {
   const [clients, setClients] = useState<any[]>([]);
   const [packages, setPackages] = useState<any[]>([]);
   const [departures, setDepartures] = useState<any[]>([]);
-  const [formData, setFormData] = useState({ clientId: '', packageId: '', departureId: '', totalPrice: '', paymentType: 'CASH', downPayment: '', numberOfPayments: '1' });
+  const [suppliers, setSuppliers] = useState<any[]>([]);
+  const [formData, setFormData] = useState({ clientId: '', packageId: '', departureId: '', totalPrice: '', paymentType: 'CASH', downPayment: '', numberOfPayments: '1', supplierId: '', supplierDeadline: '' });
 
   useEffect(() => {
     fetch('/api/clients?all=true').then(r => r.json()).then(setClients);
     fetch('/api/packages').then(r => r.json()).then(setPackages);
+    fetch('/api/suppliers?all=true').then(r => r.json()).then(setSuppliers);
   }, []);
 
   useEffect(() => {
@@ -36,7 +38,14 @@ export default function NewSalePage() {
       await fetch('/api/sales', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...formData, totalPrice: parseFloat(formData.totalPrice), downPayment: parseFloat(formData.downPayment || '0'), numberOfPayments: parseInt(formData.numberOfPayments) }),
+        body: JSON.stringify({
+          ...formData,
+          totalPrice: parseFloat(formData.totalPrice),
+          downPayment: parseFloat(formData.downPayment || '0'),
+          numberOfPayments: parseInt(formData.numberOfPayments),
+          supplierId: formData.supplierId || null,
+          supplierDeadline: formData.supplierDeadline || null,
+        }),
       });
       router.push('/sales');
       router.refresh();
@@ -98,6 +107,28 @@ export default function NewSalePage() {
               <div><Label>Número de Quincenas</Label><Input type="number" value={formData.numberOfPayments} onChange={(e) => setFormData({ ...formData, numberOfPayments: e.target.value })} /></div>
             </>
           )}
+          {/* Proveedor */}
+          <div className="border-t pt-4 mt-2">
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Proveedor (opcional)</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <Label>Proveedor</Label>
+                <Select value={formData.supplierId} onValueChange={(v) => setFormData({ ...formData, supplierId: v })}>
+                  <SelectTrigger><SelectValue placeholder="Selecciona proveedor" /></SelectTrigger>
+                  <SelectContent>
+                    {suppliers.map(s => (
+                      <SelectItem key={s?.id} value={s?.id}>{s?.name} ({s?.serviceType})</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Fecha Limite</Label>
+                <Input type="date" value={formData.supplierDeadline} onChange={(e) => setFormData({ ...formData, supplierDeadline: e.target.value })} />
+              </div>
+            </div>
+          </div>
+
           <div className="flex justify-end space-x-4">
             <Link href="/sales"><Button variant="outline">Cancelar</Button></Link>
             <Button type="submit" disabled={loading}>{loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Crear Venta'}</Button>
