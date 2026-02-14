@@ -2,6 +2,7 @@ import { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';
 import { prisma } from './prisma';
+import { ALL_MODULES } from './permissions';
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -18,7 +19,7 @@ export const authOptions: NextAuthOptions = {
 
         const user = await prisma.user.findUnique({
           where: { email: credentials.email },
-          include: { tenant: true },
+          include: { tenant: true, roleRef: true },
         });
 
         if (!user) {
@@ -34,6 +35,13 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
+        // Get permissions from role, fallback to all for legacy ADMIN users
+        const permissions = user.roleRef
+          ? (user.roleRef.permissions as string[])
+          : user.role === 'ADMIN'
+            ? [...ALL_MODULES]
+            : [];
+
         return {
           id: user.id,
           email: user.email,
@@ -41,6 +49,7 @@ export const authOptions: NextAuthOptions = {
           tenantId: user.tenantId,
           tenantName: user.tenant.name,
           role: user.role,
+          permissions,
         };
       },
     }),
@@ -52,6 +61,7 @@ export const authOptions: NextAuthOptions = {
         token.tenantId = (user as any).tenantId;
         token.tenantName = (user as any).tenantName;
         token.role = (user as any).role;
+        token.permissions = (user as any).permissions;
       }
       return token;
     },
@@ -61,6 +71,7 @@ export const authOptions: NextAuthOptions = {
         (session.user as any).tenantId = token.tenantId;
         (session.user as any).tenantName = token.tenantName;
         (session.user as any).role = token.role;
+        (session.user as any).permissions = token.permissions;
       }
       return session;
     },

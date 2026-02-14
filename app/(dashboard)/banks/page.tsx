@@ -79,6 +79,7 @@ interface BankAccount {
 interface BankTransaction {
   id: string;
   type: string;
+  status: string;
   amount: number;
   description: string;
   reference?: string;
@@ -134,6 +135,9 @@ export default function BanksPage() {
   const [txDestAccountId, setTxDestAccountId] = useState('');
   const [confirmTx, setConfirmTx] = useState(false);
 
+  // Cancel transaction
+  const [cancellingTx, setCancellingTx] = useState<BankTransaction | null>(null);
+
   // Monthly summary
   const [monthlySummary, setMonthlySummary] = useState({ income: 0, expense: 0 });
 
@@ -177,7 +181,7 @@ export default function BanksPage() {
         let income = 0;
         let expense = 0;
         data.data.forEach((tx: BankTransaction) => {
-          if (new Date(tx.date) >= monthStart) {
+          if (new Date(tx.date) >= monthStart && tx.status !== 'CANCELLED') {
             if (tx.type === 'INCOME') income += tx.amount;
             if (tx.type === 'EXPENSE' || tx.type === 'TRANSFER') expense += tx.amount;
           }
@@ -338,12 +342,37 @@ export default function BanksPage() {
     }
   };
 
+  const handleCancelTransaction = async () => {
+    if (!cancellingTx || !selectedAccount) return;
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/bank-accounts/${selectedAccount.id}/transactions`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transactionId: cancellingTx.id }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Error');
+      }
+      toast({ title: 'Éxito', description: 'Movimiento cancelado correctamente' });
+      setCancellingTx(null);
+      fetchTransactions(selectedAccount.id, txPage, txFilter);
+      fetchAccounts();
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message || 'No se pudo cancelar', variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const formatDate = (date: string) => format(new Date(date), "d MMM yyyy", { locale: es });
   const formatCurrency = (n: number) => `$${n.toLocaleString('es-MX')}`;
 
   const totalBalance = accounts.reduce((sum, a) => sum + a.currentBalance, 0);
 
-  const getTxTypeBadge = (type: string) => {
+  const getTxTypeBadge = (type: string, status?: string) => {
+    if (status === 'CANCELLED') return <Badge className="bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 line-through">Cancelado</Badge>;
     if (type === 'INCOME') return <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">Ingreso</Badge>;
     if (type === 'EXPENSE') return <Badge className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300">Egreso</Badge>;
     return <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300">Transferencia</Badge>;
@@ -473,27 +502,43 @@ export default function BanksPage() {
                     <TableHead>Descripción</TableHead>
                     <TableHead>Referencia</TableHead>
                     <TableHead className="text-right">Monto</TableHead>
+                    <TableHead className="text-right">Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {transactions.map((tx) => (
-                    <TableRow key={tx.id}>
-                      <TableCell className="whitespace-nowrap">{formatDate(tx.date)}</TableCell>
-                      <TableCell>{getTxTypeBadge(tx.type)}</TableCell>
-                      <TableCell>
-                        <div>
-                          <p>{tx.description}</p>
-                          {tx.booking?.client && (
-                            <p className="text-xs text-gray-500">Cliente: {tx.booking.client.fullName}</p>
+                  {transactions.map((tx) => {
+                    const isCancelled = tx.status === 'CANCELLED';
+                    return (
+                      <TableRow key={tx.id} className={isCancelled ? 'opacity-50' : ''}>
+                        <TableCell className="whitespace-nowrap">{formatDate(tx.date)}</TableCell>
+                        <TableCell>{getTxTypeBadge(tx.type, tx.status)}</TableCell>
+                        <TableCell>
+                          <div>
+                            <p className={isCancelled ? 'line-through' : ''}>{tx.description}</p>
+                            {tx.booking?.client && (
+                              <p className="text-xs text-gray-500">Cliente: {tx.booking.client.fullName}</p>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-gray-500">{tx.reference || '-'}</TableCell>
+                        <TableCell className={`text-right font-semibold ${isCancelled ? 'text-gray-400 line-through' : tx.type === 'INCOME' ? 'text-green-600' : 'text-red-600'}`}>
+                          {tx.type === 'INCOME' ? '+' : '-'}{formatCurrency(tx.amount)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {!isCancelled && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-red-600 hover:text-red-700"
+                              onClick={() => setCancellingTx(tx)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
                           )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-gray-500">{tx.reference || '-'}</TableCell>
-                      <TableCell className={`text-right font-semibold ${tx.type === 'INCOME' ? 'text-green-600' : 'text-red-600'}`}>
-                        {tx.type === 'INCOME' ? '+' : '-'}{formatCurrency(tx.amount)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
               {txTotalPages > 1 && (
@@ -608,6 +653,41 @@ export default function BanksPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Cancel Transaction Confirmation */}
+        <AlertDialog open={cancellingTx !== null} onOpenChange={(open) => { if (!open) setCancellingTx(null); }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>¿Cancelar movimiento?</AlertDialogTitle>
+              <AlertDialogDescription>
+                {cancellingTx && (
+                  <>
+                    Se cancelará el movimiento de <strong>{formatCurrency(cancellingTx.amount)}</strong> ({cancellingTx.description}).
+                    <br /><br />
+                    {cancellingTx.type === 'INCOME' && 'El monto se restará del saldo de la cuenta.'}
+                    {cancellingTx.type === 'EXPENSE' && 'El monto se devolverá al saldo de la cuenta.'}
+                    {cancellingTx.type === 'TRANSFER' && 'El monto se devolverá a esta cuenta y se restará de la cuenta destino.'}
+                    {cancellingTx.bookingId && (
+                      <>
+                        <br /><br />
+                        <strong>Este movimiento está vinculado a una venta.</strong> El abono también se revertirá en el plan de pagos.
+                      </>
+                    )}
+                    <br /><br />
+                    El movimiento quedará visible como cancelado pero no afectará los saldos.
+                  </>
+                )}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={saving}>No, mantener</AlertDialogCancel>
+              <AlertDialogAction onClick={handleCancelTransaction} disabled={saving} className="bg-red-600 hover:bg-red-700">
+                {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                Sí, cancelar movimiento
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     );
   }

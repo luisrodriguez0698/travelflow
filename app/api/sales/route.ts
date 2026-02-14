@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireTenantId } from '@/lib/get-tenant';
+import { requireTenantId, getSessionUser } from '@/lib/get-tenant';
 import { prisma } from '@/lib/prisma';
+import { logAudit } from '@/lib/audit';
 
 export const dynamic = 'force-dynamic';
 
@@ -132,6 +133,20 @@ export async function POST(request: NextRequest) {
         supplier: true,
       },
     });
+
+    // Audit log
+    const sessionUser = await getSessionUser();
+    if (sessionUser) {
+      await logAudit({
+        tenantId,
+        userId: sessionUser.id,
+        userName: sessionUser.name,
+        action: 'CREATE',
+        entity: 'bookings',
+        entityId: booking.id,
+        changes: { clientId: body.clientId, totalPrice: body.totalPrice, departureId: body.departureId },
+      });
+    }
 
     return NextResponse.json(result, { status: 201 });
   } catch (error) {

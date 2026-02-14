@@ -31,6 +31,9 @@ model Tenant {
   suppliers        Supplier[]
   bankAccounts     BankAccount[]
   bankTransactions BankTransaction[]
+  roles            Role[]
+  invitations      Invitation[]
+  auditLogs        AuditLog[]
 
   @@map("tenants")
 }
@@ -40,15 +43,21 @@ model User {
   email     String   @unique
   password  String
   name      String?
+  phone     String?
   tenantId  String
   role      String   @default("ADMIN")
+  roleId    String?
+  createdBy String?
+  updatedBy String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // Relations
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant  Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  roleRef Role?  @relation(fields: [roleId], references: [id], onDelete: SetNull)
 
   @@index([tenantId])
+  @@index([roleId])
   @@map("users")
 }
 
@@ -64,6 +73,8 @@ model Client {
   phone     String
   email     String?
   birthDate DateTime?
+  createdBy String?
+  updatedBy String?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
@@ -158,6 +169,8 @@ model Booking {
 
   supplierId       String?
   supplierDeadline DateTime?  // Fecha limite para el proveedor
+  createdBy        String?
+  updatedBy        String?
 
   // Relations
   tenant    Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -226,6 +239,7 @@ model BankTransaction {
   reference            String?  // Referencia opcional
   bookingId            String?  // Vinculado a una venta (opcional)
   destinationAccountId String?  // Para transferencias: cuenta destino
+  status               String   @default("ACTIVE") // ACTIVE, CANCELLED
   date                 DateTime @default(now())
   createdAt            DateTime @default(now())
 
@@ -260,4 +274,67 @@ model PaymentPlan {
   @@index([status])
   @@index([dueDate])
   @@map("payment_plans")
+}
+
+// ========== ROLES & PERMISSIONS ==========
+
+model Role {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  permissions Json     // ["dashboard","clientes","ventas","bancos",...]
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  users       User[]
+  invitations Invitation[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@map("roles")
+}
+
+// ========== INVITATIONS ==========
+
+model Invitation {
+  id        String   @id @default(cuid())
+  tenantId  String
+  email     String
+  token     String   @unique @default(uuid())
+  roleId    String
+  status    String   @default("PENDING") // PENDING, ACCEPTED, EXPIRED
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  // Relations
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([token])
+  @@map("invitations")
+}
+
+// ========== AUDIT LOG ==========
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String
+  userName  String
+  action    String   // CREATE, UPDATE, DELETE
+  entity    String   // table name
+  entityId  String
+  changes   Json
+  createdAt DateTime @default(now())
+
+  // Relations
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([entity, entityId])
+  @@map("audit_logs")
 }

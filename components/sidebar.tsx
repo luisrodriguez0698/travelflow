@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import {
   LayoutDashboard,
   Users,
@@ -17,6 +18,7 @@ import {
   Settings,
   Truck,
   Landmark,
+  UserCog,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from './ui/button';
@@ -27,47 +29,74 @@ const menuItems = [
     title: 'Dashboard',
     icon: LayoutDashboard,
     href: '/dashboard',
+    module: 'dashboard',
   },
   {
     title: 'Clientes',
     icon: Users,
     href: '/clients',
+    module: 'clientes',
   },
   {
     title: 'Paquetes',
     icon: Package,
     href: '/packages',
+    module: 'paquetes',
   },
   {
     title: 'Temporadas',
     icon: CalendarDays,
     href: '/seasons',
+    module: 'temporadas',
   },
   {
     title: 'Ventas',
     icon: ShoppingCart,
     href: '/sales',
+    module: 'ventas',
   },
   {
     title: 'Proveedores',
     icon: Truck,
     href: '/suppliers',
+    module: 'proveedores',
   },
   {
     title: 'Bancos',
     icon: Landmark,
     href: '/banks',
+    module: 'bancos',
+  },
+  {
+    title: 'Usuarios',
+    icon: UserCog,
+    href: '/users',
+    module: 'usuarios',
   },
   {
     title: 'Configuración',
     icon: Settings,
     href: '/settings',
+    module: 'configuracion',
   },
 ];
 
 export function Sidebar() {
   const { collapsed, setCollapsed, mobileOpen, setMobileOpen } = useSidebar();
   const pathname = usePathname();
+  const { data: session } = useSession();
+
+  // Get user permissions from session
+  const permissions = (session?.user as any)?.permissions as string[] | undefined;
+  const userRole = (session?.user as any)?.role;
+
+  // Filter menu items by permissions
+  const filteredItems = menuItems.filter((item) => {
+    // If no permissions yet (loading) or legacy ADMIN, show all
+    if (!permissions && userRole === 'ADMIN') return true;
+    if (!permissions) return true;
+    return permissions.includes(item.module);
+  });
 
   // Close mobile menu on navigation
   useEffect(() => {
@@ -120,7 +149,7 @@ export function Sidebar() {
       {/* Menu Items */}
       <nav className="flex-1 overflow-y-auto py-4 px-2">
         <div className="space-y-1">
-          {menuItems.map((item) => {
+          {filteredItems.map((item) => {
             const isActive = pathname === item.href || pathname?.startsWith(item.href + '/');
             return (
               <Link

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
+import { DEFAULT_ROLES } from '@/lib/permissions';
 
 export async function POST(request: NextRequest) {
   try {
@@ -30,7 +31,7 @@ export async function POST(request: NextRequest) {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create tenant and user in a transaction
+    // Create tenant, user, and default roles in a transaction
     const result = await prisma.$transaction(async (tx: any) => {
       const tenant = await tx.tenant.create({
         data: {
@@ -41,13 +42,31 @@ export async function POST(request: NextRequest) {
         },
       });
 
+      // Create default roles
+      const createdRoles = [];
+      for (const roleData of DEFAULT_ROLES) {
+        const role = await tx.role.create({
+          data: {
+            tenantId: tenant.id,
+            name: roleData.name,
+            permissions: roleData.permissions,
+            isDefault: roleData.isDefault,
+          },
+        });
+        createdRoles.push(role);
+      }
+
+      // Find Admin role
+      const adminRole = createdRoles.find((r: any) => r.name === 'Admin');
+
       const user = await tx.user.create({
         data: {
           email,
           password: hashedPassword,
           name: agencyName,
           tenantId: tenant.id,
-          role: 'ADMIN',
+          role: 'Admin',
+          roleId: adminRole?.id,
         },
       });
 

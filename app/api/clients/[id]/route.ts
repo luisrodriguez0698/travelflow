@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireTenantId } from '@/lib/get-tenant';
+import { requireTenantId, getSessionUser } from '@/lib/get-tenant';
 import { prisma } from '@/lib/prisma';
+import { logAudit } from '@/lib/audit';
 
 export const dynamic = 'force-dynamic';
 
@@ -68,6 +69,20 @@ async function updateClient(
       return NextResponse.json({ error: 'Cliente no encontrado' }, { status: 404 });
     }
 
+    // Audit log
+    const sessionUser = await getSessionUser();
+    if (sessionUser) {
+      await logAudit({
+        tenantId,
+        userId: sessionUser.id,
+        userName: sessionUser.name,
+        action: 'UPDATE',
+        entity: 'clients',
+        entityId: clientId,
+        changes: { fullName, phone, email },
+      });
+    }
+
     return NextResponse.json({ message: 'Cliente actualizado' });
   } catch (error) {
     console.error('Error updating client:', error);
@@ -121,6 +136,20 @@ export async function DELETE(
 
     if (result.count === 0) {
       return NextResponse.json({ error: 'Cliente no encontrado' }, { status: 404 });
+    }
+
+    // Audit log
+    const sessionUser = await getSessionUser();
+    if (sessionUser) {
+      await logAudit({
+        tenantId,
+        userId: sessionUser.id,
+        userName: sessionUser.name,
+        action: 'DELETE',
+        entity: 'clients',
+        entityId: clientId,
+        changes: { deleted: true },
+      });
     }
 
     return NextResponse.json({ message: 'Cliente eliminado' });

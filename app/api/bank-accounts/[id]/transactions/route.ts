@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireTenantId } from '@/lib/get-tenant';
+import { requireTenantId, getSessionUser } from '@/lib/get-tenant';
 import { prisma } from '@/lib/prisma';
+import { logAudit } from '@/lib/audit';
 
 export const dynamic = 'force-dynamic';
 
@@ -115,6 +116,9 @@ export async function POST(
         }),
       ]);
 
+      const su = await getSessionUser();
+      if (su) await logAudit({ tenantId, userId: su.id, userName: su.name, action: 'CREATE', entity: 'bank_transactions', entityId: transaction.id, changes: { type: 'EXPENSE', amount, description } });
+
       return NextResponse.json(transaction, { status: 201 });
     }
 
@@ -137,6 +141,9 @@ export async function POST(
           data: { currentBalance: { increment: amount } },
         }),
       ]);
+
+      const su = await getSessionUser();
+      if (su) await logAudit({ tenantId, userId: su.id, userName: su.name, action: 'CREATE', entity: 'bank_transactions', entityId: transaction.id, changes: { type: 'INCOME', amount, description } });
 
       return NextResponse.json(transaction, { status: 201 });
     }
@@ -211,6 +218,9 @@ export async function POST(
         }),
       ]);
 
+      const su = await getSessionUser();
+      if (su) await logAudit({ tenantId, userId: su.id, userName: su.name, action: 'CREATE', entity: 'bank_transactions', entityId: outTransaction.id, changes: { type: 'TRANSFER', amount, description, destinationAccountId } });
+
       return NextResponse.json(outTransaction, { status: 201 });
     }
 
@@ -218,5 +228,141 @@ export async function POST(
   } catch (error) {
     console.error('Error creating transaction:', error);
     return NextResponse.json({ error: 'Error creating transaction' }, { status: 500 });
+  }
+}
+
+// Cancel a transaction (logical delete + reverse balance)
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const tenantId = await requireTenantId();
+    const { id: accountId } = await params;
+    const body = await request.json();
+    const { transactionId } = body;
+
+    if (!transactionId) {
+      return NextResponse.json({ error: 'ID de transacción requerido' }, { status: 400 });
+    }
+
+    // Get the transaction
+    const transaction = await prisma.bankTransaction.findFirst({
+      where: { id: transactionId, bankAccountId: accountId, tenantId },
+    });
+
+    if (!transaction) {
+      return NextResponse.json({ error: 'Transacción no encontrada' }, { status: 404 });
+    }
+
+    if (transaction.status === 'CANCELLED') {
+      return NextResponse.json({ error: 'Esta transacción ya está cancelada' }, { status: 400 });
+    }
+
+    const operations: any[] = [
+      // Mark transaction as cancelled
+      prisma.bankTransaction.update({
+        where: { id: transactionId },
+        data: { status: 'CANCELLED' },
+      }),
+    ];
+
+    if (transaction.type === 'INCOME') {
+      // Reverse: subtract from account balance
+      operations.push(
+        prisma.bankAccount.update({
+          where: { id: accountId },
+          data: { currentBalance: { decrement: transaction.amount } },
+        })
+      );
+
+      // If linked to a booking payment, reverse the payment
+      if (transaction.bookingId) {
+        // Get the booking payments
+        const payments = await prisma.paymentPlan.findMany({
+          where: { bookingId: transaction.bookingId },
+          orderBy: { paymentNumber: 'desc' },
+        });
+
+        // Reverse the payment amount from payments (last paid first)
+        let amountToReverse = transaction.amount;
+        for (const payment of payments) {
+          if (amountToReverse <= 0) break;
+          if ((payment.paidAmount || 0) <= 0) continue;
+
+          const reverseAmount = Math.min(amountToReverse, payment.paidAmount || 0);
+          const newPaidAmount = (payment.paidAmount || 0) - reverseAmount;
+
+          operations.push(
+            prisma.paymentPlan.update({
+              where: { id: payment.id },
+              data: {
+                paidAmount: newPaidAmount,
+                status: newPaidAmount >= payment.amount ? 'PAID' : 'PENDING',
+                paidDate: newPaidAmount >= payment.amount ? payment.paidDate : null,
+              },
+            })
+          );
+
+          amountToReverse -= reverseAmount;
+        }
+
+        // If booking was COMPLETED, revert to ACTIVE
+        operations.push(
+          prisma.booking.updateMany({
+            where: { id: transaction.bookingId, status: 'COMPLETED' },
+            data: { status: 'ACTIVE' },
+          })
+        );
+      }
+    } else if (transaction.type === 'EXPENSE') {
+      // Reverse: add back to account balance
+      operations.push(
+        prisma.bankAccount.update({
+          where: { id: accountId },
+          data: { currentBalance: { increment: transaction.amount } },
+        })
+      );
+    } else if (transaction.type === 'TRANSFER') {
+      // Reverse: add back to source account
+      operations.push(
+        prisma.bankAccount.update({
+          where: { id: accountId },
+          data: { currentBalance: { increment: transaction.amount } },
+        })
+      );
+
+      // Reverse: subtract from destination account
+      if (transaction.destinationAccountId) {
+        operations.push(
+          prisma.bankAccount.update({
+            where: { id: transaction.destinationAccountId },
+            data: { currentBalance: { decrement: transaction.amount } },
+          })
+        );
+
+        // Also cancel the corresponding INCOME transaction in destination account
+        operations.push(
+          prisma.bankTransaction.updateMany({
+            where: {
+              bankAccountId: transaction.destinationAccountId,
+              type: 'INCOME',
+              amount: transaction.amount,
+              date: transaction.date,
+              description: { contains: 'Transferencia desde' },
+              status: 'ACTIVE',
+            },
+            data: { status: 'CANCELLED' },
+          })
+        );
+      }
+    }
+
+    await prisma.$transaction(operations);
+
+    return NextResponse.json({ success: true, message: 'Movimiento cancelado correctamente' });
+  } catch (error) {
+    console.error('Error cancelling transaction:', error);
+    return NextResponse.json({ error: 'Error al cancelar el movimiento' }, { status: 500 });
   }
 }
