@@ -24,7 +24,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Pencil, Trash2, ShoppingCart, Loader2, Eye } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, ShoppingCart, Loader2, Eye, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -407,13 +407,21 @@ export default function SalesPage() {
           <h1 className="text-3xl font-bold">Ventas</h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">Gestiona tus ventas y pagos</p>
         </div>
-        <Button
-          onClick={openCreateModal}
-          className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Nueva Venta
-        </Button>
+        <div className="flex gap-2">
+          <Link href="/sales/margins">
+            <Button variant="outline">
+              <TrendingUp className="w-4 h-4 mr-2" />
+              Márgenes
+            </Button>
+          </Link>
+          <Button
+            onClick={openCreateModal}
+            className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Nueva Venta
+          </Button>
+        </div>
       </div>
 
       {/* Search */}

@@ -167,7 +167,7 @@ export default function SaleDetailPage() {
     }
   };
 
-  const totalPaid = sale?.payments?.reduce((sum, p) => sum + (p.paidAmount || 0), 0) || 0;
+  const totalPaid = (sale?.payments?.reduce((sum, p) => sum + (p.paidAmount || 0), 0) || 0) + (sale?.downPayment || 0);
   const remaining = (sale?.totalPrice || 0) - totalPaid;
   const progress = sale?.totalPrice ? Math.round((totalPaid / sale.totalPrice) * 100) : 0;
 

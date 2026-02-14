@@ -15,6 +15,7 @@ interface Payment {
 interface SaleData {
   id: string;
   totalPrice: number;
+  downPayment?: number;
   saleDate: string;
   notes?: string;
   client: {
@@ -66,6 +67,31 @@ async function loadImageAsBase64(url: string): Promise<string | null> {
   }
 }
 
+/** Get real image dimensions and calculate scaled size that fits within a max box */
+function getScaledLogoDimensions(
+  base64: string,
+  maxWidth: number,
+  maxHeight: number
+): Promise<{ width: number; height: number }> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const { naturalWidth, naturalHeight } = img;
+      if (naturalWidth === 0 || naturalHeight === 0) {
+        resolve({ width: maxWidth, height: maxHeight });
+        return;
+      }
+      const ratio = Math.min(maxWidth / naturalWidth, maxHeight / naturalHeight);
+      resolve({
+        width: naturalWidth * ratio,
+        height: naturalHeight * ratio,
+      });
+    };
+    img.onerror = () => resolve({ width: maxWidth, height: maxHeight });
+    img.src = base64;
+  });
+}
+
 function checkPageBreak(doc: jsPDF, y: number, needed: number, margin: number): number {
   const pageHeight = doc.internal.pageSize.getHeight();
   if (y + needed > pageHeight - margin) {
@@ -76,16 +102,18 @@ function checkPageBreak(doc: jsPDF, y: number, needed: number, margin: number): 
 }
 
 /** Adds the watermark logo centered on every page */
-function addWatermarkToAllPages(doc: jsPDF, logoBase64: string) {
+async function addWatermarkToAllPages(doc: jsPDF, logoBase64: string) {
   const totalPages = doc.getNumberOfPages();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-  const wmSize = 120; // large watermark
+  const wmMaxSize = 120;
+
+  // Get proportional watermark dimensions
+  const wmDims = await getScaledLogoDimensions(logoBase64, wmMaxSize, wmMaxSize);
 
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);
 
-    // Save current graphics state
     const gState = new (doc as any).GState({ opacity: 0.06 });
     doc.saveGraphicsState();
     doc.setGState(gState);
@@ -94,10 +122,10 @@ function addWatermarkToAllPages(doc: jsPDF, logoBase64: string) {
       doc.addImage(
         logoBase64,
         'AUTO',
-        (pageWidth - wmSize) / 2,
-        (pageHeight - wmSize) / 2,
-        wmSize,
-        wmSize
+        (pageWidth - wmDims.width) / 2,
+        (pageHeight - wmDims.height) / 2,
+        wmDims.width,
+        wmDims.height
       );
     } catch {
       // silently ignore if image fails
@@ -121,17 +149,23 @@ export async function generateReceiptPdf(sale: SaleData) {
 
   // ─── HEADER: Logo left + Agency info right ───
   const agencyName = sale.tenant?.name || 'TravelFlow';
-  const logoSize = 22;
+  const logoMaxWidth = 28;
+  const logoMaxHeight = 22;
 
   if (logoBase64) {
+    // Calculate proportional logo dimensions
+    const logoDims = await getScaledLogoDimensions(logoBase64, logoMaxWidth, logoMaxHeight);
+
     try {
-      doc.addImage(logoBase64, 'AUTO', margin, y, logoSize, logoSize);
+      // Center vertically within the max height area
+      const logoY = y + (logoMaxHeight - logoDims.height) / 2;
+      doc.addImage(logoBase64, 'AUTO', margin, logoY, logoDims.width, logoDims.height);
     } catch {
       // continue without logo
     }
 
     // Agency name and contact aligned to the right of the logo
-    const textX = margin + logoSize + 8;
+    const textX = margin + logoMaxWidth + 8;
     doc.setFontSize(20);
     doc.setTextColor(...CYAN);
     doc.setFont('helvetica', 'bold');
@@ -154,7 +188,7 @@ export async function generateReceiptPdf(sale: SaleData) {
       doc.text(sale.tenant.address, textX, infoY);
     }
 
-    y += logoSize + 4;
+    y += logoMaxHeight + 4;
   } else {
     doc.setFontSize(20);
     doc.setTextColor(...CYAN);
@@ -252,7 +286,7 @@ export async function generateReceiptPdf(sale: SaleData) {
   doc.line(margin, y, pageWidth - margin, y);
   y += 6;
 
-  const totalPaid = sale.payments.reduce((sum, p) => sum + (p.paidAmount || 0), 0);
+  const totalPaid = sale.payments.reduce((sum, p) => sum + (p.paidAmount || 0), 0) + (sale.downPayment || 0);
   const remaining = sale.totalPrice - totalPaid;
   const progress = Math.round((totalPaid / sale.totalPrice) * 100);
 
@@ -430,7 +464,7 @@ export async function generateReceiptPdf(sale: SaleData) {
 
   // ─── WATERMARK on all pages ───
   if (logoBase64) {
-    addWatermarkToAllPages(doc, logoBase64);
+    await addWatermarkToAllPages(doc, logoBase64);
   }
 
   // Download
