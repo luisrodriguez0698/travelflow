@@ -1,7 +1,7 @@
 export const ALL_MODULES = [
   'dashboard',
   'clientes',
-  'paquetes',
+  'destinos',
   'temporadas',
   'ventas',
   'proveedores',
@@ -15,7 +15,7 @@ export type ModulePermission = (typeof ALL_MODULES)[number];
 export const MODULE_LABELS: Record<ModulePermission, string> = {
   dashboard: 'Dashboard',
   clientes: 'Clientes',
-  paquetes: 'Paquetes',
+  destinos: 'Destinos',
   temporadas: 'Temporadas',
   ventas: 'Ventas',
   proveedores: 'Proveedores',
@@ -27,7 +27,7 @@ export const MODULE_LABELS: Record<ModulePermission, string> = {
 export const ROUTE_TO_MODULE: Record<string, ModulePermission> = {
   '/dashboard': 'dashboard',
   '/clients': 'clientes',
-  '/packages': 'paquetes',
+  '/destinations': 'destinos',
   '/seasons': 'temporadas',
   '/sales': 'ventas',
   '/suppliers': 'proveedores',
@@ -44,7 +44,7 @@ export const DEFAULT_ROLES = [
   },
   {
     name: 'Agente',
-    permissions: ['dashboard', 'ventas', 'clientes', 'paquetes', 'temporadas'],
+    permissions: ['dashboard', 'ventas', 'clientes', 'destinos', 'temporadas'],
     isDefault: true,
   },
   {

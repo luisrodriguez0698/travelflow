@@ -46,8 +46,8 @@ interface Sale {
   status: string;
   paymentType: string;
   client: { fullName: string } | null;
-  departure: {
-    package: { name: string } | null;
+  destination: {
+    name: string;
   } | null;
   supplier: { businessName: string } | null;
 }
@@ -308,7 +308,7 @@ export default function MarginsPage() {
                     <TableCell className="font-medium">
                       {sale.client?.fullName || '—'}
                     </TableCell>
-                    <TableCell>{sale.departure?.package?.name || '—'}</TableCell>
+                    <TableCell>{sale.destination?.name || '—'}</TableCell>
                     <TableCell>
                       {format(new Date(sale.saleDate), "d 'de' MMM, yyyy", { locale: es })}
                     </TableCell>

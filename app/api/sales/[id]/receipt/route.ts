@@ -20,11 +20,8 @@ export async function GET(
       where: { id: bookingId, tenantId },
       include: {
         client: true,
-        departure: {
-          include: {
-            package: true,
-            season: true,
-          },
+        destination: {
+          include: { season: true },
         },
         payments: {
           orderBy: { paymentNumber: 'asc' },
@@ -37,7 +34,10 @@ export async function GET(
       return NextResponse.json({ error: 'Venta no encontrada' }, { status: 404 });
     }
 
-    const totalPaid = booking.payments.reduce((sum: number, p: any) => sum + (p.paidAmount || 0), 0);
+    const isCash = booking.paymentType === 'CASH';
+    const totalPaid = isCash
+      ? booking.totalPrice
+      : booking.payments.reduce((sum: number, p: any) => sum + (p.paidAmount || 0), 0);
     const remaining = booking.totalPrice - totalPaid;
     const progress = Math.round((totalPaid / booking.totalPrice) * 100);
 
@@ -58,6 +58,56 @@ export async function GET(
       } catch (e) {
         console.error('Error getting logo URL:', e);
       }
+    }
+
+    // Build payment section HTML
+    let paymentSectionHtml = '';
+    if (isCash) {
+      paymentSectionHtml = `
+      <div class="section">
+        <div class="section-title">Método de Pago</div>
+        <div style="text-align: center; padding: 15px;">
+          <span style="background: #22c55e; color: white; padding: 8px 24px; border-radius: 6px; font-weight: bold; font-size: 14px;">
+            Pagado de Contado
+          </span>
+        </div>
+      </div>`;
+    } else {
+      const hasPaidDates = booking.payments.some((p: any) => p.paidDate);
+      const paymentRows = booking.payments.map((payment: any) => {
+        const pending = Math.max(0, payment.amount - (payment.paidAmount || 0));
+        const statusClass = payment.status === 'PAID' ? 'status-paid' : payment.status === 'PENDING' ? 'status-pending' : 'status-overdue';
+        const statusText = payment.status === 'PAID' ? 'Pagado' : payment.status === 'PENDING' ? 'Pendiente' : 'Vencido';
+        return `
+          <tr>
+            <td>${payment.paymentNumber}</td>
+            <td>${formatDate(payment.dueDate)}</td>
+            <td>${formatCurrency(payment.amount)}</td>
+            <td>${formatCurrency(payment.paidAmount || 0)}</td>
+            <td>${formatCurrency(pending)}</td>
+            <td class="${statusClass}">${statusText}</td>
+            ${hasPaidDates ? `<td>${payment.paidDate ? formatDate(payment.paidDate) : '-'}</td>` : ''}
+          </tr>`;
+      }).join('');
+
+      paymentSectionHtml = `
+      <div class="section">
+        <div class="section-title">Historial de Pagos</div>
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Fecha de Vencimiento</th>
+              <th>Monto</th>
+              <th>Abonado</th>
+              <th>Pendiente</th>
+              <th>Estado</th>
+              ${hasPaidDates ? '<th>Fecha de Pago</th>' : ''}
+            </tr>
+          </thead>
+          <tbody>${paymentRows}</tbody>
+        </table>
+      </div>`;
     }
 
     // Generate HTML for PDF
@@ -293,19 +343,19 @@ export async function GET(
         <div class="info-grid">
           <div class="info-item">
             <div class="info-label">Destino</div>
-            <div class="info-value">${booking.departure?.package?.name || '-'}</div>
+            <div class="info-value">${booking.destination?.name || '-'}</div>
           </div>
           <div class="info-item">
             <div class="info-label">Temporada</div>
-            <div class="info-value">${booking.departure?.season?.name || 'Sin temporada'}</div>
+            <div class="info-value">${booking.destination?.season?.name || 'Sin temporada'}</div>
           </div>
           <div class="info-item">
             <div class="info-label">Fecha de Salida</div>
-            <div class="info-value">${formatDate(booking.departure?.departureDate)}</div>
+            <div class="info-value">${booking.departureDate ? formatDate(booking.departureDate) : '-'}</div>
           </div>
           <div class="info-item">
             <div class="info-label">Fecha de Regreso</div>
-            <div class="info-value">${formatDate(booking.departure?.returnDate)}</div>
+            <div class="info-value">${booking.returnDate ? formatDate(booking.returnDate) : '-'}</div>
           </div>
         </div>
       </div>
@@ -332,40 +382,7 @@ export async function GET(
         <div class="progress-text">${progress}% del total pagado</div>
       </div>
 
-      <div class="section">
-        <div class="section-title">Historial de Pagos</div>
-        <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Fecha de Vencimiento</th>
-              <th>Monto</th>
-              <th>Abonado</th>
-              <th>Pendiente</th>
-              <th>Estado</th>
-              ${booking.payments.some((p: any) => p.paidDate) ? '<th>Fecha de Pago</th>' : ''}
-            </tr>
-          </thead>
-          <tbody>
-            ${booking.payments.map((payment: any) => {
-              const pending = Math.max(0, payment.amount - (payment.paidAmount || 0));
-              const statusClass = payment.status === 'PAID' ? 'status-paid' : payment.status === 'PENDING' ? 'status-pending' : 'status-overdue';
-              const statusText = payment.status === 'PAID' ? 'Pagado' : payment.status === 'PENDING' ? 'Pendiente' : 'Vencido';
-              return `
-                <tr>
-                  <td>${payment.paymentNumber}</td>
-                  <td>${formatDate(payment.dueDate)}</td>
-                  <td>${formatCurrency(payment.amount)}</td>
-                  <td>${formatCurrency(payment.paidAmount || 0)}</td>
-                  <td>${formatCurrency(pending)}</td>
-                  <td class="${statusClass}">${statusText}</td>
-                  ${booking.payments.some((p: any) => p.paidDate) ? `<td>${payment.paidDate ? formatDate(payment.paidDate) : '-'}</td>` : ''}
-                </tr>
-              `;
-            }).join('')}
-          </tbody>
-        </table>
-      </div>
+      ${paymentSectionHtml}
 
       ${booking.notes ? `
       <div class="section">

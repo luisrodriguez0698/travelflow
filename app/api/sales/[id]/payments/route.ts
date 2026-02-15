@@ -105,7 +105,7 @@ export async function POST(
     // Register bank transaction for the payment
     const bookingWithClient = await prisma.booking.findFirst({
       where: { id: bookingId },
-      include: { client: true, departure: { include: { package: true } } },
+      include: { client: true, destination: true },
     });
 
     await prisma.$transaction([
@@ -115,7 +115,7 @@ export async function POST(
           bankAccountId,
           type: 'INCOME',
           amount,
-          description: `Abono venta - ${bookingWithClient?.client?.fullName || ''} - ${bookingWithClient?.departure?.package?.name || ''}`,
+          description: `Abono venta - ${bookingWithClient?.client?.fullName || ''} - ${bookingWithClient?.destination?.name || ''}`,
           reference: notes || null,
           bookingId,
           date: new Date(),
@@ -157,11 +157,8 @@ export async function GET(
       where: { id: bookingId, tenantId },
       include: {
         client: true,
-        departure: {
-          include: {
-            package: true,
-            season: true,
-          },
+        destination: {
+          include: { season: true },
         },
         payments: {
           orderBy: { paymentNumber: 'asc' },

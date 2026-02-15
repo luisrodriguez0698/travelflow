@@ -12,11 +12,8 @@ export async function GET() {
       where: { tenantId },
       include: {
         client: true,
-        departure: {
-          include: {
-            package: true,
-            season: true,
-          },
+        destination: {
+          include: { season: true },
         },
         payments: true,
         supplier: true,
@@ -35,34 +32,32 @@ export async function POST(request: NextRequest) {
     const tenantId = await requireTenantId();
     const body = await request.json();
 
-    // Get package for packageId
-    const departure = await prisma.packageDeparture.findUnique({
-      where: { id: body.departureId },
-      include: { package: true },
-    });
-
-    if (!departure) {
-      return NextResponse.json({ error: 'Departure not found' }, { status: 400 });
-    }
-
-    // Calculate net cost from departure prices
+    // Calculate net cost from prices
     const numAdults = body.numAdults || 1;
     const numChildren = body.numChildren || 0;
-    const netCost = (departure.priceAdult * numAdults) + (departure.priceChild * numChildren);
+    const priceAdult = body.priceAdult || 0;
+    const priceChild = body.priceChild || 0;
+    const netCost = (priceAdult * numAdults) + (priceChild * numChildren);
 
     const booking = await prisma.booking.create({
       data: {
         tenantId,
         clientId: body.clientId,
-        packageId: departure.packageId,
-        departureId: body.departureId,
+        destinationId: body.destinationId,
+        departureDate: body.departureDate ? new Date(body.departureDate) : null,
+        returnDate: body.returnDate ? new Date(body.returnDate) : null,
+        priceAdult,
+        priceChild,
+        numAdults,
+        numChildren,
         totalPrice: body.totalPrice,
         netCost,
         paymentType: body.paymentType,
         downPayment: body.downPayment || 0,
-        numberOfPayments: body.numberOfPayments || 1,
+        numberOfPayments: body.paymentType === 'CASH' ? 0 : (body.numberOfPayments || 1),
         notes: body.notes || null,
         saleDate: body.saleDate ? new Date(body.saleDate) : new Date(),
+        status: body.paymentType === 'CASH' ? 'COMPLETED' : 'ACTIVE',
         supplierId: body.supplierId || null,
         supplierDeadline: body.supplierDeadline ? new Date(body.supplierDeadline) : null,
       },
@@ -123,11 +118,8 @@ export async function POST(request: NextRequest) {
       where: { id: booking.id },
       include: {
         client: true,
-        departure: {
-          include: {
-            package: true,
-            season: true,
-          },
+        destination: {
+          include: { season: true },
         },
         payments: true,
         supplier: true,

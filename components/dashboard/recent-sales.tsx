@@ -16,11 +16,9 @@ interface Sale {
   client: {
     fullName: string;
   };
-  departure: {
-    package: {
-      name: string;
-    };
-  };
+  destination?: {
+    name: string;
+  } | null;
 }
 
 interface RecentSalesProps {
@@ -57,7 +55,7 @@ export function RecentSales({ sales }: RecentSalesProps) {
                     {sale?.client?.fullName}
                   </p>
                   <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                    {sale?.departure?.package?.name}
+                    {sale?.destination?.name}
                   </p>
                 </div>
                 <Link href={`/sales/${sale?.id}`}>

@@ -17,11 +17,8 @@ export async function GET(
       where: { id, tenantId },
       include: {
         client: true,
-        departure: {
-          include: {
-            package: true,
-            season: true,
-          },
+        destination: {
+          include: { season: true },
         },
         payments: true,
         supplier: true,
@@ -57,19 +54,12 @@ export async function PUT(
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
 
-    // Get departure info
-    const departure = await prisma.packageDeparture.findUnique({
-      where: { id: body.departureId },
-    });
-
-    if (!departure) {
-      return NextResponse.json({ error: 'Departure not found' }, { status: 400 });
-    }
-
-    // Calculate net cost
+    // Calculate net cost from prices
     const numAdults = body.numAdults || 1;
     const numChildren = body.numChildren || 0;
-    const netCost = (departure.priceAdult * numAdults) + (departure.priceChild * numChildren);
+    const priceAdult = body.priceAdult || 0;
+    const priceChild = body.priceChild || 0;
+    const netCost = (priceAdult * numAdults) + (priceChild * numChildren);
 
     // Delete old payment plans if payment type or number changed
     if (
@@ -87,8 +77,13 @@ export async function PUT(
       where: { id },
       data: {
         clientId: body.clientId,
-        packageId: departure.packageId,
-        departureId: body.departureId,
+        destinationId: body.destinationId,
+        departureDate: body.departureDate ? new Date(body.departureDate) : existing.departureDate,
+        returnDate: body.returnDate ? new Date(body.returnDate) : existing.returnDate,
+        priceAdult,
+        priceChild,
+        numAdults,
+        numChildren,
         totalPrice: body.totalPrice,
         netCost,
         paymentType: body.paymentType,
@@ -132,11 +127,8 @@ export async function PUT(
       where: { id: booking.id },
       include: {
         client: true,
-        departure: {
-          include: {
-            package: true,
-            season: true,
-          },
+        destination: {
+          include: { season: true },
         },
         payments: true,
         supplier: true,

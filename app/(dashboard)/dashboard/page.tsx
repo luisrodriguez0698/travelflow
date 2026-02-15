@@ -88,11 +88,7 @@ export default async function DashboardPage() {
         where: { tenantId },
         include: {
           client: true,
-          departure: {
-            include: {
-              package: true,
-            },
-          },
+          destination: true,
         },
         orderBy: {
           saleDate: 'desc',

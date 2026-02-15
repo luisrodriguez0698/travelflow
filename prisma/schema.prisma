@@ -27,6 +27,7 @@ model Tenant {
   clients     Client[]
   packages    Package[]
   seasons     Season[]
+  destinations     Destination[]
   bookings         Booking[]
   suppliers        Supplier[]
   bankAccounts     BankAccount[]
@@ -34,6 +35,7 @@ model Tenant {
   roles            Role[]
   invitations      Invitation[]
   auditLogs        AuditLog[]
+  notifications    Notification[]
 
   @@map("tenants")
 }
@@ -98,8 +100,9 @@ model Season {
   updatedAt   DateTime @updatedAt
 
   // Relations
-  tenant     Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  departures PackageDeparture[]
+  tenant       Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  departures   PackageDeparture[]
+  destinations Destination[]
 
   @@index([tenantId])
   @@map("seasons")
@@ -148,16 +151,36 @@ model PackageDeparture {
   @@map("package_departures")
 }
 
+// ========== DESTINATION MANAGEMENT ==========
+
+model Destination {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  description String   @default("") @db.Text
+  seasonId    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  season   Season?   @relation(fields: [seasonId], references: [id], onDelete: SetNull)
+  bookings Booking[]
+
+  @@index([tenantId])
+  @@index([seasonId])
+  @@map("destinations")
+}
+
 // ========== SALES & PAYMENT MANAGEMENT ==========
 
 model Booking {
   id               String   @id @default(cuid())
   tenantId         String
   clientId         String
-  packageId        String
-  departureId      String
+  destinationId    String?
   totalPrice       Float
-  netCost          Float    @default(0) // Costo neto calculado desde el paquete
+  netCost          Float    @default(0)
   paymentType      String   // CASH or CREDIT
   downPayment      Float    @default(0)
   numberOfPayments Int      @default(1)
@@ -167,21 +190,36 @@ model Booking {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
+  // Viaje - fechas y precios directos en la venta
+  departureDate    DateTime?
+  returnDate       DateTime?
+  priceAdult       Float    @default(0)
+  priceChild       Float    @default(0)
+  numAdults        Int      @default(1)
+  numChildren      Int      @default(0)
+
+  // Legacy fields (migración)
+  packageId        String?
+  departureId      String?
+
   supplierId       String?
-  supplierDeadline DateTime?  // Fecha limite para el proveedor
+  supplierDeadline DateTime?
   createdBy        String?
   updatedBy        String?
 
   // Relations
-  tenant    Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  client    Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  departure PackageDeparture  @relation(fields: [departureId], references: [id], onDelete: Restrict)
+  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  client           Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  destination      Destination?      @relation(fields: [destinationId], references: [id], onDelete: Restrict)
+  departure        PackageDeparture? @relation(fields: [departureId], references: [id], onDelete: Restrict)
   supplier         Supplier?         @relation(fields: [supplierId], references: [id], onDelete: SetNull)
   payments         PaymentPlan[]
   bankTransactions BankTransaction[]
+  notifications    Notification[]
 
   @@index([tenantId])
   @@index([clientId])
+  @@index([destinationId])
   @@index([departureId])
   @@index([supplierId])
   @@map("bookings")
@@ -337,4 +375,27 @@ model AuditLog {
   @@index([tenantId])
   @@index([entity, entityId])
   @@map("audit_logs")
+}
+
+// ========== NOTIFICATIONS ==========
+
+model Notification {
+  id        String   @id @default(cuid())
+  tenantId  String
+  bookingId String
+  type      String   // SUPPLIER_DEADLINE
+  message   String
+  read      Boolean  @default(false)
+  dismissed Boolean  @default(false)
+  dueDate   DateTime
+  createdAt DateTime @default(now())
+
+  // Relations
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([bookingId])
+  @@index([dueDate])
+  @@map("notifications")
 }

@@ -12,6 +12,7 @@ import {
 } from './ui/dropdown-menu';
 import { Moon, Sun, User, LogOut, Building2 } from 'lucide-react';
 import { useTheme } from 'next-themes';
+import { NotificationPanel } from './notification-panel';
 
 export function Navbar() {
   const { data: session } = useSession() || {};
@@ -27,6 +28,9 @@ export function Navbar() {
         </div>
 
         <div className="flex items-center space-x-4">
+          {/* Notifications */}
+          <NotificationPanel />
+
           {/* Theme Toggle */}
           <Button
             variant="ghost"

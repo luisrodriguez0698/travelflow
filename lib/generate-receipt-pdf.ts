@@ -16,6 +16,7 @@ interface SaleData {
   id: string;
   totalPrice: number;
   downPayment?: number;
+  paymentType?: string;
   saleDate: string;
   notes?: string;
   client: {
@@ -23,10 +24,10 @@ interface SaleData {
     phone: string;
     email?: string;
   };
-  departure: {
-    departureDate: string;
-    returnDate: string;
-    package: { name: string };
+  departureDate?: string;
+  returnDate?: string;
+  destination?: {
+    name: string;
     season?: { name: string };
   };
   payments: Payment[];
@@ -267,10 +268,10 @@ export async function generateReceiptPdf(sale: SaleData) {
   yLeft = drawField('FECHA DE VENTA', formatDate(sale.saleDate), margin, yLeft);
 
   const rightX = margin + colWidth + 10;
-  yRight = drawField('DESTINO', sale.departure?.package?.name || '-', rightX, yRight);
-  yRight = drawField('TEMPORADA', sale.departure?.season?.name || 'Sin temporada', rightX, yRight);
-  yRight = drawField('FECHA DE SALIDA', formatDate(sale.departure?.departureDate), rightX, yRight);
-  yRight = drawField('FECHA DE REGRESO', formatDate(sale.departure?.returnDate), rightX, yRight);
+  yRight = drawField('DESTINO', sale.destination?.name || '-', rightX, yRight);
+  yRight = drawField('TEMPORADA', sale.destination?.season?.name || 'Sin temporada', rightX, yRight);
+  yRight = drawField('FECHA DE SALIDA', sale.departureDate ? formatDate(sale.departureDate) : '-', rightX, yRight);
+  yRight = drawField('FECHA DE REGRESO', sale.returnDate ? formatDate(sale.returnDate) : '-', rightX, yRight);
 
   y = Math.max(yLeft, yRight) + 5;
 
@@ -286,7 +287,10 @@ export async function generateReceiptPdf(sale: SaleData) {
   doc.line(margin, y, pageWidth - margin, y);
   y += 6;
 
-  const totalPaid = sale.payments.reduce((sum, p) => sum + (p.paidAmount || 0), 0) + (sale.downPayment || 0);
+  const isCash = sale.paymentType === 'CASH';
+  const totalPaid = isCash
+    ? sale.totalPrice
+    : sale.payments.reduce((sum, p) => sum + (p.paidAmount || 0), 0) + (sale.downPayment || 0);
   const remaining = sale.totalPrice - totalPaid;
   const progress = Math.round((totalPaid / sale.totalPrice) * 100);
 
@@ -354,79 +358,106 @@ export async function generateReceiptPdf(sale: SaleData) {
   doc.text(`${progress}% del total pagado`, pageWidth / 2, y, { align: 'center' });
   y += 10;
 
-  // ─── PAYMENTS TABLE ───
-  y = checkPageBreak(doc, y, 20, margin);
-  doc.setFontSize(12);
-  doc.setTextColor(...CYAN);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Historial de Pagos', margin, y);
-  y += 2;
-  doc.setDrawColor(226, 232, 240);
-  doc.setLineWidth(0.3);
-  doc.line(margin, y, pageWidth - margin, y);
-  y += 4;
+  // ─── PAYMENTS TABLE or CASH BADGE ───
+  if (isCash) {
+    y = checkPageBreak(doc, y, 25, margin);
+    doc.setFontSize(12);
+    doc.setTextColor(...CYAN);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Método de Pago', margin, y);
+    y += 2;
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.3);
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 8;
 
-  const hasPaidDates = sale.payments.some(p => p.paidDate);
+    // Green "Pagado de Contado" box
+    const boxWidth = 70;
+    const boxHeight = 12;
+    const boxX = (pageWidth - boxWidth) / 2;
+    doc.setFillColor(34, 197, 94);
+    doc.roundedRect(boxX, y, boxWidth, boxHeight, 3, 3, 'F');
+    doc.setFontSize(11);
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Pagado de Contado', pageWidth / 2, y + 8, { align: 'center' });
+    y += boxHeight + 10;
+  } else {
+    y = checkPageBreak(doc, y, 20, margin);
+    doc.setFontSize(12);
+    doc.setTextColor(...CYAN);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Historial de Pagos', margin, y);
+    y += 2;
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.3);
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 4;
 
-  const headers = ['#', 'Fecha de Vencimiento', 'Monto', 'Abonado', 'Pendiente', 'Estado'];
-  if (hasPaidDates) headers.push('Fecha de Pago');
+    const hasPaidDates = sale.payments.some(p => p.paidDate);
 
-  const body = sale.payments.map((p) => {
-    const pending = Math.max(0, p.amount - (p.paidAmount || 0));
-    const statusText = p.status === 'PAID' ? 'Pagado' : p.status === 'PENDING' ? 'Pendiente' : 'Vencido';
-    const row = [
-      String(p.paymentNumber),
-      formatDate(p.dueDate),
-      formatCurrency(p.amount),
-      formatCurrency(p.paidAmount || 0),
-      formatCurrency(pending),
-      statusText,
-    ];
-    if (hasPaidDates) row.push(p.paidDate ? formatDate(p.paidDate) : '-');
-    return row;
-  });
+    const headers = ['#', 'Fecha de Vencimiento', 'Monto', 'Abonado', 'Pendiente', 'Estado'];
+    if (hasPaidDates) headers.push('Fecha de Pago');
 
-  autoTable(doc, {
-    startY: y,
-    head: [headers],
-    body,
-    margin: { left: margin, right: margin },
-    styles: {
-      fontSize: 8,
-      cellPadding: 3,
-      textColor: [30, 41, 59],
-    },
-    headStyles: {
-      fillColor: [248, 250, 252],
-      textColor: [71, 85, 105],
-      fontStyle: 'bold',
-      lineWidth: 0.3,
-      lineColor: [226, 232, 240],
-    },
-    bodyStyles: {
-      lineWidth: 0.2,
-      lineColor: [226, 232, 240],
-    },
-    columnStyles: {
-      0: { halign: 'center', cellWidth: 10 },
-      2: { halign: 'right' },
-      3: { halign: 'right' },
-      4: { halign: 'right' },
-      5: { halign: 'center' },
-    },
-    didParseCell: (data) => {
-      if (data.section === 'body' && data.column.index === 5) {
-        const val = data.cell.raw as string;
-        if (val === 'Pagado') data.cell.styles.textColor = [22, 163, 74];
-        else if (val === 'Pendiente') data.cell.styles.textColor = [249, 115, 22];
-        else if (val === 'Vencido') data.cell.styles.textColor = [220, 38, 38];
-      }
-    },
-  });
+    const body = sale.payments.map((p) => {
+      const pending = Math.max(0, p.amount - (p.paidAmount || 0));
+      const statusText = p.status === 'PAID' ? 'Pagado' : p.status === 'PENDING' ? 'Pendiente' : 'Vencido';
+      const row = [
+        String(p.paymentNumber),
+        formatDate(p.dueDate),
+        formatCurrency(p.amount),
+        formatCurrency(p.paidAmount || 0),
+        formatCurrency(pending),
+        statusText,
+      ];
+      if (hasPaidDates) row.push(p.paidDate ? formatDate(p.paidDate) : '-');
+      return row;
+    });
+
+    autoTable(doc, {
+      startY: y,
+      head: [headers],
+      body,
+      margin: { left: margin, right: margin },
+      styles: {
+        fontSize: 8,
+        cellPadding: 3,
+        textColor: [30, 41, 59],
+      },
+      headStyles: {
+        fillColor: [248, 250, 252],
+        textColor: [71, 85, 105],
+        fontStyle: 'bold',
+        lineWidth: 0.3,
+        lineColor: [226, 232, 240],
+      },
+      bodyStyles: {
+        lineWidth: 0.2,
+        lineColor: [226, 232, 240],
+      },
+      columnStyles: {
+        0: { halign: 'center', cellWidth: 10 },
+        2: { halign: 'right' },
+        3: { halign: 'right' },
+        4: { halign: 'right' },
+        5: { halign: 'center' },
+      },
+      didParseCell: (data) => {
+        if (data.section === 'body' && data.column.index === 5) {
+          const val = data.cell.raw as string;
+          if (val === 'Pagado') data.cell.styles.textColor = [22, 163, 74];
+          else if (val === 'Pendiente') data.cell.styles.textColor = [249, 115, 22];
+          else if (val === 'Vencido') data.cell.styles.textColor = [220, 38, 38];
+        }
+      },
+    });
+  }
 
   // ─── NOTES ───
-  const finalY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY;
-  y = finalY + 10;
+  if (!isCash) {
+    const finalY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY;
+    y = finalY + 10;
+  }
 
   if (sale.notes) {
     y = checkPageBreak(doc, y, 20, margin);

@@ -44,6 +44,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import { generateReceiptPdf } from '@/lib/generate-receipt-pdf';
+import { DatePicker } from '@/components/ui/date-picker';
 
 interface PaymentPlan {
   id: string;
@@ -79,14 +80,13 @@ interface Sale {
     phone: string;
     email?: string;
   };
-  departure: {
+  departureDate?: string;
+  returnDate?: string;
+  numAdults?: number;
+  numChildren?: number;
+  destination?: {
     id: string;
-    departureDate: string;
-    returnDate: string;
-    package: {
-      id: string;
-      name: string;
-    };
+    name: string;
     season?: {
       id: string;
       name: string;
@@ -131,7 +131,7 @@ export default function SaleDetailPage() {
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentNotes, setPaymentNotes] = useState('');
   const [editingDeadline, setEditingDeadline] = useState(false);
-  const [deadlineValue, setDeadlineValue] = useState('');
+  const [deadlineValue, setDeadlineValue] = useState<Date | undefined>(undefined);
   const [savingDeadline, setSavingDeadline] = useState(false);
 
   useEffect(() => {
@@ -167,7 +167,10 @@ export default function SaleDetailPage() {
     }
   };
 
-  const totalPaid = (sale?.payments?.reduce((sum, p) => sum + (p.paidAmount || 0), 0) || 0) + (sale?.downPayment || 0);
+  const isCash = sale?.paymentType === 'CASH';
+  const totalPaid = isCash
+    ? (sale?.totalPrice || 0)
+    : (sale?.payments?.reduce((sum, p) => sum + (p.paidAmount || 0), 0) || 0) + (sale?.downPayment || 0);
   const remaining = (sale?.totalPrice || 0) - totalPaid;
   const progress = sale?.totalPrice ? Math.round((totalPaid / sale.totalPrice) * 100) : 0;
 
@@ -273,7 +276,7 @@ export default function SaleDetailPage() {
       const res = await fetch(`/api/sales/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ supplierDeadline: deadlineValue || null }),
+        body: JSON.stringify({ supplierDeadline: deadlineValue ? deadlineValue.toISOString() : null }),
       });
       if (res.ok) {
         toast({ title: 'Fecha limite actualizada' });
@@ -387,29 +390,29 @@ export default function SaleDetailPage() {
           </div>
           <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <p className="font-medium">{sale.departure?.package?.name}</p>
-              {sale.departure?.season && (
+              <p className="font-medium">{sale.destination?.name}</p>
+              {sale.destination?.season && (
                 <span
                   className="inline-block w-3 h-3 rounded-full"
-                  style={{ backgroundColor: sale.departure.season.color }}
-                  title={sale.departure.season.name}
+                  style={{ backgroundColor: sale.destination.season.color }}
+                  title={sale.destination.season.name}
                 />
               )}
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-sm text-gray-500">Salida</p>
-                <p className="font-medium">{formatDate(sale.departure?.departureDate)}</p>
+                <p className="font-medium">{sale.departureDate ? formatDate(sale.departureDate) : '—'}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-500">Regreso</p>
-                <p className="font-medium">{formatDate(sale.departure?.returnDate)}</p>
+                <p className="font-medium">{sale.returnDate ? formatDate(sale.returnDate) : '—'}</p>
               </div>
             </div>
-            {sale.departure?.season && (
+            {sale.destination?.season && (
               <div>
                 <p className="text-sm text-gray-500">Temporada</p>
-                <p className="font-medium">{sale.departure.season.name}</p>
+                <p className="font-medium">{sale.destination.season.name}</p>
               </div>
             )}
           </div>
@@ -440,11 +443,9 @@ export default function SaleDetailPage() {
               <p className="text-sm text-gray-500">Fecha Limite</p>
               {editingDeadline ? (
                 <div className="flex items-center gap-2">
-                  <Input
-                    type="date"
+                  <DatePicker
                     value={deadlineValue}
-                    onChange={(e) => setDeadlineValue(e.target.value)}
-                    className="h-8 w-40"
+                    onChange={(date) => setDeadlineValue(date)}
                   />
                   <Button size="sm" variant="ghost" onClick={handleSaveDeadline} disabled={savingDeadline}>
                     {savingDeadline ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4 text-green-600" />}
@@ -454,7 +455,7 @@ export default function SaleDetailPage() {
                 <p
                   className="font-medium cursor-pointer hover:text-blue-600 flex items-center gap-1"
                   onClick={() => {
-                    setDeadlineValue(sale.supplierDeadline ? format(new Date(sale.supplierDeadline), 'yyyy-MM-dd') : '');
+                    setDeadlineValue(sale.supplierDeadline ? new Date(sale.supplierDeadline) : undefined);
                     setEditingDeadline(true);
                   }}
                 >
@@ -492,104 +493,123 @@ export default function SaleDetailPage() {
       )}
 
       {/* Financial Summary */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="p-6 bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800">
-          <p className="text-sm text-green-600 dark:text-green-400 font-medium">Total del Viaje</p>
-          <p className="text-3xl font-bold text-green-700 dark:text-green-300 mt-1">
-            ${sale.totalPrice?.toLocaleString('es-MX')}
-          </p>
-        </Card>
-        {sale.paymentType === 'CREDIT' && sale.downPayment > 0 && (
-          <Card className="p-6 bg-purple-50 dark:bg-purple-950/20 border-purple-200 dark:border-purple-800">
-            <p className="text-sm text-purple-600 dark:text-purple-400 font-medium">Enganche</p>
-            <p className="text-3xl font-bold text-purple-700 dark:text-purple-300 mt-1">
-              ${sale.downPayment?.toLocaleString('es-MX')}
-            </p>
-          </Card>
-        )}
-        <Card className="p-6 bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
-          <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">Total Abonado</p>
-          <p className="text-3xl font-bold text-blue-700 dark:text-blue-300 mt-1">
-            ${totalPaid.toLocaleString('es-MX')}
-          </p>
-        </Card>
-        <Card className="p-6 bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-800">
-          <p className="text-sm text-orange-600 dark:text-orange-400 font-medium">Saldo Pendiente</p>
-          <p className="text-3xl font-bold text-orange-700 dark:text-orange-300 mt-1">
-            ${remaining.toLocaleString('es-MX')}
-          </p>
-        </Card>
-      </div>
-
-      {/* Progress Bar */}
-      <Card className="p-6">
-        <div className="flex justify-between items-center mb-2">
-          <span className="text-sm font-medium">Progreso de pago</span>
-          <span className="text-sm font-medium">{progress}%</span>
-        </div>
-        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
-          <div
-            className="bg-gradient-to-r from-blue-500 to-cyan-500 h-3 rounded-full transition-all duration-500"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-      </Card>
-
-      {/* Payment Plan Table */}
-      <Card>
-        <div className="p-6 border-b">
-          <div className="flex items-center gap-2">
-            <CreditCard className="w-5 h-5 text-purple-500" />
-            <h3 className="text-lg font-semibold">Plan de Pagos</h3>
+      {isCash ? (
+        <Card className="p-6 bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-emerald-600 dark:text-emerald-400 font-medium">Total del Viaje</p>
+              <p className="text-3xl font-bold text-emerald-700 dark:text-emerald-300 mt-1">
+                ${sale.totalPrice?.toLocaleString('es-MX')}
+              </p>
+            </div>
+            <Badge className="bg-emerald-600 text-white text-sm px-3 py-1">
+              <Check className="w-4 h-4 mr-1" />
+              Pagado de Contado
+            </Badge>
           </div>
-        </div>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-16">#</TableHead>
-              <TableHead>Fecha de Vencimiento</TableHead>
-              <TableHead className="text-right">Monto</TableHead>
-              <TableHead className="text-right">Abonado</TableHead>
-              <TableHead className="text-right">Pendiente</TableHead>
-              <TableHead>Estado</TableHead>
-              <TableHead className="text-right">Acciones</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {sale.payments?.map((payment) => {
-              const pending = Math.max(0, payment.amount - (payment.paidAmount || 0));
-              return (
-                <TableRow key={payment.id}>
-                  <TableCell className="font-medium">{payment.paymentNumber}</TableCell>
-                  <TableCell>{formatDate(payment.dueDate)}</TableCell>
-                  <TableCell className="text-right">
-                    ${payment.amount.toLocaleString('es-MX')}
-                  </TableCell>
-                  <TableCell className="text-right text-blue-600 font-medium">
-                    ${(payment.paidAmount || 0).toLocaleString('es-MX')}
-                  </TableCell>
-                  <TableCell className="text-right text-orange-600 font-medium">
-                    ${pending.toLocaleString('es-MX')}
-                  </TableCell>
-                  <TableCell>{getStatusBadge(payment.status)}</TableCell>
-                  <TableCell className="text-right">
-                    {payment.status !== 'PAID' && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => openPaymentModal(payment)}
-                      >
-                        <Plus className="w-4 h-4 mr-1" />
-                        Abonar
-                      </Button>
-                    )}
-                  </TableCell>
+        </Card>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Card className="p-6 bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800">
+              <p className="text-sm text-green-600 dark:text-green-400 font-medium">Total del Viaje</p>
+              <p className="text-3xl font-bold text-green-700 dark:text-green-300 mt-1">
+                ${sale.totalPrice?.toLocaleString('es-MX')}
+              </p>
+            </Card>
+            {sale.downPayment > 0 && (
+              <Card className="p-6 bg-purple-50 dark:bg-purple-950/20 border-purple-200 dark:border-purple-800">
+                <p className="text-sm text-purple-600 dark:text-purple-400 font-medium">Enganche</p>
+                <p className="text-3xl font-bold text-purple-700 dark:text-purple-300 mt-1">
+                  ${sale.downPayment?.toLocaleString('es-MX')}
+                </p>
+              </Card>
+            )}
+            <Card className="p-6 bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
+              <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">Total Abonado</p>
+              <p className="text-3xl font-bold text-blue-700 dark:text-blue-300 mt-1">
+                ${totalPaid.toLocaleString('es-MX')}
+              </p>
+            </Card>
+            <Card className="p-6 bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-800">
+              <p className="text-sm text-orange-600 dark:text-orange-400 font-medium">Saldo Pendiente</p>
+              <p className="text-3xl font-bold text-orange-700 dark:text-orange-300 mt-1">
+                ${remaining.toLocaleString('es-MX')}
+              </p>
+            </Card>
+          </div>
+
+          {/* Progress Bar */}
+          <Card className="p-6">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm font-medium">Progreso de pago</span>
+              <span className="text-sm font-medium">{progress}%</span>
+            </div>
+            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
+              <div
+                className="bg-gradient-to-r from-blue-500 to-cyan-500 h-3 rounded-full transition-all duration-500"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          </Card>
+
+          {/* Payment Plan Table */}
+          <Card>
+            <div className="p-6 border-b">
+              <div className="flex items-center gap-2">
+                <CreditCard className="w-5 h-5 text-purple-500" />
+                <h3 className="text-lg font-semibold">Plan de Pagos</h3>
+              </div>
+            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-16">#</TableHead>
+                  <TableHead>Fecha de Vencimiento</TableHead>
+                  <TableHead className="text-right">Monto</TableHead>
+                  <TableHead className="text-right">Abonado</TableHead>
+                  <TableHead className="text-right">Pendiente</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </Card>
+              </TableHeader>
+              <TableBody>
+                {sale.payments?.map((payment) => {
+                  const pending = Math.max(0, payment.amount - (payment.paidAmount || 0));
+                  return (
+                    <TableRow key={payment.id}>
+                      <TableCell className="font-medium">{payment.paymentNumber}</TableCell>
+                      <TableCell>{formatDate(payment.dueDate)}</TableCell>
+                      <TableCell className="text-right">
+                        ${payment.amount.toLocaleString('es-MX')}
+                      </TableCell>
+                      <TableCell className="text-right text-blue-600 font-medium">
+                        ${(payment.paidAmount || 0).toLocaleString('es-MX')}
+                      </TableCell>
+                      <TableCell className="text-right text-orange-600 font-medium">
+                        ${pending.toLocaleString('es-MX')}
+                      </TableCell>
+                      <TableCell>{getStatusBadge(payment.status)}</TableCell>
+                      <TableCell className="text-right">
+                        {payment.status !== 'PAID' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => openPaymentModal(payment)}
+                          >
+                            <Plus className="w-4 h-4 mr-1" />
+                            Abonar
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </Card>
+        </>
+      )}
 
       {/* Notes */}
       {sale.notes && (

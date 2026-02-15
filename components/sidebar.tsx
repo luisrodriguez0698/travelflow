@@ -7,7 +7,7 @@ import { useSession } from 'next-auth/react';
 import {
   LayoutDashboard,
   Users,
-  Package,
+  MapPin,
   ShoppingCart,
   ChevronLeft,
   ChevronRight,
@@ -38,10 +38,10 @@ const menuItems = [
     module: 'clientes',
   },
   {
-    title: 'Paquetes',
-    icon: Package,
-    href: '/packages',
-    module: 'paquetes',
+    title: 'Destinos',
+    icon: MapPin,
+    href: '/destinations',
+    module: 'destinos',
   },
   {
     title: 'Temporadas',
