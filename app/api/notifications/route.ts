@@ -33,8 +33,8 @@ export async function GET() {
 
     // Create notifications for bookings that don't have one yet
     const newNotifications = bookingsWithDeadlines
-      .filter((b) => b.notifications.length === 0 && b.supplierDeadline)
-      .map((b) => ({
+      .filter((b: typeof bookingsWithDeadlines[number]) => b.notifications.length === 0 && b.supplierDeadline)
+      .map((b: typeof bookingsWithDeadlines[number]) => ({
         tenantId,
         bookingId: b.id,
         type: 'SUPPLIER_DEADLINE',
