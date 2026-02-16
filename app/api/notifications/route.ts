@@ -17,6 +17,7 @@ export async function GET() {
     const bookingsWithDeadlines = await prisma.booking.findMany({
       where: {
         tenantId,
+        type: 'SALE',
         supplierDeadline: { lte: sevenDaysFromNow },
         status: { not: 'CANCELLED' },
         supplierId: { not: null },

@@ -154,7 +154,7 @@ export async function GET(
 
     // Verify ownership
     const booking = await prisma.booking.findFirst({
-      where: { id: bookingId, tenantId },
+      where: { id: bookingId, tenantId, type: 'SALE' },
       include: {
         client: true,
         destination: {
@@ -172,7 +172,17 @@ export async function GET(
       return NextResponse.json({ error: 'Venta no encontrada' }, { status: 404 });
     }
 
-    return NextResponse.json(booking);
+    // Fetch creator name if createdBy exists
+    let creatorName: string | null = null;
+    if (booking.createdBy) {
+      const creator = await prisma.user.findUnique({
+        where: { id: booking.createdBy },
+        select: { name: true, email: true },
+      });
+      creatorName = creator?.name || creator?.email || null;
+    }
+
+    return NextResponse.json({ ...booking, creatorName });
   } catch (error) {
     console.error('Error fetching payments:', error);
     return NextResponse.json(

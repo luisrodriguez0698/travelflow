@@ -110,6 +110,7 @@ interface Sale {
     email?: string;
     serviceType: string;
   };
+  creatorName?: string;
 }
 
 export default function SaleDetailPage() {
@@ -339,9 +340,19 @@ export default function SaleDetailPage() {
           </Link>
           <div>
             <h1 className="text-3xl font-bold">Detalle de Venta</h1>
-            <p className="text-gray-600 dark:text-gray-400 mt-1">
-              Folio: {sale.id.slice(-8).toUpperCase()}
-            </p>
+            <div className="flex items-center gap-3 mt-1">
+              <p className="text-gray-600 dark:text-gray-400">
+                Folio: {sale.id.slice(-8).toUpperCase()}
+              </p>
+              {sale.creatorName && (
+                <span className="inline-flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+                  <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 text-white text-[10px] font-semibold">
+                    {sale.creatorName.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)}
+                  </span>
+                  Creado por {sale.creatorName}
+                </span>
+              )}
+            </div>
           </div>
         </div>
         <Button

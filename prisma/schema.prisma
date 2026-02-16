@@ -207,6 +207,10 @@ model Booking {
   createdBy        String?
   updatedBy        String?
 
+  // Quotation support
+  type             String   @default("SALE") // SALE or QUOTATION
+  expirationDate   DateTime?
+
   // Relations
   tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   client           Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
@@ -222,6 +226,7 @@ model Booking {
   @@index([destinationId])
   @@index([departureId])
   @@index([supplierId])
+  @@index([type])
   @@map("bookings")
 }
 

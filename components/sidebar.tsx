@@ -19,6 +19,7 @@ import {
   Truck,
   Landmark,
   UserCog,
+  FileText,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from './ui/button';
@@ -54,6 +55,12 @@ const menuItems = [
     icon: ShoppingCart,
     href: '/sales',
     module: 'ventas',
+  },
+  {
+    title: 'Cotizaciones',
+    icon: FileText,
+    href: '/quotations',
+    module: 'cotizaciones',
   },
   {
     title: 'Proveedores',

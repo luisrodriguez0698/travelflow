@@ -4,6 +4,7 @@ export const ALL_MODULES = [
   'destinos',
   'temporadas',
   'ventas',
+  'cotizaciones',
   'proveedores',
   'bancos',
   'configuracion',
@@ -18,6 +19,7 @@ export const MODULE_LABELS: Record<ModulePermission, string> = {
   destinos: 'Destinos',
   temporadas: 'Temporadas',
   ventas: 'Ventas',
+  cotizaciones: 'Cotizaciones',
   proveedores: 'Proveedores',
   bancos: 'Bancos',
   configuracion: 'Configuración',
@@ -30,6 +32,7 @@ export const ROUTE_TO_MODULE: Record<string, ModulePermission> = {
   '/destinations': 'destinos',
   '/seasons': 'temporadas',
   '/sales': 'ventas',
+  '/quotations': 'cotizaciones',
   '/suppliers': 'proveedores',
   '/banks': 'bancos',
   '/settings': 'configuracion',
@@ -44,7 +47,7 @@ export const DEFAULT_ROLES = [
   },
   {
     name: 'Agente',
-    permissions: ['dashboard', 'ventas', 'clientes', 'destinos', 'temporadas'],
+    permissions: ['dashboard', 'ventas', 'cotizaciones', 'clientes', 'destinos', 'temporadas'],
     isDefault: true,
   },
   {

@@ -12,27 +12,36 @@ export async function GET(
   try {
     const tenantId = await requireTenantId();
     const { id } = await params;
-    
+
     const booking = await prisma.booking.findFirst({
-      where: { id, tenantId, type: 'SALE' },
+      where: { id, tenantId, type: 'QUOTATION' },
       include: {
         client: true,
-        destination: {
-          include: { season: true },
-        },
-        payments: true,
+        destination: { include: { season: true } },
+        payments: { orderBy: { paymentNumber: 'asc' } },
+        tenant: true,
         supplier: true,
       },
     });
 
     if (!booking) {
-      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+      return NextResponse.json({ error: 'Cotización no encontrada' }, { status: 404 });
     }
 
-    return NextResponse.json(booking);
+    // Fetch creator name
+    let creatorName: string | null = null;
+    if (booking.createdBy) {
+      const creator = await prisma.user.findUnique({
+        where: { id: booking.createdBy },
+        select: { name: true, email: true },
+      });
+      creatorName = creator?.name || creator?.email || null;
+    }
+
+    return NextResponse.json({ ...booking, creatorName });
   } catch (error) {
-    console.error('Error fetching sale:', error);
-    return NextResponse.json({ error: 'Error fetching sale' }, { status: 500 });
+    console.error('Error fetching quotation:', error);
+    return NextResponse.json({ error: 'Error fetching quotation' }, { status: 500 });
   }
 }
 
@@ -45,32 +54,28 @@ export async function PUT(
     const { id } = await params;
     const body = await request.json();
 
-    // Verify ownership
     const existing = await prisma.booking.findFirst({
-      where: { id, tenantId, type: 'SALE' },
+      where: { id, tenantId, type: 'QUOTATION' },
     });
 
     if (!existing) {
-      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+      return NextResponse.json({ error: 'Cotización no encontrada' }, { status: 404 });
     }
 
-    // Calculate net cost from prices
     const numAdults = body.numAdults || 1;
     const numChildren = body.numChildren || 0;
     const priceAdult = body.priceAdult || 0;
     const priceChild = body.priceChild || 0;
     const netCost = (priceAdult * numAdults) + (priceChild * numChildren);
 
-    // Delete old payment plans if payment type or number changed
+    // Delete old payment plans and recreate
     if (
       existing.paymentType !== body.paymentType ||
       existing.numberOfPayments !== body.numberOfPayments ||
       existing.downPayment !== body.downPayment ||
       existing.totalPrice !== body.totalPrice
     ) {
-      await prisma.paymentPlan.deleteMany({
-        where: { bookingId: id },
-      });
+      await prisma.paymentPlan.deleteMany({ where: { bookingId: id } });
     }
 
     const booking = await prisma.booking.update({
@@ -88,19 +93,17 @@ export async function PUT(
         netCost,
         paymentType: body.paymentType,
         downPayment: body.downPayment || 0,
-        numberOfPayments: body.numberOfPayments || 1,
+        numberOfPayments: body.paymentType === 'CASH' ? 0 : (body.numberOfPayments || 1),
         notes: body.notes || null,
-        saleDate: body.saleDate ? new Date(body.saleDate) : existing.saleDate,
-        status: body.status || existing.status,
+        status: 'ACTIVE',
         supplierId: body.supplierId || null,
         supplierDeadline: body.supplierDeadline ? new Date(body.supplierDeadline) : null,
+        expirationDate: body.expirationDate ? new Date(body.expirationDate) : existing.expirationDate,
       },
     });
 
-    // Create new payment plan if credit and payments were deleted
-    const existingPayments = await prisma.paymentPlan.count({
-      where: { bookingId: id },
-    });
+    // Recreate payment plan if needed
+    const existingPayments = await prisma.paymentPlan.count({ where: { bookingId: id } });
 
     if (body.paymentType === 'CREDIT' && body.numberOfPayments > 0 && existingPayments === 0) {
       const remaining = body.totalPrice - (body.downPayment || 0);
@@ -108,9 +111,23 @@ export async function PUT(
       const lastPayment = remaining - (paymentAmount * (body.numberOfPayments - 1));
       const payments = [];
 
+      const getNextQuincenalDate = (fromDate: Date, count: number): Date => {
+        const result = new Date(fromDate);
+        for (let i = 0; i < count; i++) {
+          const currentDay = result.getDate();
+          const currentMonth = result.getMonth();
+          const currentYear = result.getFullYear();
+          const lastDayOfMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+          if (currentDay < 15) { result.setDate(15); }
+          else if (currentDay < lastDayOfMonth) { result.setDate(lastDayOfMonth); }
+          else { result.setMonth(currentMonth + 1); result.setDate(15); }
+        }
+        return result;
+      };
+
+      const startDate = new Date();
       for (let i = 0; i < body.numberOfPayments; i++) {
-        const dueDate = new Date();
-        dueDate.setDate(dueDate.getDate() + ((i + 1) * 15));
+        const dueDate = getNextQuincenalDate(startDate, i + 1);
         payments.push({
           bookingId: booking.id,
           paymentNumber: i + 1,
@@ -127,15 +144,12 @@ export async function PUT(
       where: { id: booking.id },
       include: {
         client: true,
-        destination: {
-          include: { season: true },
-        },
+        destination: { include: { season: true } },
         payments: true,
         supplier: true,
       },
     });
 
-    // Audit log
     const sessionUser = await getSessionUser();
     if (sessionUser) {
       await logAudit({
@@ -143,56 +157,16 @@ export async function PUT(
         userId: sessionUser.id,
         userName: sessionUser.name,
         action: 'UPDATE',
-        entity: 'bookings',
+        entity: 'quotations',
         entityId: id,
-        changes: { totalPrice: body.totalPrice, status: body.status },
+        changes: { totalPrice: body.totalPrice },
       });
     }
 
     return NextResponse.json(result);
   } catch (error) {
-    console.error('Error updating sale:', error);
-    return NextResponse.json({ error: 'Error updating sale' }, { status: 500 });
-  }
-}
-
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const tenantId = await requireTenantId();
-    const { id } = await params;
-    const body = await request.json();
-
-    const booking = await prisma.booking.findFirst({
-      where: { id, tenantId, type: 'SALE' },
-    });
-
-    if (!booking) {
-      return NextResponse.json({ error: 'Venta no encontrada' }, { status: 404 });
-    }
-
-    const updateData: any = {};
-    if (body.supplierDeadline !== undefined) {
-      updateData.supplierDeadline = body.supplierDeadline ? new Date(body.supplierDeadline) : null;
-    }
-    if (body.supplierId !== undefined) {
-      updateData.supplierId = body.supplierId || null;
-    }
-    if (body.notes !== undefined) {
-      updateData.notes = body.notes || null;
-    }
-
-    const updated = await prisma.booking.update({
-      where: { id },
-      data: updateData,
-    });
-
-    return NextResponse.json(updated);
-  } catch (error) {
-    console.error('Error updating booking:', error);
-    return NextResponse.json({ error: 'Error al actualizar la venta' }, { status: 500 });
+    console.error('Error updating quotation:', error);
+    return NextResponse.json({ error: 'Error updating quotation' }, { status: 500 });
   }
 }
 
@@ -204,25 +178,17 @@ export async function DELETE(
     const tenantId = await requireTenantId();
     const { id } = await params;
 
-    // Verify ownership
     const existing = await prisma.booking.findFirst({
-      where: { id, tenantId, type: 'SALE' },
+      where: { id, tenantId, type: 'QUOTATION' },
     });
 
     if (!existing) {
-      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+      return NextResponse.json({ error: 'Cotización no encontrada' }, { status: 404 });
     }
 
-    // Delete payment plans first (cascade should handle this but being explicit)
-    await prisma.paymentPlan.deleteMany({
-      where: { bookingId: id },
-    });
+    await prisma.paymentPlan.deleteMany({ where: { bookingId: id } });
+    await prisma.booking.delete({ where: { id } });
 
-    await prisma.booking.delete({
-      where: { id },
-    });
-
-    // Audit log
     const sessionUser = await getSessionUser();
     if (sessionUser) {
       await logAudit({
@@ -230,7 +196,7 @@ export async function DELETE(
         userId: sessionUser.id,
         userName: sessionUser.name,
         action: 'DELETE',
-        entity: 'bookings',
+        entity: 'quotations',
         entityId: id,
         changes: { clientId: existing.clientId, totalPrice: existing.totalPrice },
       });
@@ -238,7 +204,7 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error deleting sale:', error);
-    return NextResponse.json({ error: 'Error deleting sale' }, { status: 500 });
+    console.error('Error deleting quotation:', error);
+    return NextResponse.json({ error: 'Error deleting quotation' }, { status: 500 });
   }
 }
