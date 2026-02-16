@@ -14,6 +14,12 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { Plus, Search, Pencil, Trash2, MapPin, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -30,6 +36,7 @@ interface Destination {
   seasonId: string | null;
   season: Season | null;
   _count: { bookings: number };
+  creatorName?: string | null;
 }
 
 export default function DestinationsPage() {
@@ -173,13 +180,14 @@ export default function DestinationsPage() {
               <TableHead>Descripción</TableHead>
               <TableHead>Temporada</TableHead>
               <TableHead className="text-center">Ventas</TableHead>
+              <TableHead className="text-center">Creado por</TableHead>
               <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                   No hay destinos registrados
                 </TableCell>
               </TableRow>
@@ -205,6 +213,22 @@ export default function DestinationsPage() {
                     )}
                   </TableCell>
                   <TableCell className="text-center">{dest._count.bookings}</TableCell>
+                  <TableCell className="text-center">
+                    {dest.creatorName ? (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 text-white text-xs font-semibold cursor-default">
+                              {dest.creatorName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent><p>{dest.creatorName}</p></TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    ) : (
+                      <span className="text-sm text-gray-400">—</span>
+                    )}
+                  </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
                       <Button variant="ghost" size="icon" onClick={() => openEdit(dest)}>

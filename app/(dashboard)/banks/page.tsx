@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -35,6 +35,12 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
   Landmark,
   Plus,
   Pencil,
@@ -48,9 +54,17 @@ import {
   TrendingUp,
   TrendingDown,
   Wallet,
+  Search,
+  X,
+  MapPin,
+  User,
+  Truck,
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
+import { DateRange } from 'react-day-picker';
+import { format, startOfMonth, endOfMonth, subMonths, startOfYear } from 'date-fns';
 import { es } from 'date-fns/locale';
+import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
 
 const MEXICAN_BANKS = [
@@ -74,6 +88,7 @@ interface BankAccount {
   initialBalance: number;
   currentBalance: number;
   createdAt: string;
+  creatorName?: string | null;
 }
 
 interface BankTransaction {
@@ -87,9 +102,26 @@ interface BankTransaction {
   bookingId?: string;
   destinationAccountId?: string;
   booking?: {
-    client?: { fullName: string };
+    id: string;
+    totalPrice: number;
+    netCost: number;
+    paymentType: string;
+    status: string;
+    departureDate?: string;
+    returnDate?: string;
+    type: string;
+    client?: { fullName: string; phone: string; email?: string };
+    destination?: { name: string; season?: { name: string; color: string } };
+    supplier?: { name: string; serviceType: string; phone: string };
   };
 }
+
+const datePresets = [
+  { label: 'Este mes', getRange: () => ({ from: startOfMonth(new Date()), to: endOfMonth(new Date()) }) },
+  { label: 'Mes pasado', getRange: () => ({ from: startOfMonth(subMonths(new Date(), 1)), to: endOfMonth(subMonths(new Date(), 1)) }) },
+  { label: 'Últimos 3 meses', getRange: () => ({ from: startOfMonth(subMonths(new Date(), 2)), to: endOfMonth(new Date()) }) },
+  { label: 'Este año', getRange: () => ({ from: startOfYear(new Date()), to: endOfMonth(new Date()) }) },
+];
 
 interface AccountFormData {
   bankName: string;
@@ -138,8 +170,18 @@ export default function BanksPage() {
   // Cancel transaction
   const [cancellingTx, setCancellingTx] = useState<BankTransaction | null>(null);
 
+  // Detail modal
+  const [selectedTx, setSelectedTx] = useState<BankTransaction | null>(null);
+
   // Monthly summary
   const [monthlySummary, setMonthlySummary] = useState({ income: 0, expense: 0 });
+
+  // Date range filter for transactions
+  const [txDateRange, setTxDateRange] = useState<DateRange>({
+    from: startOfMonth(new Date()),
+    to: endOfMonth(new Date()),
+  });
+  const [txSearch, setTxSearch] = useState('');
 
   useEffect(() => {
     fetchAccounts();
@@ -160,11 +202,16 @@ export default function BanksPage() {
     }
   };
 
-  const fetchTransactions = async (accountId: string, page = 1, filter = 'ALL') => {
+  const fetchTransactions = async (accountId: string, page = 1, filter = 'ALL', dateRange?: DateRange, search?: string) => {
     setTxLoading(true);
     try {
       const params = new URLSearchParams({ page: page.toString(), limit: '15' });
       if (filter !== 'ALL') params.set('type', filter);
+      const dr = dateRange || txDateRange;
+      if (dr.from) params.set('dateFrom', format(dr.from, 'yyyy-MM-dd'));
+      if (dr.to) params.set('dateTo', format(dr.to, 'yyyy-MM-dd'));
+      const s = search !== undefined ? search : txSearch;
+      if (s.trim()) params.set('search', s.trim());
 
       const res = await fetch(`/api/bank-accounts/${accountId}/transactions?${params}`);
       if (res.ok) {
@@ -174,19 +221,9 @@ export default function BanksPage() {
         if (data.account) {
           setSelectedAccount(data.account);
         }
-
-        // Calculate monthly summary from all transactions
-        const now = new Date();
-        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-        let income = 0;
-        let expense = 0;
-        data.data.forEach((tx: BankTransaction) => {
-          if (new Date(tx.date) >= monthStart && tx.status !== 'CANCELLED') {
-            if (tx.type === 'INCOME') income += tx.amount;
-            if (tx.type === 'EXPENSE' || tx.type === 'TRANSFER') expense += tx.amount;
-          }
-        });
-        setMonthlySummary({ income, expense });
+        if (data.monthlySummary) {
+          setMonthlySummary(data.monthlySummary);
+        }
       }
     } catch {
       toast({ title: 'Error', description: 'No se pudieron cargar los movimientos', variant: 'destructive' });
@@ -199,7 +236,10 @@ export default function BanksPage() {
     setSelectedAccount(account);
     setTxPage(1);
     setTxFilter('ALL');
-    fetchTransactions(account.id, 1, 'ALL');
+    setTxSearch('');
+    const defaultRange = { from: startOfMonth(new Date()), to: endOfMonth(new Date()) };
+    setTxDateRange(defaultRange);
+    fetchTransactions(account.id, 1, 'ALL', defaultRange, '');
   };
 
   const backToAccounts = () => {
@@ -448,43 +488,99 @@ export default function BanksPage() {
           </Card>
         </div>
 
-        {/* Action Buttons + Filter */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="flex gap-2 flex-wrap">
-            <Button onClick={() => openTxModal('INCOME')} className="bg-green-600 hover:bg-green-700">
-              <ArrowDownCircle className="w-4 h-4 mr-2" />
-              Nuevo Ingreso
+        {/* Action Buttons */}
+        <div className="flex gap-2 flex-wrap">
+          <Button onClick={() => openTxModal('INCOME')} className="bg-green-600 hover:bg-green-700">
+            <ArrowDownCircle className="w-4 h-4 mr-2" />
+            Nuevo Ingreso
+          </Button>
+          <Button onClick={() => openTxModal('EXPENSE')} variant="destructive">
+            <ArrowUpCircle className="w-4 h-4 mr-2" />
+            Nuevo Egreso
+          </Button>
+          {otherAccounts.length > 0 && (
+            <Button onClick={() => openTxModal('TRANSFER')} variant="outline">
+              <ArrowRightLeft className="w-4 h-4 mr-2" />
+              Transferir
             </Button>
-            <Button onClick={() => openTxModal('EXPENSE')} variant="destructive">
-              <ArrowUpCircle className="w-4 h-4 mr-2" />
-              Nuevo Egreso
-            </Button>
-            {otherAccounts.length > 0 && (
-              <Button onClick={() => openTxModal('TRANSFER')} variant="outline">
-                <ArrowRightLeft className="w-4 h-4 mr-2" />
-                Transferir
-              </Button>
-            )}
-          </div>
-          <Select
-            value={txFilter}
-            onValueChange={(v) => {
-              setTxFilter(v);
-              setTxPage(1);
-              fetchTransactions(selectedAccount.id, 1, v);
-            }}
-          >
-            <SelectTrigger className="w-48">
-              <SelectValue placeholder="Filtrar por tipo" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">Todos</SelectItem>
-              <SelectItem value="INCOME">Ingresos</SelectItem>
-              <SelectItem value="EXPENSE">Egresos</SelectItem>
-              <SelectItem value="TRANSFER">Transferencias</SelectItem>
-            </SelectContent>
-          </Select>
+          )}
         </div>
+
+        {/* Filters */}
+        <Card className="p-4">
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <DateRangePicker value={txDateRange} onChange={(range) => {
+                setTxDateRange(range);
+                setTxPage(1);
+                fetchTransactions(selectedAccount.id, 1, txFilter, range);
+              }} />
+              <div className="flex flex-wrap gap-2">
+                {datePresets.map((preset) => (
+                  <Button key={preset.label} variant="outline" size="sm" onClick={() => {
+                    const range = preset.getRange();
+                    setTxDateRange(range);
+                    setTxPage(1);
+                    fetchTransactions(selectedAccount.id, 1, txFilter, range);
+                  }}>
+                    {preset.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="relative w-56">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input
+                  placeholder="Buscar descripción..."
+                  value={txSearch}
+                  onChange={(e) => setTxSearch(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      setTxPage(1);
+                      fetchTransactions(selectedAccount.id, 1, txFilter, txDateRange, txSearch);
+                    }
+                  }}
+                  className="pl-10 h-9"
+                />
+              </div>
+              <Button variant="outline" size="sm" onClick={() => {
+                setTxPage(1);
+                fetchTransactions(selectedAccount.id, 1, txFilter, txDateRange, txSearch);
+              }}>
+                Buscar
+              </Button>
+              <Select
+                value={txFilter}
+                onValueChange={(v) => {
+                  setTxFilter(v);
+                  setTxPage(1);
+                  fetchTransactions(selectedAccount.id, 1, v);
+                }}
+              >
+                <SelectTrigger className="w-48 h-9">
+                  <SelectValue placeholder="Filtrar por tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">Todos</SelectItem>
+                  <SelectItem value="INCOME">Ingresos</SelectItem>
+                  <SelectItem value="EXPENSE">Egresos</SelectItem>
+                  <SelectItem value="TRANSFER">Transferencias</SelectItem>
+                </SelectContent>
+              </Select>
+              {txSearch.trim() && (
+                <Button variant="ghost" size="sm" onClick={() => {
+                  setTxSearch('');
+                  setTxPage(1);
+                  fetchTransactions(selectedAccount.id, 1, txFilter, txDateRange, '');
+                }} className="text-muted-foreground">
+                  <X className="w-4 h-4 mr-1" />
+                  Limpiar búsqueda
+                </Button>
+              )}
+            </div>
+          </div>
+        </Card>
 
         {/* Transactions Table */}
         <Card>
@@ -525,16 +621,28 @@ export default function BanksPage() {
                           {tx.type === 'INCOME' ? '+' : '-'}{formatCurrency(tx.amount)}
                         </TableCell>
                         <TableCell className="text-right">
-                          {!isCancelled && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-red-600 hover:text-red-700"
-                              onClick={() => setCancellingTx(tx)}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          )}
+                          <div className="flex justify-end gap-1">
+                            {tx.bookingId && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setSelectedTx(tx)}
+                                title="Ver detalle"
+                              >
+                                <Eye className="w-4 h-4" />
+                              </Button>
+                            )}
+                            {!isCancelled && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-red-600 hover:text-red-700"
+                                onClick={() => setCancellingTx(tx)}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
@@ -688,6 +796,155 @@ export default function BanksPage() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Transaction Detail Modal */}
+        <Dialog open={selectedTx !== null} onOpenChange={(open) => { if (!open) setSelectedTx(null); }}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                Detalle de Movimiento
+                {selectedTx && (
+                  <span className="font-mono text-xs text-gray-500 bg-gray-100 dark:bg-gray-800 dark:text-gray-400 px-1.5 py-0.5 rounded">
+                    {selectedTx.id.slice(-8).toUpperCase()}
+                  </span>
+                )}
+              </DialogTitle>
+              <DialogDescription>
+                Información del movimiento y venta vinculada
+              </DialogDescription>
+            </DialogHeader>
+            {selectedTx && (
+              <div className="space-y-4 py-2">
+                {/* Transaction info */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Fecha</p>
+                    <p className="text-sm font-medium">{formatDate(selectedTx.date)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Tipo</p>
+                    <div>{getTxTypeBadge(selectedTx.type, selectedTx.status)}</div>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Monto</p>
+                    <p className={`text-lg font-bold ${selectedTx.type === 'INCOME' ? 'text-green-600' : 'text-red-600'}`}>
+                      {selectedTx.type === 'INCOME' ? '+' : '-'}{formatCurrency(selectedTx.amount)}
+                    </p>
+                  </div>
+                  {selectedTx.reference && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">Referencia</p>
+                      <p className="text-sm font-medium">{selectedTx.reference}</p>
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Descripción</p>
+                  <p className="text-sm">{selectedTx.description}</p>
+                </div>
+
+                {/* Booking info */}
+                {selectedTx.booking && (
+                  <>
+                    <div className="border-t pt-3">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Badge variant="outline" className="text-xs">
+                          {selectedTx.booking.type === 'SALE' ? 'Venta' : 'Cotización'}
+                        </Badge>
+                        <span className="font-mono text-xs text-gray-500 bg-gray-100 dark:bg-gray-800 dark:text-gray-400 px-1.5 py-0.5 rounded">
+                          {selectedTx.booking.id.slice(-8).toUpperCase()}
+                        </span>
+                      </div>
+
+                      <div className="space-y-3">
+                        {/* Client */}
+                        {selectedTx.booking.client && (
+                          <div className="flex items-start gap-2">
+                            <User className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
+                            <div>
+                              <p className="text-sm font-medium">{selectedTx.booking.client.fullName}</p>
+                              <p className="text-xs text-muted-foreground">{selectedTx.booking.client.phone}</p>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Destination */}
+                        {selectedTx.booking.destination && (
+                          <div className="flex items-start gap-2">
+                            <MapPin className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-medium">{selectedTx.booking.destination.name}</p>
+                              {selectedTx.booking.destination.season && (
+                                <span
+                                  className="inline-block w-2 h-2 rounded-full"
+                                  style={{ backgroundColor: selectedTx.booking.destination.season.color }}
+                                  title={selectedTx.booking.destination.season.name}
+                                />
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Supplier */}
+                        {selectedTx.booking.supplier && (
+                          <div className="flex items-start gap-2">
+                            <Truck className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
+                            <div>
+                              <p className="text-sm font-medium">{selectedTx.booking.supplier.name}</p>
+                              <p className="text-xs text-muted-foreground">{selectedTx.booking.supplier.serviceType}</p>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Travel dates */}
+                        {(selectedTx.booking.departureDate || selectedTx.booking.returnDate) && (
+                          <div className="flex gap-4 text-sm">
+                            {selectedTx.booking.departureDate && (
+                              <div>
+                                <p className="text-xs text-muted-foreground">Salida</p>
+                                <p className="font-medium">{formatDate(selectedTx.booking.departureDate)}</p>
+                              </div>
+                            )}
+                            {selectedTx.booking.returnDate && (
+                              <div>
+                                <p className="text-xs text-muted-foreground">Regreso</p>
+                                <p className="font-medium">{formatDate(selectedTx.booking.returnDate)}</p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Total */}
+                        <div className="flex gap-4 text-sm">
+                          <div>
+                            <p className="text-xs text-muted-foreground">Total del Viaje</p>
+                            <p className="font-bold text-green-600">{formatCurrency(selectedTx.booking.totalPrice)}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground">Estado</p>
+                            <Badge variant={selectedTx.booking.status === 'COMPLETED' ? 'default' : selectedTx.booking.status === 'CANCELLED' ? 'destructive' : 'secondary'}>
+                              {selectedTx.booking.status === 'ACTIVE' ? 'Activa' : selectedTx.booking.status === 'COMPLETED' ? 'Completada' : 'Cancelada'}
+                            </Badge>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Link to sale detail */}
+                    <div className="border-t pt-3">
+                      <Link href={selectedTx.booking.type === 'SALE' ? `/sales/${selectedTx.booking.id}` : `/quotations/${selectedTx.booking.id}`}>
+                        <Button variant="outline" size="sm" className="w-full">
+                          <Eye className="w-4 h-4 mr-2" />
+                          Ver detalle de {selectedTx.booking.type === 'SALE' ? 'venta' : 'cotización'}
+                        </Button>
+                      </Link>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
@@ -739,9 +996,24 @@ export default function BanksPage() {
               <p className="text-sm text-gray-500 mb-1">
                 {account.accountNumber}
               </p>
-              <p className="text-2xl font-bold text-green-600 mb-4">
+              <p className="text-2xl font-bold text-green-600 mb-3">
                 {formatCurrency(account.currentBalance)}
               </p>
+              {account.creatorName && (
+                <div className="flex items-center gap-2 mb-3 text-sm text-gray-500">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 text-white text-[10px] font-semibold cursor-default">
+                          {account.creatorName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent><p>{account.creatorName}</p></TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  <span className="truncate">{account.creatorName}</span>
+                </div>
+              )}
               <div className="flex gap-2">
                 <Button size="sm" variant="outline" className="flex-1" onClick={() => viewAccount(account)}>
                   <Eye className="w-4 h-4 mr-1" />

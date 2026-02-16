@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -20,11 +20,13 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Switch } from '@/components/ui/switch';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Plus, Search, Pencil, Trash2, FileText, Loader2, Eye, Check, ChevronsUpDown, ShoppingCart, ChevronDown, DollarSign } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, FileText, Loader2, Eye, Check, ChevronsUpDown, ShoppingCart, ChevronDown, DollarSign, X, Filter } from 'lucide-react';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
+import { DateRange } from 'react-day-picker';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { format, isPast, differenceInDays } from 'date-fns';
+import { format, isPast, differenceInDays, startOfMonth, endOfMonth, subMonths, startOfYear } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 
@@ -42,6 +44,7 @@ interface Quotation {
   downPayment: number;
   numberOfPayments: number;
   saleDate: string;
+  createdAt: string;
   status: string;
   notes?: string;
   departureDate?: string;
@@ -61,6 +64,13 @@ interface Quotation {
   destination?: Destination;
   supplier?: Supplier;
 }
+
+const datePresets = [
+  { label: 'Este mes', getRange: () => ({ from: startOfMonth(new Date()), to: endOfMonth(new Date()) }) },
+  { label: 'Mes pasado', getRange: () => ({ from: startOfMonth(subMonths(new Date(), 1)), to: endOfMonth(subMonths(new Date(), 1)) }) },
+  { label: 'Últimos 3 meses', getRange: () => ({ from: startOfMonth(subMonths(new Date(), 2)), to: endOfMonth(new Date()) }) },
+  { label: 'Este año', getRange: () => ({ from: startOfYear(new Date()), to: endOfMonth(new Date()) }) },
+];
 
 interface FormData {
   clientId: string;
@@ -143,44 +153,95 @@ export default function QuotationsPage() {
   const [supplierComboOpen, setSupplierComboOpen] = useState(false);
   const [pricingOpen, setPricingOpen] = useState(false);
 
-  const [search, setSearch] = useState('');
+  const [folioSearch, setFolioSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  useEffect(() => { fetchData(); }, []);
+  // Filter states
+  const [dateRange, setDateRange] = useState<DateRange>({
+    from: startOfMonth(new Date()),
+    to: endOfMonth(new Date()),
+  });
+  const [filterClientId, setFilterClientId] = useState('');
+  const [filterDestinationId, setFilterDestinationId] = useState('');
+  const [filterSupplierId, setFilterSupplierId] = useState('');
+  const [filterClientOpen, setFilterClientOpen] = useState(false);
+  const [filterDestinationOpen, setFilterDestinationOpen] = useState(false);
+  const [filterSupplierOpen, setFilterSupplierOpen] = useState(false);
 
-  const fetchData = async () => {
-    setLoading(true);
+  const fetchQuotations = useCallback(async () => {
     try {
-      const [quotRes, clientsRes, destRes, seasonsRes, suppRes] = await Promise.all([
-        fetch('/api/quotations'),
+      const params = new URLSearchParams();
+      if (dateRange.from) params.set('dateFrom', format(dateRange.from, 'yyyy-MM-dd'));
+      if (dateRange.to) params.set('dateTo', format(dateRange.to, 'yyyy-MM-dd'));
+      if (filterClientId) params.set('clientId', filterClientId);
+      if (filterDestinationId) params.set('destinationId', filterDestinationId);
+      if (filterSupplierId) params.set('supplierId', filterSupplierId);
+      if (folioSearch.trim()) params.set('folio', folioSearch.trim());
+      const res = await fetch(`/api/quotations?${params.toString()}`);
+      if (res.ok) setQuotations(await res.json());
+    } catch {
+      toast({ title: 'Error', description: 'No se pudieron cargar las cotizaciones', variant: 'destructive' });
+    }
+  }, [dateRange, filterClientId, filterDestinationId, filterSupplierId, folioSearch, toast]);
+
+  const fetchCatalogs = useCallback(async () => {
+    try {
+      const [clientsRes, destRes, seasonsRes, suppRes] = await Promise.all([
         fetch('/api/clients?all=true'),
         fetch('/api/destinations'),
         fetch('/api/seasons'),
         fetch('/api/suppliers?all=true'),
       ]);
-      if (quotRes.ok) setQuotations(await quotRes.json());
       if (clientsRes.ok) setClients(await clientsRes.json());
       if (destRes.ok) setDestinations(await destRes.json());
       if (seasonsRes.ok) setSeasons(await seasonsRes.json());
       if (suppRes.ok) setSuppliers(await suppRes.json());
     } catch {
-      toast({ title: 'Error', description: 'No se pudieron cargar los datos', variant: 'destructive' });
-    } finally {
-      setLoading(false);
+      // catalogs fail silently
     }
+  }, []);
+
+  useEffect(() => {
+    const init = async () => {
+      setLoading(true);
+      await Promise.all([fetchQuotations(), fetchCatalogs()]);
+      setLoading(false);
+    };
+    init();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    fetchQuotations();
+    setCurrentPage(1);
+  }, [dateRange, filterClientId, filterDestinationId, filterSupplierId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchQuotations();
+      setCurrentPage(1);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [folioSearch]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const fetchData = async () => {
+    setLoading(true);
+    await Promise.all([fetchQuotations(), fetchCatalogs()]);
+    setLoading(false);
   };
 
-  const filteredQuotations = useMemo(() => {
-    if (!search.trim()) return quotations;
-    const s = search.toLowerCase();
-    return quotations.filter(
-      (q) => q.client?.fullName?.toLowerCase().includes(s) || q.destination?.name?.toLowerCase().includes(s)
-    );
-  }, [quotations, search]);
+  const totalPages = Math.ceil(quotations.length / itemsPerPage);
+  const paginatedQuotations = quotations.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-  const totalPages = Math.ceil(filteredQuotations.length / itemsPerPage);
-  const paginatedQuotations = filteredQuotations.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const hasActiveFilters = filterClientId || filterDestinationId || filterSupplierId || folioSearch.trim();
+
+  const clearFilters = () => {
+    setFilterClientId('');
+    setFilterDestinationId('');
+    setFilterSupplierId('');
+    setFolioSearch('');
+    setDateRange({ from: startOfMonth(new Date()), to: endOfMonth(new Date()) });
+  };
 
   const calcNetCost = (d: FormData) => {
     const paidChildren = Math.max(0, d.numChildren - (d.hasFreeChildren ? d.freeChildren : 0));
@@ -472,16 +533,103 @@ export default function QuotationsPage() {
         </Button>
       </div>
 
-      {/* Search */}
+      {/* Filters */}
       <Card className="p-4">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-          <Input
-            placeholder="Buscar por cliente o destino..."
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
-            className="pl-10"
-          />
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <DateRangePicker value={dateRange} onChange={setDateRange} />
+            <div className="flex flex-wrap gap-2">
+              {datePresets.map((preset) => (
+                <Button key={preset.label} variant="outline" size="sm" onClick={() => setDateRange(preset.getRange())}>
+                  {preset.label}
+                </Button>
+              ))}
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative w-44">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Input placeholder="Buscar folio..." value={folioSearch} onChange={(e) => setFolioSearch(e.target.value)} className="pl-10 h-9" />
+            </div>
+            <Popover open={filterClientOpen} onOpenChange={setFilterClientOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className={cn('justify-between gap-2 min-w-[160px]', filterClientId && 'border-blue-500 bg-blue-50 dark:bg-blue-950/20')}>
+                  <span className="truncate max-w-[120px]">{filterClientId ? clients.find((c) => c.id === filterClientId)?.fullName || 'Cliente' : 'Cliente'}</span>
+                  {filterClientId ? <X className="h-3 w-3 shrink-0 opacity-50 hover:opacity-100" onClick={(e) => { e.stopPropagation(); setFilterClientId(''); }} /> : <ChevronsUpDown className="h-3 w-3 shrink-0 opacity-50" />}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[250px] p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="Buscar cliente..." />
+                  <CommandList>
+                    <CommandEmpty>No se encontraron clientes.</CommandEmpty>
+                    <CommandGroup>
+                      {clients.map((c) => (
+                        <CommandItem key={c.id} value={`${c.fullName} ${c.phone}`} onSelect={() => { setFilterClientId(c.id); setFilterClientOpen(false); }}>
+                          <Check className={cn('mr-2 h-4 w-4', filterClientId === c.id ? 'opacity-100' : 'opacity-0')} />
+                          {c.fullName}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+            <Popover open={filterDestinationOpen} onOpenChange={setFilterDestinationOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className={cn('justify-between gap-2 min-w-[160px]', filterDestinationId && 'border-blue-500 bg-blue-50 dark:bg-blue-950/20')}>
+                  <span className="truncate max-w-[120px]">{filterDestinationId ? destinations.find((d) => d.id === filterDestinationId)?.name || 'Destino' : 'Destino'}</span>
+                  {filterDestinationId ? <X className="h-3 w-3 shrink-0 opacity-50 hover:opacity-100" onClick={(e) => { e.stopPropagation(); setFilterDestinationId(''); }} /> : <ChevronsUpDown className="h-3 w-3 shrink-0 opacity-50" />}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[250px] p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="Buscar destino..." />
+                  <CommandList>
+                    <CommandEmpty>No se encontraron destinos.</CommandEmpty>
+                    <CommandGroup>
+                      {destinations.map((d) => (
+                        <CommandItem key={d.id} value={d.name} onSelect={() => { setFilterDestinationId(d.id); setFilterDestinationOpen(false); }}>
+                          <Check className={cn('mr-2 h-4 w-4', filterDestinationId === d.id ? 'opacity-100' : 'opacity-0')} />
+                          {d.name}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+            <Popover open={filterSupplierOpen} onOpenChange={setFilterSupplierOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className={cn('justify-between gap-2 min-w-[160px]', filterSupplierId && 'border-blue-500 bg-blue-50 dark:bg-blue-950/20')}>
+                  <span className="truncate max-w-[120px]">{filterSupplierId ? suppliers.find((s) => s.id === filterSupplierId)?.name || 'Proveedor' : 'Proveedor'}</span>
+                  {filterSupplierId ? <X className="h-3 w-3 shrink-0 opacity-50 hover:opacity-100" onClick={(e) => { e.stopPropagation(); setFilterSupplierId(''); }} /> : <ChevronsUpDown className="h-3 w-3 shrink-0 opacity-50" />}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[250px] p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="Buscar proveedor..." />
+                  <CommandList>
+                    <CommandEmpty>No se encontraron proveedores.</CommandEmpty>
+                    <CommandGroup>
+                      {suppliers.map((s) => (
+                        <CommandItem key={s.id} value={`${s.name} ${s.serviceType}`} onSelect={() => { setFilterSupplierId(s.id); setFilterSupplierOpen(false); }}>
+                          <Check className={cn('mr-2 h-4 w-4', filterSupplierId === s.id ? 'opacity-100' : 'opacity-0')} />
+                          {s.name}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+            {hasActiveFilters && (
+              <Button variant="ghost" size="sm" onClick={clearFilters} className="text-muted-foreground">
+                <X className="w-4 h-4 mr-1" />
+                Limpiar filtros
+              </Button>
+            )}
+          </div>
         </div>
       </Card>
 
@@ -491,6 +639,8 @@ export default function QuotationsPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>Folio</TableHead>
+                <TableHead>Fecha Creación</TableHead>
                 <TableHead>Cliente</TableHead>
                 <TableHead>Destino</TableHead>
                 <TableHead>Salida</TableHead>
@@ -504,6 +654,14 @@ export default function QuotationsPage() {
             <TableBody>
               {paginatedQuotations.map((q) => (
                 <TableRow key={q.id}>
+                  <TableCell>
+                    <span className="font-mono text-xs text-gray-500 bg-gray-100 dark:bg-gray-800 dark:text-gray-400 px-1.5 py-0.5 rounded">
+                      {q.id.slice(-8).toUpperCase()}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                    {q.createdAt ? format(new Date(q.createdAt), "d MMM yyyy", { locale: es }) : '—'}
+                  </TableCell>
                   <TableCell className="font-medium">{q.client?.fullName}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
@@ -558,7 +716,7 @@ export default function QuotationsPage() {
           {totalPages > 1 && (
             <div className="flex justify-between items-center p-4 border-t">
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                Mostrando {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredQuotations.length)} de {filteredQuotations.length}
+                Mostrando {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, quotations.length)} de {quotations.length}
               </p>
               <div className="flex gap-2">
                 <Button size="sm" variant="outline" disabled={currentPage === 1} onClick={() => setCurrentPage((p) => p - 1)}>Anterior</Button>

@@ -32,6 +32,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { Plus, Users, Edit, Trash2, ChevronLeft, ChevronRight, Search, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -46,6 +52,7 @@ interface Client {
   passport: string | null;
   curp: string | null;
   birthDate: string | null;
+  creatorName?: string | null;
 }
 
 const ITEMS_PER_PAGE = 10;
@@ -361,6 +368,7 @@ export default function ClientsPage() {
                 <TableHead className="hidden lg:table-cell">INE/Pasaporte</TableHead>
                 <TableHead className="hidden lg:table-cell">CURP</TableHead>
                 <TableHead className="hidden xl:table-cell">Fecha Nac.</TableHead>
+                <TableHead className="text-center">Creado por</TableHead>
                 <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
@@ -377,6 +385,22 @@ export default function ClientsPage() {
                       {client.birthDate
                         ? format(new Date(client.birthDate), 'dd/MM/yyyy', { locale: es })
                         : '-'}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {client.creatorName ? (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 text-white text-xs font-semibold cursor-default">
+                                {client.creatorName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent><p>{client.creatorName}</p></TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      ) : (
+                        <span className="text-sm text-gray-400">—</span>
+                      )}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
@@ -401,7 +425,7 @@ export default function ClientsPage() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-12">
+                  <TableCell colSpan={8} className="text-center py-12">
                     <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                     <p className="text-gray-500">No se encontraron clientes</p>
                     {searchTerm && (

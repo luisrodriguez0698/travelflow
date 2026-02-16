@@ -5,11 +5,36 @@ import { logAudit } from '@/lib/audit';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const tenantId = await requireTenantId();
+    const { searchParams } = new URL(request.url);
+
+    const dateFrom = searchParams.get('dateFrom');
+    const dateTo = searchParams.get('dateTo');
+    const clientId = searchParams.get('clientId');
+    const destinationId = searchParams.get('destinationId');
+    const supplierId = searchParams.get('supplierId');
+    const folio = searchParams.get('folio');
+
+    const where: any = { tenantId, type: 'QUOTATION' };
+
+    if (dateFrom || dateTo) {
+      where.createdAt = {};
+      if (dateFrom) where.createdAt.gte = new Date(dateFrom);
+      if (dateTo) {
+        const to = new Date(dateTo);
+        to.setHours(23, 59, 59, 999);
+        where.createdAt.lte = to;
+      }
+    }
+
+    if (clientId) where.clientId = clientId;
+    if (destinationId) where.destinationId = destinationId;
+    if (supplierId) where.supplierId = supplierId;
+
     const bookings = await prisma.booking.findMany({
-      where: { tenantId, type: 'QUOTATION' },
+      where,
       include: {
         client: true,
         destination: {
@@ -21,8 +46,12 @@ export async function GET() {
       orderBy: { createdAt: 'desc' },
     });
 
+    const filteredBookings = folio
+      ? bookings.filter((b) => b.id.slice(-8).toUpperCase().includes(folio.toUpperCase()))
+      : bookings;
+
     // Fetch creator names
-    const creatorIds = [...new Set(bookings.map((b) => b.createdBy).filter(Boolean))] as string[];
+    const creatorIds = [...new Set(filteredBookings.map((b) => b.createdBy).filter(Boolean))] as string[];
     const creators = creatorIds.length > 0
       ? await prisma.user.findMany({
           where: { id: { in: creatorIds } },
@@ -31,7 +60,7 @@ export async function GET() {
       : [];
     const creatorMap = Object.fromEntries(creators.map((u) => [u.id, u.name || u.email || 'Usuario']));
 
-    const bookingsWithCreator = bookings.map((b) => ({
+    const bookingsWithCreator = filteredBookings.map((b) => ({
       ...b,
       creatorName: b.createdBy ? creatorMap[b.createdBy] || null : null,
     }));

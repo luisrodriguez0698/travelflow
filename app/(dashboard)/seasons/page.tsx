@@ -32,6 +32,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { Plus, Calendar, Edit, Trash2, ChevronLeft, ChevronRight, Search, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -43,6 +49,7 @@ interface Season {
   _count?: {
     departures: number;
   };
+  creatorName?: string | null;
 }
 
 const COLORS = [
@@ -316,6 +323,7 @@ export default function SeasonsPage() {
                     <TableHead>Temporada</TableHead>
                     <TableHead>Descripción</TableHead>
                     <TableHead className="text-center">Salidas Asignadas</TableHead>
+                    <TableHead className="text-center">Creado por</TableHead>
                     <TableHead className="text-right">Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -338,6 +346,22 @@ export default function SeasonsPage() {
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
                           {season._count?.departures || 0} salidas
                         </span>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {season.creatorName ? (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 text-white text-xs font-semibold cursor-default">
+                                  {season.creatorName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent><p>{season.creatorName}</p></TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        ) : (
+                          <span className="text-sm text-gray-400">—</span>
+                        )}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">

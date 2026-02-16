@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireTenantId } from '@/lib/get-tenant';
+import { requireTenantId, getSessionUser } from '@/lib/get-tenant';
 import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
@@ -11,11 +11,24 @@ export async function GET(request: NextRequest) {
     const all = searchParams.get('all');
 
     if (all === 'true') {
-      const accounts = await prisma.bankAccount.findMany({
+      const allAccounts = await prisma.bankAccount.findMany({
         where: { tenantId },
         orderBy: { referenceName: 'asc' },
       });
-      return NextResponse.json(accounts);
+
+      const allCreatorIds = [...new Set(allAccounts.map((a) => a.createdBy).filter(Boolean))] as string[];
+      const allCreators = allCreatorIds.length > 0
+        ? await prisma.user.findMany({
+            where: { id: { in: allCreatorIds } },
+            select: { id: true, name: true, email: true },
+          })
+        : [];
+      const allCreatorMap = Object.fromEntries(allCreators.map((u) => [u.id, u.name || u.email || 'Usuario']));
+
+      return NextResponse.json(allAccounts.map((a) => ({
+        ...a,
+        creatorName: a.createdBy ? allCreatorMap[a.createdBy] || null : null,
+      })));
     }
 
     const page = parseInt(searchParams.get('page') || '1');
@@ -42,8 +55,21 @@ export async function GET(request: NextRequest) {
       prisma.bankAccount.count({ where }),
     ]);
 
+    // Fetch creator names
+    const creatorIds = [...new Set(accounts.map((a) => a.createdBy).filter(Boolean))] as string[];
+    const creators = creatorIds.length > 0
+      ? await prisma.user.findMany({
+          where: { id: { in: creatorIds } },
+          select: { id: true, name: true, email: true },
+        })
+      : [];
+    const creatorMap = Object.fromEntries(creators.map((u) => [u.id, u.name || u.email || 'Usuario']));
+
     return NextResponse.json({
-      data: accounts,
+      data: accounts.map((a) => ({
+        ...a,
+        creatorName: a.createdBy ? creatorMap[a.createdBy] || null : null,
+      })),
       pagination: {
         page,
         limit,
@@ -68,6 +94,8 @@ export async function POST(request: NextRequest) {
 
     const initialBalance = parseFloat(body.initialBalance) || 0;
 
+    const sessionUser = await getSessionUser();
+
     const account = await prisma.bankAccount.create({
       data: {
         tenantId,
@@ -77,6 +105,7 @@ export async function POST(request: NextRequest) {
         referenceName: body.referenceName,
         initialBalance,
         currentBalance: initialBalance,
+        createdBy: sessionUser?.id || null,
       },
     });
 

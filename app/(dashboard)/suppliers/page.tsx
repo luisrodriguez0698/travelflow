@@ -39,6 +39,12 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { Plus, Truck, Edit, Trash2, ChevronLeft, ChevronRight, Search, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -48,6 +54,7 @@ interface Supplier {
   phone: string;
   email: string | null;
   serviceType: string;
+  creatorName?: string | null;
 }
 
 const SERVICE_TYPES = [
@@ -329,6 +336,7 @@ export default function SuppliersPage() {
                 <TableHead>Teléfono</TableHead>
                 <TableHead className="hidden md:table-cell">Email</TableHead>
                 <TableHead>Tipo de Servicio</TableHead>
+                <TableHead className="text-center">Creado por</TableHead>
                 <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
@@ -343,6 +351,22 @@ export default function SuppliersPage() {
                       <Badge variant="secondary" className={SERVICE_COLORS[supplier.serviceType] || SERVICE_COLORS.OTRO}>
                         {getServiceLabel(supplier.serviceType)}
                       </Badge>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {supplier.creatorName ? (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 text-white text-xs font-semibold cursor-default">
+                                {supplier.creatorName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent><p>{supplier.creatorName}</p></TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      ) : (
+                        <span className="text-sm text-gray-400">—</span>
+                      )}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
@@ -367,7 +391,7 @@ export default function SuppliersPage() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-12">
+                  <TableCell colSpan={6} className="text-center py-12">
                     <Truck className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                     <p className="text-gray-500">No se encontraron proveedores</p>
                     {searchTerm && (

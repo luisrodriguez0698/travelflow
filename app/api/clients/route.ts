@@ -48,8 +48,21 @@ export async function GET(request: NextRequest) {
       prisma.client.count({ where }),
     ]);
 
+    // Fetch creator names
+    const creatorIds = [...new Set(clients.map((c) => c.createdBy).filter(Boolean))] as string[];
+    const creators = creatorIds.length > 0
+      ? await prisma.user.findMany({
+          where: { id: { in: creatorIds } },
+          select: { id: true, name: true, email: true },
+        })
+      : [];
+    const creatorMap = Object.fromEntries(creators.map((u) => [u.id, u.name || u.email || 'Usuario']));
+
     return NextResponse.json({
-      data: clients,
+      data: clients.map((c) => ({
+        ...c,
+        creatorName: c.createdBy ? creatorMap[c.createdBy] || null : null,
+      })),
       pagination: {
         page,
         limit,
@@ -77,6 +90,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const sessionUser = await getSessionUser();
+
     const client = await prisma.client.create({
       data: {
         tenantId,
@@ -87,11 +102,11 @@ export async function POST(request: NextRequest) {
         phone,
         email: email || null,
         birthDate: birthDate ? new Date(birthDate) : null,
+        createdBy: sessionUser?.id || null,
       },
     });
 
     // Audit log
-    const sessionUser = await getSessionUser();
     if (sessionUser) {
       await logAudit({
         tenantId,

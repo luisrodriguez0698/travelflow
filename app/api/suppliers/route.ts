@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireTenantId } from '@/lib/get-tenant';
+import { requireTenantId, getSessionUser } from '@/lib/get-tenant';
 import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
@@ -47,8 +47,21 @@ export async function GET(request: NextRequest) {
       prisma.supplier.count({ where }),
     ]);
 
+    // Fetch creator names
+    const creatorIds = [...new Set(suppliers.map((s) => s.createdBy).filter(Boolean))] as string[];
+    const creators = creatorIds.length > 0
+      ? await prisma.user.findMany({
+          where: { id: { in: creatorIds } },
+          select: { id: true, name: true, email: true },
+        })
+      : [];
+    const creatorMap = Object.fromEntries(creators.map((u) => [u.id, u.name || u.email || 'Usuario']));
+
     return NextResponse.json({
-      data: suppliers,
+      data: suppliers.map((s) => ({
+        ...s,
+        creatorName: s.createdBy ? creatorMap[s.createdBy] || null : null,
+      })),
       pagination: {
         page,
         limit,
@@ -76,6 +89,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const sessionUser = await getSessionUser();
+
     const supplier = await prisma.supplier.create({
       data: {
         tenantId,
@@ -83,6 +98,7 @@ export async function POST(request: NextRequest) {
         phone,
         email: email || null,
         serviceType: serviceType || 'OTRO',
+        createdBy: sessionUser?.id || null,
       },
     });
 

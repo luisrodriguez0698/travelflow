@@ -17,6 +17,9 @@ export async function GET(
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '20');
     const type = searchParams.get('type') || '';
+    const dateFrom = searchParams.get('dateFrom');
+    const dateTo = searchParams.get('dateTo');
+    const search = searchParams.get('search');
     const skip = (page - 1) * limit;
 
     // Verify account ownership
@@ -32,6 +35,40 @@ export async function GET(
     if (type && type !== 'ALL') {
       where.type = type;
     }
+    if (dateFrom || dateTo) {
+      where.date = {};
+      if (dateFrom) where.date.gte = new Date(dateFrom);
+      if (dateTo) {
+        const to = new Date(dateTo);
+        to.setHours(23, 59, 59, 999);
+        where.date.lte = to;
+      }
+    }
+    if (search) {
+      where.OR = [
+        { description: { contains: search, mode: 'insensitive' } },
+        { reference: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    // Monthly summary (always current month, independent of filters)
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    const monthlyTxs = await prisma.bankTransaction.findMany({
+      where: {
+        bankAccountId: id,
+        status: 'ACTIVE',
+        date: { gte: monthStart, lte: monthEnd },
+      },
+      select: { type: true, amount: true },
+    });
+    let monthlyIncome = 0;
+    let monthlyExpense = 0;
+    for (const tx of monthlyTxs) {
+      if (tx.type === 'INCOME') monthlyIncome += tx.amount;
+      if (tx.type === 'EXPENSE' || tx.type === 'TRANSFER') monthlyExpense += tx.amount;
+    }
 
     const [transactions, total] = await Promise.all([
       prisma.bankTransaction.findMany({
@@ -40,7 +77,13 @@ export async function GET(
         skip,
         take: limit,
         include: {
-          booking: { include: { client: true } },
+          booking: {
+            include: {
+              client: true,
+              destination: { include: { season: true } },
+              supplier: true,
+            },
+          },
         },
       }),
       prisma.bankTransaction.count({ where }),
@@ -49,6 +92,7 @@ export async function GET(
     return NextResponse.json({
       data: transactions,
       account,
+      monthlySummary: { income: monthlyIncome, expense: monthlyExpense },
       pagination: {
         page,
         limit,
