@@ -197,6 +197,9 @@ model Booking {
   priceChild       Float    @default(0)
   numAdults        Int      @default(1)
   numChildren      Int      @default(0)
+  pricePerNight    Float    @default(0)
+  numNights        Int      @default(0)
+  freeChildren     Int      @default(0)
 
   // Legacy fields (migración)
   packageId        String?

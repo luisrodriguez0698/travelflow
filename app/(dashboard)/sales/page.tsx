@@ -18,7 +18,9 @@ import { DatePicker } from '@/components/ui/date-picker';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Plus, Search, Pencil, Trash2, ShoppingCart, Loader2, Eye, TrendingUp, Check, ChevronsUpDown } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Plus, Search, Pencil, Trash2, ShoppingCart, Loader2, Eye, TrendingUp, Check, ChevronsUpDown, ChevronDown, DollarSign } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { format } from 'date-fns';
@@ -48,6 +50,7 @@ interface Destination {
 interface Supplier {
   id: string;
   name: string;
+  phone: string;
   serviceType: string;
 }
 
@@ -69,6 +72,9 @@ interface Sale {
   priceChild: number;
   numAdults: number;
   numChildren: number;
+  pricePerNight: number;
+  numNights: number;
+  freeChildren: number;
   supplierId?: string;
   supplierDeadline?: string;
   createdBy?: string;
@@ -87,6 +93,10 @@ interface FormData {
   priceChild: number;
   numAdults: number;
   numChildren: number;
+  pricePerNight: number;
+  numNights: number;
+  freeChildren: number;
+  hasFreeChildren: boolean;
   totalPrice: number;
   paymentType: 'CASH' | 'CREDIT';
   downPayment: number;
@@ -105,6 +115,10 @@ const initialFormData: FormData = {
   priceChild: 0,
   numAdults: 1,
   numChildren: 0,
+  pricePerNight: 0,
+  numNights: 0,
+  freeChildren: 0,
+  hasFreeChildren: false,
   totalPrice: 0,
   paymentType: 'CASH',
   downPayment: 0,
@@ -138,11 +152,16 @@ export default function SalesPage() {
   const [editingDestinationId, setEditingDestinationId] = useState<string | null>(null);
   const [newClient, setNewClient] = useState({ fullName: '', phone: '', email: '' });
   const [newDestination, setNewDestination] = useState({ name: '', description: '', seasonId: '' });
+  const [showSupplierModal, setShowSupplierModal] = useState(false);
+  const [editingSupplierId, setEditingSupplierId] = useState<string | null>(null);
+  const [newSupplier, setNewSupplier] = useState({ name: '', phone: '', email: '', serviceType: 'OTRO' });
   const [savingInline, setSavingInline] = useState(false);
 
   // Combobox open states
   const [clientComboOpen, setClientComboOpen] = useState(false);
   const [destinationComboOpen, setDestinationComboOpen] = useState(false);
+  const [supplierComboOpen, setSupplierComboOpen] = useState(false);
+  const [pricingOpen, setPricingOpen] = useState(false);
 
   // Search and pagination
   const [search, setSearch] = useState('');
@@ -187,15 +206,20 @@ export default function SalesPage() {
   const paginatedSales = filteredSales.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   // Auto-calculate net cost and adjust total price if needed
+  const calcNetCost = (d: FormData) => {
+    const paidChildren = Math.max(0, d.numChildren - (d.hasFreeChildren ? d.freeChildren : 0));
+    return (d.priceAdult * d.numAdults) + (d.priceChild * paidChildren) + (d.pricePerNight * d.numNights);
+  };
+
   const recalcTotal = (data: Partial<FormData>) => {
-    const d = { ...formData, ...data };
-    const netCost = (d.priceAdult * d.numAdults) + (d.priceChild * d.numChildren);
-    const totalPrice = d.totalPrice < netCost ? netCost : d.totalPrice;
+    const d = { ...formData, ...data } as FormData;
+    const nc = calcNetCost(d);
+    const totalPrice = d.totalPrice < nc ? nc : d.totalPrice;
     return { ...d, totalPrice };
   };
 
   // Computed values
-  const netCost = (formData.priceAdult * formData.numAdults) + (formData.priceChild * formData.numChildren);
+  const netCost = calcNetCost(formData);
   const profit = formData.totalPrice - netCost;
   const profitPercent = netCost > 0 ? ((profit / netCost) * 100) : 0;
 
@@ -216,6 +240,10 @@ export default function SalesPage() {
       priceChild: sale.priceChild || 0,
       numAdults: sale.numAdults || 1,
       numChildren: sale.numChildren || 0,
+      pricePerNight: sale.pricePerNight || 0,
+      numNights: sale.numNights || 0,
+      freeChildren: sale.freeChildren || 0,
+      hasFreeChildren: (sale.freeChildren || 0) > 0,
       totalPrice: sale.totalPrice,
       paymentType: sale.paymentType as 'CASH' | 'CREDIT',
       downPayment: sale.downPayment,
@@ -257,6 +285,9 @@ export default function SalesPage() {
           priceChild: formData.priceChild,
           numAdults: formData.numAdults,
           numChildren: formData.numChildren,
+          pricePerNight: formData.pricePerNight,
+          numNights: formData.numNights,
+          freeChildren: formData.hasFreeChildren ? formData.freeChildren : 0,
           totalPrice: formData.totalPrice,
           paymentType: formData.paymentType,
           downPayment: formData.downPayment,
@@ -392,6 +423,54 @@ export default function SalesPage() {
     setEditingDestinationId(dest.id);
     setNewDestination({ name: dest.name, description: dest.description || '', seasonId: dest.season?.id || '' });
     setShowDestinationModal(true);
+  };
+
+  // Inline supplier creation/edit
+  const handleSaveSupplier = async () => {
+    if (!newSupplier.name.trim() || !newSupplier.phone.trim()) {
+      toast({ title: 'Error', description: 'Nombre y teléfono son requeridos', variant: 'destructive' });
+      return;
+    }
+    setSavingInline(true);
+    try {
+      const isEdit = !!editingSupplierId;
+      const url = isEdit ? `/api/suppliers/${editingSupplierId}` : '/api/suppliers';
+      const method = isEdit ? 'PUT' : 'POST';
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newSupplier),
+      });
+      if (res.ok) {
+        if (isEdit) {
+          setSuppliers((prev) => prev.map((s) => s.id === editingSupplierId ? { ...s, ...newSupplier } : s));
+          toast({ title: 'Proveedor actualizado' });
+        } else {
+          const created = await res.json();
+          setSuppliers((prev) => [...prev, created]);
+          setFormData((prev) => ({ ...prev, supplierId: created.id }));
+          toast({ title: 'Proveedor creado' });
+        }
+        setShowSupplierModal(false);
+        setEditingSupplierId(null);
+        setNewSupplier({ name: '', phone: '', email: '', serviceType: 'OTRO' });
+      } else {
+        const data = await res.json();
+        toast({ title: 'Error', description: data.error || 'Error al guardar proveedor', variant: 'destructive' });
+      }
+    } catch {
+      toast({ title: 'Error', description: 'Error de conexión', variant: 'destructive' });
+    } finally {
+      setSavingInline(false);
+    }
+  };
+
+  const openEditSupplier = () => {
+    const supplier = suppliers.find((s) => s.id === formData.supplierId);
+    if (!supplier) return;
+    setEditingSupplierId(supplier.id);
+    setNewSupplier({ name: supplier.name, phone: supplier.phone || '', email: '', serviceType: supplier.serviceType || 'OTRO' });
+    setShowSupplierModal(true);
   };
 
   const formatDateStr = (date: string) => format(new Date(date), "d 'de' MMM, yyyy", { locale: es });
@@ -682,76 +761,99 @@ export default function SalesPage() {
               </div>
             </div>
 
-            {/* Pricing */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Precio Adulto ($)</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  value={formData.priceAdult || ''}
-                  onChange={(e) => {
-                    const v = parseFloat(e.target.value) || 0;
-                    setFormData((p) => recalcTotal({ ...p, priceAdult: v }));
-                  }}
-                  placeholder="0"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Precio Niño ($)</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  value={formData.priceChild || ''}
-                  onChange={(e) => {
-                    const v = parseFloat(e.target.value) || 0;
-                    setFormData((p) => recalcTotal({ ...p, priceChild: v }));
-                  }}
-                  placeholder="0"
-                />
-              </div>
-            </div>
+            {/* Pricing Section - Collapsible */}
+            <Collapsible open={pricingOpen} onOpenChange={setPricingOpen}>
+              <div className="rounded-lg border">
+                <CollapsibleTrigger asChild>
+                  <button type="button" className="flex w-full items-center justify-between p-3 hover:bg-muted/50 transition-colors rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <DollarSign className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-sm font-semibold">Detalles de Costos</span>
+                      {netCost > 0 && !pricingOpen && (
+                        <Badge variant="secondary" className="ml-2 font-mono">
+                          Costo Neto: ${netCost.toLocaleString('es-MX')}
+                        </Badge>
+                      )}
+                    </div>
+                    <ChevronDown className={cn('w-4 h-4 text-muted-foreground transition-transform', pricingOpen && 'rotate-180')} />
+                  </button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="space-y-4 p-3 pt-0 border-t">
+                    {/* Precio por Noche / Noches */}
+                    <div className="grid grid-cols-2 gap-4 pt-3">
+                      <div className="space-y-2">
+                        <Label>Precio por Noche ($)</Label>
+                        <Input type="number" min={0} value={formData.pricePerNight || ''} onChange={(e) => { const v = parseFloat(e.target.value) || 0; setFormData((p) => recalcTotal({ ...p, pricePerNight: v })); }} placeholder="0 (opcional)" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Noches</Label>
+                        <Input type="number" min={0} value={formData.numNights || ''} onChange={(e) => { const v = Math.max(0, parseInt(e.target.value) || 0); setFormData((p) => recalcTotal({ ...p, numNights: v })); }} placeholder="0" />
+                      </div>
+                    </div>
 
-            {/* Passengers */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Adultos</Label>
-                <Input
-                  type="number"
-                  min={1}
-                  value={formData.numAdults}
-                  onChange={(e) => {
-                    const v = Math.max(1, parseInt(e.target.value) || 1);
-                    setFormData((p) => recalcTotal({ ...p, numAdults: v }));
-                  }}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Niños</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  value={formData.numChildren}
-                  onChange={(e) => {
-                    const v = Math.max(0, parseInt(e.target.value) || 0);
-                    setFormData((p) => recalcTotal({ ...p, numChildren: v }));
-                  }}
-                />
-              </div>
-            </div>
+                    {/* Precio Adulto / Adultos */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Precio Adulto ($)</Label>
+                        <Input type="number" min={0} value={formData.priceAdult || ''} onChange={(e) => { const v = parseFloat(e.target.value) || 0; setFormData((p) => recalcTotal({ ...p, priceAdult: v })); }} placeholder="0" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Adultos</Label>
+                        <Input type="number" min={1} value={formData.numAdults} onChange={(e) => { const v = Math.max(1, parseInt(e.target.value) || 1); setFormData((p) => recalcTotal({ ...p, numAdults: v })); }} />
+                      </div>
+                    </div>
 
-            {/* Net Cost (read-only) */}
-            {netCost > 0 && (
-              <div className="space-y-2">
-                <Label>Costo Neto ($)</Label>
-                <div className="flex items-center h-10 px-3 rounded-md border bg-muted text-muted-foreground font-semibold text-lg">
-                  ${netCost.toLocaleString('es-MX')}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  ({formData.numAdults} × ${formData.priceAdult.toLocaleString('es-MX')}) + ({formData.numChildren} × ${formData.priceChild.toLocaleString('es-MX')})
-                </p>
+                    {/* Precio Niño / Niños */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Precio Niño ($)</Label>
+                        <Input type="number" min={0} value={formData.priceChild || ''} onChange={(e) => { const v = parseFloat(e.target.value) || 0; setFormData((p) => recalcTotal({ ...p, priceChild: v })); }} placeholder="0" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Niños</Label>
+                        <Input type="number" min={0} value={formData.numChildren} onChange={(e) => { const v = Math.max(0, parseInt(e.target.value) || 0); setFormData((p) => recalcTotal({ ...p, numChildren: v })); }} />
+                      </div>
+                    </div>
+
+                    {/* Free Children Switch */}
+                    {formData.numChildren > 0 && (
+                      <div className="flex items-center justify-between rounded-lg border p-3 bg-muted/30">
+                        <div className="space-y-0.5">
+                          <Label className="text-sm font-medium">Niños Gratis</Label>
+                          <p className="text-xs text-muted-foreground">Marcar si hay niños que no pagan</p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          {formData.hasFreeChildren && (
+                            <Input type="number" min={1} max={formData.numChildren} value={formData.freeChildren || 1} onChange={(e) => { const v = Math.min(formData.numChildren, Math.max(1, parseInt(e.target.value) || 1)); setFormData((p) => recalcTotal({ ...p, freeChildren: v })); }} className="w-20 h-8 text-center" />
+                          )}
+                          <Switch checked={formData.hasFreeChildren} onCheckedChange={(checked) => { setFormData((p) => recalcTotal({ ...p, hasFreeChildren: checked, freeChildren: checked ? Math.min(p.freeChildren || 1, p.numChildren) : 0 })); }} />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Net Cost Summary */}
+                    {netCost > 0 && (
+                      <div className="rounded-lg bg-muted/50 p-3 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium text-muted-foreground">Costo Neto</span>
+                          <span className="font-semibold text-lg">${netCost.toLocaleString('es-MX')}</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {formData.priceAdult > 0 && `${formData.numAdults} adulto${formData.numAdults !== 1 ? 's' : ''} × $${formData.priceAdult.toLocaleString('es-MX')}`}
+                          {formData.priceChild > 0 && (() => {
+                            const paidChildren = Math.max(0, formData.numChildren - (formData.hasFreeChildren ? formData.freeChildren : 0));
+                            return paidChildren > 0 ? ` + ${paidChildren} niño${paidChildren !== 1 ? 's' : ''} × $${formData.priceChild.toLocaleString('es-MX')}` : '';
+                          })()}
+                          {formData.pricePerNight > 0 && formData.numNights > 0 && ` + ${formData.numNights} noche${formData.numNights !== 1 ? 's' : ''} × $${formData.pricePerNight.toLocaleString('es-MX')}`}
+                          {formData.hasFreeChildren && formData.freeChildren > 0 && ` · ${formData.freeChildren} niño${formData.freeChildren !== 1 ? 's' : ''} gratis`}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </CollapsibleContent>
               </div>
-            )}
+            </Collapsible>
 
             {/* Sale Price + Profit */}
             <div className="grid grid-cols-2 gap-4">
@@ -838,20 +940,63 @@ export default function SalesPage() {
             {/* Supplier */}
             <div className="border-t pt-4 mt-2">
               <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Proveedor (opcional)</h3>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-4">
                 <div className="space-y-2">
                   <Label>Proveedor</Label>
-                  <Select value={formData.supplierId} onValueChange={(v) => setFormData((p) => ({ ...p, supplierId: v }))}>
-                    <SelectTrigger><SelectValue placeholder="Selecciona proveedor" /></SelectTrigger>
-                    <SelectContent>
-                      {suppliers.map((s) => (
-                        <SelectItem key={s.id} value={s.id}>{s.name} ({s.serviceType})</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="flex gap-2">
+                    <Popover open={supplierComboOpen} onOpenChange={setSupplierComboOpen}>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" role="combobox" aria-expanded={supplierComboOpen} className="flex-1 justify-between font-normal">
+                          {formData.supplierId
+                            ? (() => { const s = suppliers.find((s) => s.id === formData.supplierId); return s ? `${s.name} (${s.serviceType})` : 'Selecciona proveedor'; })()
+                            : 'Selecciona proveedor'}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                        <Command>
+                          <CommandInput placeholder="Buscar proveedor..." />
+                          <CommandList>
+                            <CommandEmpty>No se encontraron proveedores.</CommandEmpty>
+                            <CommandGroup>
+                              <CommandItem
+                                value="__none__"
+                                onSelect={() => {
+                                  setFormData((p) => ({ ...p, supplierId: '' }));
+                                  setSupplierComboOpen(false);
+                                }}
+                              >
+                                <Check className={cn('mr-2 h-4 w-4', !formData.supplierId ? 'opacity-100' : 'opacity-0')} />
+                                Sin proveedor
+                              </CommandItem>
+                              {suppliers.map((s) => (
+                                <CommandItem
+                                  key={s.id}
+                                  value={`${s.name} ${s.serviceType}`}
+                                  onSelect={() => {
+                                    setFormData((p) => ({ ...p, supplierId: s.id }));
+                                    setSupplierComboOpen(false);
+                                  }}
+                                >
+                                  <Check className={cn('mr-2 h-4 w-4', formData.supplierId === s.id ? 'opacity-100' : 'opacity-0')} />
+                                  {s.name} ({s.serviceType})
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                    <Button type="button" variant="outline" size="icon" onClick={openEditSupplier} disabled={!formData.supplierId} title="Editar proveedor">
+                      <Pencil className="w-4 h-4" />
+                    </Button>
+                    <Button type="button" variant="outline" size="icon" onClick={() => { setEditingSupplierId(null); setNewSupplier({ name: '', phone: '', email: '', serviceType: 'OTRO' }); setShowSupplierModal(true); }} title="Nuevo proveedor">
+                      <Plus className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Fecha Límite</Label>
+                  <Label>Fecha Límite Proveedor</Label>
                   <DatePicker
                     value={formData.supplierDeadline || undefined}
                     onChange={(date) => setFormData((p) => ({ ...p, supplierDeadline: date || null }))}
@@ -936,6 +1081,50 @@ export default function SalesPage() {
             <Button onClick={handleSaveDestination} disabled={savingInline}>
               {savingInline && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               {editingDestinationId ? 'Guardar Cambios' : 'Crear Destino'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ===== INLINE SUPPLIER CREATE/EDIT MODAL ===== */}
+      <Dialog open={showSupplierModal} onOpenChange={(open) => { setShowSupplierModal(open); if (!open) { setEditingSupplierId(null); setNewSupplier({ name: '', phone: '', email: '', serviceType: 'OTRO' }); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editingSupplierId ? 'Editar Proveedor' : 'Nuevo Proveedor'}</DialogTitle>
+            <DialogDescription>{editingSupplierId ? 'Modifica los datos del proveedor' : 'Crea un proveedor rápidamente'}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Nombre *</Label>
+              <Input value={newSupplier.name} onChange={(e) => setNewSupplier((p) => ({ ...p, name: e.target.value }))} placeholder="Nombre del proveedor" />
+            </div>
+            <div className="space-y-2">
+              <Label>Teléfono *</Label>
+              <Input value={newSupplier.phone} onChange={(e) => setNewSupplier((p) => ({ ...p, phone: e.target.value }))} placeholder="Teléfono" />
+            </div>
+            <div className="space-y-2">
+              <Label>Email</Label>
+              <Input value={newSupplier.email} onChange={(e) => setNewSupplier((p) => ({ ...p, email: e.target.value }))} placeholder="Email (opcional)" />
+            </div>
+            <div className="space-y-2">
+              <Label>Tipo de Servicio</Label>
+              <Select value={newSupplier.serviceType} onValueChange={(v) => setNewSupplier((p) => ({ ...p, serviceType: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="HOTEL">Hotel</SelectItem>
+                  <SelectItem value="TRANSPORTE">Transporte</SelectItem>
+                  <SelectItem value="TOUR">Tour</SelectItem>
+                  <SelectItem value="SEGURO">Seguro</SelectItem>
+                  <SelectItem value="OTRO">Otro</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSupplierModal(false)}>Cancelar</Button>
+            <Button onClick={handleSaveSupplier} disabled={savingInline}>
+              {savingInline && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              {editingSupplierId ? 'Guardar Cambios' : 'Crear Proveedor'}
             </Button>
           </DialogFooter>
         </DialogContent>

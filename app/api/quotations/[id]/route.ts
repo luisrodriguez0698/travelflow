@@ -66,7 +66,11 @@ export async function PUT(
     const numChildren = body.numChildren || 0;
     const priceAdult = body.priceAdult || 0;
     const priceChild = body.priceChild || 0;
-    const netCost = (priceAdult * numAdults) + (priceChild * numChildren);
+    const pricePerNight = body.pricePerNight || 0;
+    const numNights = body.numNights || 0;
+    const freeChildren = body.freeChildren || 0;
+    const paidChildren = Math.max(0, numChildren - freeChildren);
+    const netCost = (priceAdult * numAdults) + (priceChild * paidChildren) + (pricePerNight * numNights);
 
     // Delete old payment plans and recreate
     if (
