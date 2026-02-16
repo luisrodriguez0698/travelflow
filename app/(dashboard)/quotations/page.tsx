@@ -166,9 +166,14 @@ export default function QuotationsPage() {
 
   const recalcTotal = (data: Partial<FormData>) => {
     const d = { ...formData, ...data };
-    const total = (d.priceAdult * d.numAdults) + (d.priceChild * d.numChildren);
-    return { ...d, totalPrice: total };
+    const netCost = (d.priceAdult * d.numAdults) + (d.priceChild * d.numChildren);
+    const totalPrice = d.totalPrice < netCost ? netCost : d.totalPrice;
+    return { ...d, totalPrice };
   };
+
+  const netCost = (formData.priceAdult * formData.numAdults) + (formData.priceChild * formData.numChildren);
+  const profit = formData.totalPrice - netCost;
+  const profitPercent = netCost > 0 ? ((profit / netCost) * 100) : 0;
 
   const openCreateModal = () => {
     setEditingQuotation(null);
@@ -620,14 +625,53 @@ export default function QuotationsPage() {
               </div>
             </div>
 
-            {/* Total */}
-            <div className="space-y-2">
-              <Label>Precio Total ($) *</Label>
-              <Input type="number" value={formData.totalPrice || ''} onChange={(e) => setFormData((p) => ({ ...p, totalPrice: parseFloat(e.target.value) || 0 }))} className="text-lg font-semibold" placeholder="0" />
-              {formData.priceAdult > 0 && (
+            {/* Net Cost (read-only) */}
+            {netCost > 0 && (
+              <div className="space-y-2">
+                <Label>Costo Neto ($)</Label>
+                <div className="flex items-center h-10 px-3 rounded-md border bg-muted text-muted-foreground font-semibold text-lg">
+                  ${netCost.toLocaleString('es-MX')}
+                </div>
                 <p className="text-xs text-muted-foreground">
-                  Cálculo: ({formData.numAdults} × ${formData.priceAdult.toLocaleString('es-MX')}) + ({formData.numChildren} × ${formData.priceChild.toLocaleString('es-MX')}) = ${((formData.priceAdult * formData.numAdults) + (formData.priceChild * formData.numChildren)).toLocaleString('es-MX')}
+                  ({formData.numAdults} × ${formData.priceAdult.toLocaleString('es-MX')}) + ({formData.numChildren} × ${formData.priceChild.toLocaleString('es-MX')})
                 </p>
+              </div>
+            )}
+
+            {/* Sale Price + Profit */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Precio de Venta ($) *</Label>
+                <Input
+                  type="number"
+                  value={formData.totalPrice || ''}
+                  onChange={(e) => {
+                    const v = parseFloat(e.target.value) || 0;
+                    setFormData((p) => ({ ...p, totalPrice: v }));
+                  }}
+                  onBlur={() => {
+                    if (netCost > 0 && formData.totalPrice < netCost) {
+                      setFormData((p) => ({ ...p, totalPrice: netCost }));
+                    }
+                  }}
+                  className="text-lg font-semibold"
+                  placeholder="0"
+                  min={netCost || 0}
+                />
+                {netCost > 0 && formData.totalPrice < netCost && (
+                  <p className="text-xs text-red-500">No puede ser menor al costo neto</p>
+                )}
+              </div>
+              {netCost > 0 && formData.totalPrice > 0 && (
+                <div className="space-y-2">
+                  <Label>Ganancia</Label>
+                  <div className={`flex items-center h-10 px-3 rounded-md border font-semibold text-lg ${profit >= 0 ? 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800' : 'bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800'}`}>
+                    ${profit.toLocaleString('es-MX')}
+                  </div>
+                  <p className={`text-xs font-medium ${profit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'}`}>
+                    Margen: {profitPercent.toFixed(1)}%
+                  </p>
+                </div>
               )}
             </div>
 
