@@ -10,9 +10,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
-import { Moon, Sun, User, LogOut, Building2 } from 'lucide-react';
+import { Moon, Sun, User, LogOut, Building2, CalendarDays } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { NotificationPanel } from './notification-panel';
+import { TripStatusPanel } from './trip-status-panel';
+import Link from 'next/link';
 
 export function Navbar() {
   const { data: session } = useSession() || {};
@@ -28,6 +30,16 @@ export function Navbar() {
         </div>
 
         <div className="flex items-center space-x-4">
+          {/* Calendar */}
+          <Link href="/calendar">
+            <Button variant="ghost" size="icon">
+              <CalendarDays className="h-5 w-5" />
+            </Button>
+          </Link>
+
+          {/* Trip Status */}
+          <TripStatusPanel />
+
           {/* Notifications */}
           <NotificationPanel />
 

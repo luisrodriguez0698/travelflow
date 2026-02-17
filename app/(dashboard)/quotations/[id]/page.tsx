@@ -33,6 +33,10 @@ import {
   CalendarClock,
   Clock,
   AlertTriangle,
+  Hotel,
+  Plane,
+  MapPinned,
+  Package,
 } from 'lucide-react';
 import Link from 'next/link';
 import { format } from 'date-fns';
@@ -49,6 +53,35 @@ interface PaymentPlan {
   status: string;
   paidDate?: string;
   notes?: string;
+}
+
+interface BookingItem {
+  id: string;
+  type: string;
+  description?: string;
+  cost: number;
+  sortOrder: number;
+  hotelId?: string;
+  hotel?: { name: string };
+  roomType?: string;
+  numAdults?: number;
+  numChildren?: number;
+  freeChildren?: number;
+  pricePerNight?: number;
+  numNights?: number;
+  plan?: string;
+  airline?: string;
+  flightNumber?: string;
+  origin?: string;
+  flightDestination?: string;
+  departureTime?: string;
+  arrivalTime?: string;
+  flightClass?: string;
+  direction?: string;
+  tourName?: string;
+  tourDate?: string;
+  numPeople?: number;
+  pricePerPerson?: number;
 }
 
 interface Quotation {
@@ -98,6 +131,7 @@ interface Quotation {
     email?: string;
     serviceType: string;
   };
+  items?: BookingItem[];
   creatorName?: string;
 }
 
@@ -396,6 +430,187 @@ export default function QuotationDetailPage() {
           </div>
         </Card>
       )}
+
+      {/* Booking Items / Services */}
+      {quotation.items && quotation.items.length > 0 && (() => {
+        const hotelItems = quotation.items!.filter(i => i.type === 'HOTEL');
+        const flightItems = quotation.items!.filter(i => i.type === 'FLIGHT');
+        const tourItems = quotation.items!.filter(i => i.type === 'TOUR');
+        const otherItems = quotation.items!.filter(i => !['HOTEL', 'FLIGHT', 'TOUR'].includes(i.type));
+        const totalItemsCost = quotation.items!.reduce((sum, i) => sum + (i.cost || 0), 0);
+        const planLabels: Record<string, string> = { AI: 'All Inclusive', EP: 'Solo Hospedaje', MAP: 'Media Pensión', AP: 'Pensión Completa', BB: 'Bed & Breakfast' };
+        const formatTime = (d?: string) => d ? format(new Date(d), "HH:mm") : '';
+        const formatItemDate = (d?: string) => d ? format(new Date(d), "d MMM yyyy", { locale: es }) : '';
+
+        return (
+          <Card className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Package className="w-5 h-5 text-indigo-500" />
+                <h3 className="text-lg font-semibold">Servicios del Paquete</h3>
+              </div>
+              <Badge variant="secondary">{quotation.items!.length} servicio{quotation.items!.length !== 1 ? 's' : ''}</Badge>
+            </div>
+
+            <div className="space-y-4">
+              {/* Hotel Items */}
+              {hotelItems.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Hotel className="w-4 h-4 text-blue-500" />
+                    <h4 className="font-medium text-blue-700 dark:text-blue-400">Hospedaje</h4>
+                  </div>
+                  <div className="rounded-lg border overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-blue-50 dark:bg-blue-950/30">
+                          <TableHead>Hotel</TableHead>
+                          <TableHead>Tipo Hab.</TableHead>
+                          <TableHead>Plan</TableHead>
+                          <TableHead className="text-center">Ocupación</TableHead>
+                          <TableHead className="text-center">Noches</TableHead>
+                          <TableHead className="text-right">$/Noche</TableHead>
+                          <TableHead className="text-right">Costo</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {hotelItems.map((item) => (
+                          <TableRow key={item.id}>
+                            <TableCell className="font-medium">{item.hotel?.name || item.description || '-'}</TableCell>
+                            <TableCell>{item.roomType || '-'}</TableCell>
+                            <TableCell>{item.plan ? (planLabels[item.plan] || item.plan) : '-'}</TableCell>
+                            <TableCell className="text-center">
+                              {item.numAdults || 0}A {(item.numChildren || 0) > 0 ? `+ ${item.numChildren}N` : ''}
+                            </TableCell>
+                            <TableCell className="text-center">{item.numNights || '-'}</TableCell>
+                            <TableCell className="text-right">${(item.pricePerNight || 0).toLocaleString('es-MX')}</TableCell>
+                            <TableCell className="text-right font-medium">${item.cost.toLocaleString('es-MX')}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              )}
+
+              {/* Flight Items */}
+              {flightItems.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Plane className="w-4 h-4 text-cyan-500" />
+                    <h4 className="font-medium text-cyan-700 dark:text-cyan-400">Vuelos</h4>
+                  </div>
+                  <div className="rounded-lg border overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-cyan-50 dark:bg-cyan-950/30">
+                          <TableHead>Dirección</TableHead>
+                          <TableHead>Aerolínea</TableHead>
+                          <TableHead>Vuelo</TableHead>
+                          <TableHead>Ruta</TableHead>
+                          <TableHead>Horario</TableHead>
+                          <TableHead>Clase</TableHead>
+                          <TableHead className="text-right">Costo</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {flightItems.map((item) => (
+                          <TableRow key={item.id}>
+                            <TableCell>
+                              <Badge variant={item.direction === 'IDA' ? 'default' : 'secondary'}>
+                                {item.direction === 'IDA' ? 'Ida' : 'Regreso'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="font-medium">{item.airline || '-'}</TableCell>
+                            <TableCell>{item.flightNumber || '-'}</TableCell>
+                            <TableCell>{item.origin} → {item.flightDestination}</TableCell>
+                            <TableCell>
+                              {item.departureTime ? formatTime(item.departureTime) : '-'}
+                              {item.arrivalTime ? ` - ${formatTime(item.arrivalTime)}` : ''}
+                            </TableCell>
+                            <TableCell>{item.flightClass || '-'}</TableCell>
+                            <TableCell className="text-right font-medium">${item.cost.toLocaleString('es-MX')}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              )}
+
+              {/* Tour Items */}
+              {tourItems.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <MapPinned className="w-4 h-4 text-amber-500" />
+                    <h4 className="font-medium text-amber-700 dark:text-amber-400">Tours</h4>
+                  </div>
+                  <div className="rounded-lg border overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-amber-50 dark:bg-amber-950/30">
+                          <TableHead>Tour</TableHead>
+                          <TableHead>Fecha</TableHead>
+                          <TableHead className="text-center">Personas</TableHead>
+                          <TableHead className="text-right">$/Persona</TableHead>
+                          <TableHead className="text-right">Costo</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {tourItems.map((item) => (
+                          <TableRow key={item.id}>
+                            <TableCell className="font-medium">{item.tourName || item.description || '-'}</TableCell>
+                            <TableCell>{item.tourDate ? formatItemDate(item.tourDate) : '-'}</TableCell>
+                            <TableCell className="text-center">{item.numPeople || '-'}</TableCell>
+                            <TableCell className="text-right">${(item.pricePerPerson || 0).toLocaleString('es-MX')}</TableCell>
+                            <TableCell className="text-right font-medium">${item.cost.toLocaleString('es-MX')}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              )}
+
+              {/* Other Items */}
+              {otherItems.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Package className="w-4 h-4 text-gray-500" />
+                    <h4 className="font-medium text-gray-700 dark:text-gray-400">Otros</h4>
+                  </div>
+                  <div className="rounded-lg border overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-gray-50 dark:bg-gray-950/30">
+                          <TableHead>Descripción</TableHead>
+                          <TableHead className="text-right">Costo</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {otherItems.map((item) => (
+                          <TableRow key={item.id}>
+                            <TableCell className="font-medium">{item.description || '-'}</TableCell>
+                            <TableCell className="text-right font-medium">${item.cost.toLocaleString('es-MX')}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              )}
+
+              {/* Total */}
+              <div className="flex justify-end pt-2 border-t">
+                <div className="text-right">
+                  <p className="text-sm text-gray-500">Costo Neto Total de Servicios</p>
+                  <p className="text-xl font-bold">${totalItemsCost.toLocaleString('es-MX')}</p>
+                </div>
+              </div>
+            </div>
+          </Card>
+        );
+      })()}
 
       {/* Financial Summary */}
       {isCash ? (

@@ -42,6 +42,12 @@ export async function GET(request: NextRequest) {
         },
         payments: true,
         supplier: true,
+        hotel: true,
+        passengers: true,
+        items: {
+          include: { hotel: true },
+          orderBy: { sortOrder: 'asc' },
+        },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -78,7 +84,10 @@ export async function POST(request: NextRequest) {
     const tenantId = await requireTenantId();
     const body = await request.json();
 
-    // Calculate net cost from prices
+    // Calculate net cost - from items if provided, otherwise from legacy fields
+    const items: any[] = body.items || [];
+    let netCost: number;
+
     const numAdults = body.numAdults || 1;
     const numChildren = body.numChildren || 0;
     const priceAdult = body.priceAdult || 0;
@@ -87,7 +96,12 @@ export async function POST(request: NextRequest) {
     const numNights = body.numNights || 0;
     const freeChildren = body.freeChildren || 0;
     const paidChildren = Math.max(0, numChildren - freeChildren);
-    const netCost = (priceAdult * numAdults) + (priceChild * paidChildren) + (pricePerNight * numNights);
+
+    if (items.length > 0) {
+      netCost = items.reduce((sum: number, item: any) => sum + (item.cost || 0), 0);
+    } else {
+      netCost = (priceAdult * numAdults) + (priceChild * paidChildren) + (pricePerNight * numNights);
+    }
 
     // Get current user for createdBy
     const sessionUser = await getSessionUser();
@@ -116,10 +130,57 @@ export async function POST(request: NextRequest) {
         status: body.paymentType === 'CASH' ? 'COMPLETED' : 'ACTIVE',
         supplierId: body.supplierId || null,
         supplierDeadline: body.supplierDeadline ? new Date(body.supplierDeadline) : null,
+        hotelId: body.hotelId || null,
         createdBy: sessionUser?.id || null,
         type: 'SALE',
       },
     });
+
+    // Create passengers if provided
+    if (body.passengers && Array.isArray(body.passengers) && body.passengers.length > 0) {
+      await prisma.bookingPassenger.createMany({
+        data: body.passengers.map((p: any) => ({
+          bookingId: booking.id,
+          name: p.name,
+          type: p.type || 'ADULT',
+          age: p.age || null,
+          isHolder: p.isHolder || false,
+        })),
+      });
+    }
+
+    // Create booking items if provided
+    if (items.length > 0) {
+      await prisma.bookingItem.createMany({
+        data: items.map((item: any, idx: number) => ({
+          bookingId: booking.id,
+          type: item.type || 'OTHER',
+          description: item.description || null,
+          cost: item.cost || 0,
+          sortOrder: item.sortOrder ?? idx,
+          hotelId: item.hotelId || null,
+          roomType: item.roomType || null,
+          numAdults: item.numAdults ?? null,
+          numChildren: item.numChildren ?? null,
+          freeChildren: item.freeChildren ?? null,
+          pricePerNight: item.pricePerNight ?? null,
+          numNights: item.numNights ?? null,
+          plan: item.plan || null,
+          airline: item.airline || null,
+          flightNumber: item.flightNumber || null,
+          origin: item.origin || null,
+          flightDestination: item.flightDestination || null,
+          departureTime: item.departureTime ? new Date(item.departureTime) : null,
+          arrivalTime: item.arrivalTime ? new Date(item.arrivalTime) : null,
+          flightClass: item.flightClass || null,
+          direction: item.direction || null,
+          tourName: item.tourName || null,
+          tourDate: item.tourDate ? new Date(item.tourDate) : null,
+          numPeople: item.numPeople ?? null,
+          pricePerPerson: item.pricePerPerson ?? null,
+        })),
+      });
+    }
 
     // Create payment plan for credit sales
     if (body.paymentType === 'CREDIT' && body.numberOfPayments > 0) {
@@ -181,6 +242,12 @@ export async function POST(request: NextRequest) {
         },
         payments: true,
         supplier: true,
+        hotel: true,
+        passengers: true,
+        items: {
+          include: { hotel: true },
+          orderBy: { sortOrder: 'asc' },
+        },
       },
     });
 

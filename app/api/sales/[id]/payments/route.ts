@@ -165,6 +165,10 @@ export async function GET(
         },
         tenant: true,
         supplier: true,
+        items: {
+          include: { hotel: true },
+          orderBy: { sortOrder: 'asc' },
+        },
       },
     });
 

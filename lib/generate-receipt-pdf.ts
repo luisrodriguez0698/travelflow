@@ -12,9 +12,38 @@ interface Payment {
   paidDate?: string;
 }
 
+interface BookingItem {
+  type: string;
+  cost: number;
+  // Hotel
+  hotelId?: string;
+  hotel?: { name: string };
+  roomType?: string;
+  numAdults?: number;
+  numChildren?: number;
+  pricePerNight?: number;
+  numNights?: number;
+  plan?: string;
+  // Flight
+  airline?: string;
+  flightNumber?: string;
+  origin?: string;
+  flightDestination?: string;
+  departureTime?: string;
+  arrivalTime?: string;
+  flightClass?: string;
+  direction?: string;
+  // Tour
+  tourName?: string;
+  tourDate?: string;
+  numPeople?: number;
+  pricePerPerson?: number;
+}
+
 interface SaleData {
   id: string;
   totalPrice: number;
+  netCost?: number;
   downPayment?: number;
   paymentType?: string;
   saleDate: string;
@@ -31,6 +60,7 @@ interface SaleData {
     season?: { name: string };
   };
   payments: Payment[];
+  items?: BookingItem[];
   tenant?: {
     name: string;
     phone?: string;
@@ -274,6 +304,137 @@ export async function generateReceiptPdf(sale: SaleData) {
   yRight = drawField('FECHA DE REGRESO', sale.returnDate ? formatDate(sale.returnDate) : '-', rightX, yRight);
 
   y = Math.max(yLeft, yRight) + 5;
+
+  // ─── SERVICIOS DEL PAQUETE ───
+  const bookingItems = sale.items || [];
+  if (bookingItems.length > 0) {
+    const hotelItems = bookingItems.filter(i => i.type === 'HOTEL');
+    const flightItems = bookingItems.filter(i => i.type === 'FLIGHT');
+    const tourItems = bookingItems.filter(i => i.type === 'TOUR');
+
+    y = checkPageBreak(doc, y, 30, margin);
+    doc.setFontSize(12);
+    doc.setTextColor(...CYAN);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Servicios del Paquete', margin, y);
+    y += 2;
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.3);
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 6;
+
+    // Hotel items table
+    if (hotelItems.length > 0) {
+      doc.setFontSize(10);
+      doc.setTextColor(...DARK);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Hospedaje', margin, y);
+      y += 4;
+
+      const hotelBody = hotelItems.map((item, idx) => [
+        `Hab. ${idx + 1}`,
+        item.hotel?.name || '-',
+        item.roomType || '-',
+        item.plan || '-',
+        `${item.numAdults || 0} Ad. / ${item.numChildren || 0} Men.`,
+        `${item.numNights || 0} noches`,
+        formatCurrency(item.cost || 0),
+      ]);
+
+      autoTable(doc, {
+        startY: y,
+        head: [['#', 'Hotel', 'Tipo Hab.', 'Plan', 'Ocupación', 'Noches', 'Costo']],
+        body: hotelBody,
+        margin: { left: margin, right: margin },
+        styles: { fontSize: 8, cellPadding: 2.5, textColor: [30, 41, 59] },
+        headStyles: { fillColor: [239, 246, 255], textColor: [37, 99, 235], fontStyle: 'bold', lineWidth: 0.3, lineColor: [226, 232, 240] },
+        bodyStyles: { lineWidth: 0.2, lineColor: [226, 232, 240] },
+        columnStyles: { 0: { cellWidth: 14 }, 6: { halign: 'right' } },
+      });
+      y = (doc as any).lastAutoTable.finalY + 6;
+    }
+
+    // Flight items table
+    if (flightItems.length > 0) {
+      y = checkPageBreak(doc, y, 20, margin);
+      doc.setFontSize(10);
+      doc.setTextColor(...DARK);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Vuelos', margin, y);
+      y += 4;
+
+      const flightBody = flightItems.map((item) => {
+        let timeStr = '';
+        if (item.departureTime) {
+          const dt = new Date(item.departureTime);
+          timeStr = `${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`;
+        }
+        if (item.arrivalTime) {
+          const at = new Date(item.arrivalTime);
+          timeStr += ` - ${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`;
+        }
+        return [
+          item.direction === 'IDA' ? 'Ida' : 'Regreso',
+          item.airline || '-',
+          item.flightNumber || '-',
+          `${item.origin || '?'} → ${item.flightDestination || '?'}`,
+          timeStr || '-',
+          item.flightClass === 'ECONOMICA' ? 'Económica' : item.flightClass === 'BUSINESS' ? 'Business' : item.flightClass || '-',
+          formatCurrency(item.cost || 0),
+        ];
+      });
+
+      autoTable(doc, {
+        startY: y,
+        head: [['Dirección', 'Aerolínea', 'Vuelo', 'Ruta', 'Horario', 'Clase', 'Costo']],
+        body: flightBody,
+        margin: { left: margin, right: margin },
+        styles: { fontSize: 8, cellPadding: 2.5, textColor: [30, 41, 59] },
+        headStyles: { fillColor: [236, 254, 255], textColor: [8, 145, 178], fontStyle: 'bold', lineWidth: 0.3, lineColor: [226, 232, 240] },
+        bodyStyles: { lineWidth: 0.2, lineColor: [226, 232, 240] },
+        columnStyles: { 6: { halign: 'right' } },
+      });
+      y = (doc as any).lastAutoTable.finalY + 6;
+    }
+
+    // Tour items table
+    if (tourItems.length > 0) {
+      y = checkPageBreak(doc, y, 20, margin);
+      doc.setFontSize(10);
+      doc.setTextColor(...DARK);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Tours', margin, y);
+      y += 4;
+
+      const tourBody = tourItems.map((item) => [
+        item.tourName || '-',
+        item.tourDate ? formatDate(item.tourDate) : '-',
+        String(item.numPeople || 0),
+        formatCurrency(item.pricePerPerson || 0),
+        formatCurrency(item.cost || 0),
+      ]);
+
+      autoTable(doc, {
+        startY: y,
+        head: [['Tour', 'Fecha', 'Personas', 'Precio/Persona', 'Costo']],
+        body: tourBody,
+        margin: { left: margin, right: margin },
+        styles: { fontSize: 8, cellPadding: 2.5, textColor: [30, 41, 59] },
+        headStyles: { fillColor: [255, 251, 235], textColor: [180, 83, 9], fontStyle: 'bold', lineWidth: 0.3, lineColor: [226, 232, 240] },
+        bodyStyles: { lineWidth: 0.2, lineColor: [226, 232, 240] },
+        columnStyles: { 2: { halign: 'center' }, 3: { halign: 'right' }, 4: { halign: 'right' } },
+      });
+      y = (doc as any).lastAutoTable.finalY + 6;
+    }
+
+    // Total services cost
+    const totalServicesCost = bookingItems.reduce((sum, i) => sum + (i.cost || 0), 0);
+    doc.setFontSize(9);
+    doc.setTextColor(...DARK);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Costo Neto Total: ${formatCurrency(totalServicesCost)}`, pageWidth - margin, y, { align: 'right' });
+    y += 10;
+  }
 
   // ─── RESUMEN FINANCIERO ───
   y = checkPageBreak(doc, y, 45, margin);

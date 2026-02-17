@@ -3,8 +3,6 @@
 import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Upload, X, Loader2 } from 'lucide-react';
-import Image from 'next/image';
-import { getFileUrl } from '@/lib/s3';
 
 interface PackageImageUploadProps {
   images: string[];
@@ -144,18 +142,10 @@ function ImageDisplay({ cloudPath, alt }: { cloudPath: string; alt: string }) {
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    const loadImage = async () => {
-      try {
-        const url = await getFileUrl(cloudPath, true);
-        setImageUrl(url);
-      } catch (err) {
-        setError(true);
-      } finally {
-        setLoading(false);
-      }
-    };
     if (cloudPath) {
-      loadImage();
+      // Use the API route to get a presigned URL (getFileUrl is server-only)
+      setImageUrl(`/api/files/${cloudPath}`);
+      setLoading(false);
     }
   }, [cloudPath]);
 
@@ -176,12 +166,11 @@ function ImageDisplay({ cloudPath, alt }: { cloudPath: string; alt: string }) {
   }
 
   return (
-    <Image
+    <img
       src={imageUrl}
       alt={alt}
-      fill
-      className="object-cover"
-      sizes="(max-width: 768px) 50vw, 33vw"
+      className="absolute inset-0 w-full h-full object-cover"
+      onError={() => setError(true)}
     />
   );
 }

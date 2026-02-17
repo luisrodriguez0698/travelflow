@@ -36,6 +36,9 @@ model Tenant {
   invitations      Invitation[]
   auditLogs        AuditLog[]
   notifications    Notification[]
+  supplierPayments SupplierPayment[]
+  hotels           Hotel[]
+  salesGoals       SalesGoal[]
 
   @@map("tenants")
 }
@@ -168,10 +171,45 @@ model Destination {
   tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   season   Season?   @relation(fields: [seasonId], references: [id], onDelete: SetNull)
   bookings Booking[]
+  hotels   Hotel[]
 
   @@index([tenantId])
   @@index([seasonId])
   @@map("destinations")
+}
+
+// ========== HOTEL MANAGEMENT ==========
+
+model Hotel {
+  id            String   @id @default(cuid())
+  tenantId      String
+  destinationId String
+  name          String
+  stars         Int      @default(0)
+  diamonds      Int      @default(0)
+  plan          String   @default("")
+  roomType      String   @default("")
+  checkIn       String   @default("")
+  checkOut      String   @default("")
+  checkInNote   String?  @db.Text
+  checkOutNote  String?  @db.Text
+  idRequirement String?  @db.Text
+  includes      String[]
+  notIncludes   String[]
+  images        String[]
+  createdBy     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  tenant      Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  destination Destination   @relation(fields: [destinationId], references: [id], onDelete: Cascade)
+  bookings    Booking[]
+  bookingItems BookingItem[]
+
+  @@index([tenantId])
+  @@index([destinationId])
+  @@map("hotels")
 }
 
 // ========== SALES & PAYMENT MANAGEMENT ==========
@@ -216,23 +254,93 @@ model Booking {
   type             String   @default("SALE") // SALE or QUOTATION
   expirationDate   DateTime?
 
+  // Hotel
+  hotelId          String?
+
   // Relations
   tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   client           Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
   destination      Destination?      @relation(fields: [destinationId], references: [id], onDelete: Restrict)
   departure        PackageDeparture? @relation(fields: [departureId], references: [id], onDelete: Restrict)
   supplier         Supplier?         @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  hotel            Hotel?            @relation(fields: [hotelId], references: [id], onDelete: SetNull)
   payments         PaymentPlan[]
   bankTransactions BankTransaction[]
   notifications    Notification[]
+  supplierPayments SupplierPayment[]
+  passengers       BookingPassenger[]
+  items            BookingItem[]
 
   @@index([tenantId])
   @@index([clientId])
   @@index([destinationId])
   @@index([departureId])
   @@index([supplierId])
+  @@index([hotelId])
   @@index([type])
   @@map("bookings")
+}
+
+// ========== BOOKING ITEMS (Services) ==========
+
+model BookingItem {
+  id          String   @id @default(cuid())
+  bookingId   String
+  type        String   // HOTEL, FLIGHT, TOUR, TRANSFER, OTHER
+  description String?  @db.Text
+  cost        Float    @default(0)
+  sortOrder   Int      @default(0)
+
+  // ── Hotel fields (type = HOTEL) ──
+  hotelId       String?
+  roomType      String?
+  numAdults     Int?
+  numChildren   Int?
+  freeChildren  Int?
+  pricePerNight Float?
+  numNights     Int?
+  plan          String?
+
+  // ── Flight fields (type = FLIGHT) ──
+  airline       String?
+  flightNumber  String?
+  origin        String?
+  flightDestination String?
+  departureTime DateTime?
+  arrivalTime   DateTime?
+  flightClass   String?
+  direction     String?   // IDA, REGRESO
+
+  // ── Tour fields (type = TOUR) ──
+  tourName       String?
+  tourDate       DateTime?
+  numPeople      Int?
+  pricePerPerson Float?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  hotel   Hotel?  @relation(fields: [hotelId], references: [id], onDelete: SetNull)
+
+  @@index([bookingId])
+  @@map("booking_items")
+}
+
+model BookingPassenger {
+  id        String  @id @default(cuid())
+  bookingId String
+  name      String
+  type      String  // ADULT, MINOR
+  age       Int?
+  isHolder  Boolean @default(false)
+
+  // Relations
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+  @@map("booking_passengers")
 }
 
 // ========== SUPPLIER MANAGEMENT ==========
@@ -249,11 +357,40 @@ model Supplier {
   updatedAt   DateTime @updatedAt
 
   // Relations
-  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  bookings Booking[]
+  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  bookings         Booking[]
+  supplierPayments SupplierPayment[]
 
   @@index([tenantId])
   @@map("suppliers")
+}
+
+// ========== SUPPLIER PAYMENTS ==========
+
+model SupplierPayment {
+  id                String   @id @default(cuid())
+  tenantId          String
+  bookingId         String
+  supplierId        String
+  bankAccountId     String
+  bankTransactionId String?  @unique
+  amount            Float
+  notes             String?  @db.Text
+  date              DateTime @default(now())
+  status            String   @default("ACTIVE") // ACTIVE, CANCELLED
+  createdBy         String?
+  createdAt         DateTime @default(now())
+
+  // Relations
+  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  booking         Booking          @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  supplier        Supplier         @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  bankAccount     BankAccount      @relation(fields: [bankAccountId], references: [id], onDelete: Restrict)
+  bankTransaction BankTransaction? @relation(fields: [bankTransactionId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, supplierId])
+  @@index([bookingId])
+  @@map("supplier_payments")
 }
 
 // ========== BANK MANAGEMENT ==========
@@ -272,8 +409,9 @@ model BankAccount {
   updatedAt       DateTime @updatedAt
 
   // Relations
-  tenant       Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  transactions BankTransaction[]
+  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  transactions     BankTransaction[]
+  supplierPayments SupplierPayment[]
 
   @@index([tenantId])
   @@map("bank_accounts")
@@ -294,9 +432,10 @@ model BankTransaction {
   createdAt            DateTime @default(now())
 
   // Relations
-  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  bankAccount BankAccount  @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
-  booking     Booking?     @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  bankAccount     BankAccount      @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+  booking         Booking?         @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  supplierPayment SupplierPayment?
 
   @@index([tenantId])
   @@index([bankAccountId])
@@ -410,4 +549,25 @@ model Notification {
   @@index([bookingId])
   @@index([dueDate])
   @@map("notifications")
+}
+
+// ========== SALES GOALS ==========
+
+model SalesGoal {
+  id         String   @id @default(cuid())
+  tenantId   String
+  userId     String
+  month      Int
+  year       Int
+  goalAmount Float
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, userId, month, year])
+  @@index([tenantId])
+  @@index([tenantId, year, month])
+  @@map("sales_goals")
 }

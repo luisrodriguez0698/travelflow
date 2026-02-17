@@ -20,11 +20,12 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Switch } from '@/components/ui/switch';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Plus, Search, Pencil, Trash2, ShoppingCart, Loader2, Eye, TrendingUp, Check, ChevronsUpDown, ChevronDown, DollarSign, X, Filter } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, ShoppingCart, Loader2, Eye, TrendingUp, Check, ChevronsUpDown, ChevronDown, DollarSign, X, Filter, Hotel, UserPlus, Target, Plane, MapPin } from 'lucide-react';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { DateRange } from 'react-day-picker';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
+import { BookingItemsForm, BookingItemData } from '@/components/booking-items-form';
 import { format, startOfMonth, endOfMonth, subMonths, startOfYear } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
@@ -55,6 +56,9 @@ interface Supplier {
   phone: string;
   serviceType: string;
 }
+
+interface HotelOption { id: string; name: string; stars: number; diamonds: number; plan: string; roomType: string; }
+interface Passenger { name: string; type: 'ADULT' | 'MINOR'; age: number | null; isHolder: boolean; }
 
 interface Sale {
   id: string;
@@ -114,6 +118,7 @@ interface FormData {
   notes: string;
   supplierId: string;
   supplierDeadline: Date | null;
+  hotelId: string;
 }
 
 const initialFormData: FormData = {
@@ -136,6 +141,7 @@ const initialFormData: FormData = {
   notes: '',
   supplierId: '',
   supplierDeadline: null,
+  hotelId: '',
 };
 
 export default function SalesPage() {
@@ -171,7 +177,16 @@ export default function SalesPage() {
   const [clientComboOpen, setClientComboOpen] = useState(false);
   const [destinationComboOpen, setDestinationComboOpen] = useState(false);
   const [supplierComboOpen, setSupplierComboOpen] = useState(false);
+  const [hotelComboOpen, setHotelComboOpen] = useState(false);
   const [pricingOpen, setPricingOpen] = useState(false);
+
+  // Hotels, Passengers & Booking Items
+  const [hotels, setHotels] = useState<HotelOption[]>([]);
+  const [passengers, setPassengers] = useState<Passenger[]>([]);
+  const [bookingItems, setBookingItems] = useState<BookingItemData[]>([]);
+  const [newPassengerName, setNewPassengerName] = useState('');
+  const [newPassengerType, setNewPassengerType] = useState<'ADULT' | 'MINOR'>('ADULT');
+  const [newPassengerAge, setNewPassengerAge] = useState('');
 
   // Search and pagination
   const [folioSearch, setFolioSearch] = useState('');
@@ -246,6 +261,18 @@ export default function SalesPage() {
     return () => clearTimeout(timer);
   }, [folioSearch]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Fetch hotels when destination changes in the form
+  useEffect(() => {
+    if (formData.destinationId) {
+      fetch(`/api/hotels?destinationId=${formData.destinationId}&all=true`)
+        .then((r) => r.ok ? r.json() : [])
+        .then(setHotels)
+        .catch(() => setHotels([]));
+    } else {
+      setHotels([]);
+    }
+  }, [formData.destinationId]);
+
   const fetchData = async () => {
     setLoading(true);
     await Promise.all([fetchSales(), fetchCatalogs()]);
@@ -279,13 +306,17 @@ export default function SalesPage() {
   };
 
   // Computed values
-  const netCost = calcNetCost(formData);
+  const itemsCost = bookingItems.reduce((sum, item) => sum + (item.cost || 0), 0);
+  const legacyNetCost = calcNetCost(formData);
+  const netCost = bookingItems.length > 0 ? itemsCost : legacyNetCost;
   const profit = formData.totalPrice - netCost;
   const profitPercent = netCost > 0 ? ((profit / netCost) * 100) : 0;
 
   const openCreateModal = () => {
     setEditingSale(null);
     setFormData(initialFormData);
+    setPassengers([]);
+    setBookingItems([]);
     setIsModalOpen(true);
   };
 
@@ -311,7 +342,41 @@ export default function SalesPage() {
       notes: sale.notes || '',
       supplierId: sale.supplierId || '',
       supplierDeadline: sale.supplierDeadline ? new Date(sale.supplierDeadline) : null,
+      hotelId: (sale as any).hotelId || '',
     });
+    setPassengers((sale as any).passengers?.map((p: any) => ({
+      name: p.name,
+      type: p.type as 'ADULT' | 'MINOR',
+      age: p.age,
+      isHolder: p.isHolder,
+    })) || []);
+    setBookingItems(((sale as any).items || []).map((item: any) => ({
+      id: item.id,
+      type: item.type,
+      description: item.description,
+      cost: item.cost || 0,
+      sortOrder: item.sortOrder || 0,
+      hotelId: item.hotelId || undefined,
+      roomType: item.roomType || undefined,
+      numAdults: item.numAdults ?? undefined,
+      numChildren: item.numChildren ?? undefined,
+      freeChildren: item.freeChildren ?? undefined,
+      pricePerNight: item.pricePerNight ?? undefined,
+      numNights: item.numNights ?? undefined,
+      plan: item.plan || undefined,
+      airline: item.airline || undefined,
+      flightNumber: item.flightNumber || undefined,
+      origin: item.origin || undefined,
+      flightDestination: item.flightDestination || undefined,
+      departureTime: item.departureTime ? new Date(item.departureTime) : null,
+      arrivalTime: item.arrivalTime ? new Date(item.arrivalTime) : null,
+      flightClass: item.flightClass || undefined,
+      direction: item.direction || undefined,
+      tourName: item.tourName || undefined,
+      tourDate: item.tourDate ? new Date(item.tourDate) : null,
+      numPeople: item.numPeople ?? undefined,
+      pricePerPerson: item.pricePerPerson ?? undefined,
+    })));
     setIsModalOpen(true);
   };
 
@@ -355,6 +420,15 @@ export default function SalesPage() {
           notes: formData.notes || null,
           supplierId: formData.supplierId || null,
           supplierDeadline: formData.supplierDeadline ? formData.supplierDeadline.toISOString() : null,
+          hotelId: formData.hotelId || null,
+          passengers,
+          items: bookingItems.map((item, idx) => ({
+            ...item,
+            sortOrder: idx,
+            departureTime: item.departureTime?.toISOString() || null,
+            arrivalTime: item.arrivalTime?.toISOString() || null,
+            tourDate: item.tourDate instanceof Date ? item.tourDate.toISOString() : item.tourDate || null,
+          })),
         }),
       });
       if (!res.ok) throw new Error('Error saving');
@@ -562,6 +636,12 @@ export default function SalesPage() {
           <p className="text-gray-600 dark:text-gray-400 mt-1">Gestiona tus ventas y pagos</p>
         </div>
         <div className="flex gap-2">
+          <Link href="/sales/goals">
+            <Button variant="outline">
+              <Target className="w-4 h-4 mr-2" />
+              Metas
+            </Button>
+          </Link>
           <Link href="/sales/margins">
             <Button variant="outline">
               <TrendingUp className="w-4 h-4 mr-2" />
@@ -903,7 +983,7 @@ export default function SalesPage() {
                               key={d.id}
                               value={d.name}
                               onSelect={() => {
-                                setFormData((p) => ({ ...p, destinationId: d.id }));
+                                setFormData((p) => ({ ...p, destinationId: d.id, hotelId: '' }));
                                 setDestinationComboOpen(false);
                               }}
                             >
@@ -930,6 +1010,48 @@ export default function SalesPage() {
               </div>
             </div>
 
+            {/* Hotel (optional, loads when destination selected) */}
+            {formData.destinationId && hotels.length > 0 && (
+              <div className="space-y-2">
+                <Label>Hotel (opcional)</Label>
+                <Popover open={hotelComboOpen} onOpenChange={setHotelComboOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" role="combobox" aria-expanded={hotelComboOpen} className="w-full justify-between font-normal">
+                      {formData.hotelId
+                        ? hotels.find((h) => h.id === formData.hotelId)?.name || 'Selecciona hotel'
+                        : 'Sin hotel'}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Buscar hotel..." />
+                      <CommandList>
+                        <CommandEmpty>No se encontraron hoteles.</CommandEmpty>
+                        <CommandGroup>
+                          <CommandItem value="__none__" onSelect={() => { setFormData((p) => ({ ...p, hotelId: '' })); setHotelComboOpen(false); }}>
+                            <Check className={cn('mr-2 h-4 w-4', !formData.hotelId ? 'opacity-100' : 'opacity-0')} />
+                            Sin hotel
+                          </CommandItem>
+                          {hotels.map((h) => (
+                            <CommandItem key={h.id} value={h.name} onSelect={() => { setFormData((p) => ({ ...p, hotelId: h.id })); setHotelComboOpen(false); }}>
+                              <Check className={cn('mr-2 h-4 w-4', formData.hotelId === h.id ? 'opacity-100' : 'opacity-0')} />
+                              <div className="flex flex-col">
+                                <span>{h.name}</span>
+                                <span className="text-xs text-muted-foreground">
+                                  {h.stars > 0 && `${h.stars}★`}{h.diamonds > 0 && ` ${h.diamonds}◆`}{h.plan && ` · ${h.plan}`}
+                                </span>
+                              </div>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
+            )}
+
             {/* Dates */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -948,17 +1070,39 @@ export default function SalesPage() {
               </div>
             </div>
 
-            {/* Pricing Section - Collapsible */}
+            {/* ── Servicios (Items) ── */}
+            <div className="border-t pt-4 mt-2">
+              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+                <Plane className="w-4 h-4" />
+                Servicios del Paquete
+              </h3>
+              <BookingItemsForm
+                items={bookingItems}
+                onChange={(newItems) => {
+                  setBookingItems(newItems);
+                  // Auto-adjust totalPrice if needed
+                  const newItemsCost = newItems.reduce((sum, item) => sum + (item.cost || 0), 0);
+                  if (newItemsCost > 0 && formData.totalPrice < newItemsCost) {
+                    setFormData((p) => ({ ...p, totalPrice: newItemsCost }));
+                  }
+                }}
+                hotels={hotels}
+              />
+            </div>
+
+            {/* Pricing Section - Collapsible (Direct costs - optional if items used) */}
             <Collapsible open={pricingOpen} onOpenChange={setPricingOpen}>
               <div className="rounded-lg border">
                 <CollapsibleTrigger asChild>
                   <button type="button" className="flex w-full items-center justify-between p-3 hover:bg-muted/50 transition-colors rounded-lg">
                     <div className="flex items-center gap-2">
                       <DollarSign className="w-4 h-4 text-muted-foreground" />
-                      <span className="text-sm font-semibold">Detalles de Costos</span>
-                      {netCost > 0 && !pricingOpen && (
+                      <span className="text-sm font-semibold">
+                        {bookingItems.length > 0 ? 'Costos Directos (opcional)' : 'Detalles de Costos'}
+                      </span>
+                      {legacyNetCost > 0 && !pricingOpen && (
                         <Badge variant="secondary" className="ml-2 font-mono">
-                          Costo Neto: ${netCost.toLocaleString('es-MX')}
+                          ${legacyNetCost.toLocaleString('es-MX')}
                         </Badge>
                       )}
                     </div>
@@ -1122,6 +1266,93 @@ export default function SalesPage() {
                 placeholder="Notas adicionales..."
                 rows={2}
               />
+            </div>
+
+            {/* Passengers */}
+            <div className="border-t pt-4 mt-2">
+              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+                <UserPlus className="w-4 h-4" />
+                Pasajeros
+              </h3>
+              <div className="space-y-3">
+                {passengers.map((p, idx) => (
+                  <div key={idx} className="flex items-center gap-2 bg-muted/30 rounded-lg px-3 py-2">
+                    <span className="flex-1 text-sm font-medium">
+                      {p.isHolder && <Badge variant="secondary" className="mr-2 text-xs">Titular</Badge>}
+                      {p.name}
+                    </span>
+                    <Badge variant={p.type === 'ADULT' ? 'default' : 'outline'} className="text-xs">
+                      {p.type === 'ADULT' ? 'Adulto' : `Menor${p.age ? ` (${p.age} años)` : ''}`}
+                    </Badge>
+                    <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-red-500" onClick={() => setPassengers((prev) => prev.filter((_, i) => i !== idx))}>
+                      <X className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                ))}
+                <div className="flex flex-wrap gap-2">
+                  <Input
+                    value={newPassengerName}
+                    onChange={(e) => setNewPassengerName(e.target.value)}
+                    placeholder="Nombre del pasajero"
+                    className="flex-1 min-w-[150px]"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (newPassengerName.trim()) {
+                          setPassengers((prev) => [...prev, {
+                            name: newPassengerName.trim(),
+                            type: newPassengerType,
+                            age: newPassengerType === 'MINOR' ? (parseInt(newPassengerAge) || null) : null,
+                            isHolder: prev.length === 0,
+                          }]);
+                          setNewPassengerName('');
+                          setNewPassengerAge('');
+                        }
+                      }
+                    }}
+                  />
+                  <Select value={newPassengerType} onValueChange={(v: 'ADULT' | 'MINOR') => setNewPassengerType(v)}>
+                    <SelectTrigger className="w-[110px]"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ADULT">Adulto</SelectItem>
+                      <SelectItem value="MINOR">Menor</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {newPassengerType === 'MINOR' && (
+                    <Input
+                      type="number"
+                      min={0}
+                      max={17}
+                      value={newPassengerAge}
+                      onChange={(e) => setNewPassengerAge(e.target.value)}
+                      placeholder="Edad"
+                      className="w-[70px]"
+                    />
+                  )}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (newPassengerName.trim()) {
+                        setPassengers((prev) => [...prev, {
+                          name: newPassengerName.trim(),
+                          type: newPassengerType,
+                          age: newPassengerType === 'MINOR' ? (parseInt(newPassengerAge) || null) : null,
+                          isHolder: prev.length === 0,
+                        }]);
+                        setNewPassengerName('');
+                        setNewPassengerAge('');
+                      }
+                    }}
+                  >
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                </div>
+                {passengers.length === 0 && (
+                  <p className="text-xs text-muted-foreground">El primer pasajero será marcado como titular</p>
+                )}
+              </div>
             </div>
 
             {/* Supplier */}

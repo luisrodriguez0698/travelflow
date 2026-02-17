@@ -21,6 +21,12 @@ export async function GET(
         payments: { orderBy: { paymentNumber: 'asc' } },
         tenant: true,
         supplier: true,
+        hotel: true,
+        passengers: true,
+        items: {
+          include: { hotel: true },
+          orderBy: { sortOrder: 'asc' },
+        },
       },
     });
 
@@ -62,6 +68,9 @@ export async function PUT(
       return NextResponse.json({ error: 'Cotización no encontrada' }, { status: 404 });
     }
 
+    const items: any[] = body.items || [];
+    let netCost: number;
+
     const numAdults = body.numAdults || 1;
     const numChildren = body.numChildren || 0;
     const priceAdult = body.priceAdult || 0;
@@ -70,7 +79,12 @@ export async function PUT(
     const numNights = body.numNights || 0;
     const freeChildren = body.freeChildren || 0;
     const paidChildren = Math.max(0, numChildren - freeChildren);
-    const netCost = (priceAdult * numAdults) + (priceChild * paidChildren) + (pricePerNight * numNights);
+
+    if (items.length > 0) {
+      netCost = items.reduce((sum: number, item: any) => sum + (item.cost || 0), 0);
+    } else {
+      netCost = (priceAdult * numAdults) + (priceChild * paidChildren) + (pricePerNight * numNights);
+    }
 
     // Delete old payment plans and recreate
     if (
@@ -103,8 +117,61 @@ export async function PUT(
         supplierId: body.supplierId || null,
         supplierDeadline: body.supplierDeadline ? new Date(body.supplierDeadline) : null,
         expirationDate: body.expirationDate ? new Date(body.expirationDate) : existing.expirationDate,
+        hotelId: body.hotelId !== undefined ? (body.hotelId || null) : existing.hotelId,
       },
     });
+
+    // Update passengers if provided
+    if (body.passengers !== undefined) {
+      await prisma.bookingPassenger.deleteMany({ where: { bookingId: id } });
+      if (Array.isArray(body.passengers) && body.passengers.length > 0) {
+        await prisma.bookingPassenger.createMany({
+          data: body.passengers.map((p: any) => ({
+            bookingId: id,
+            name: p.name,
+            type: p.type || 'ADULT',
+            age: p.age || null,
+            isHolder: p.isHolder || false,
+          })),
+        });
+      }
+    }
+
+    // Update booking items if provided
+    if (body.items !== undefined) {
+      await prisma.bookingItem.deleteMany({ where: { bookingId: id } });
+      if (Array.isArray(body.items) && body.items.length > 0) {
+        await prisma.bookingItem.createMany({
+          data: body.items.map((item: any, idx: number) => ({
+            bookingId: id,
+            type: item.type || 'OTHER',
+            description: item.description || null,
+            cost: item.cost || 0,
+            sortOrder: item.sortOrder ?? idx,
+            hotelId: item.hotelId || null,
+            roomType: item.roomType || null,
+            numAdults: item.numAdults ?? null,
+            numChildren: item.numChildren ?? null,
+            freeChildren: item.freeChildren ?? null,
+            pricePerNight: item.pricePerNight ?? null,
+            numNights: item.numNights ?? null,
+            plan: item.plan || null,
+            airline: item.airline || null,
+            flightNumber: item.flightNumber || null,
+            origin: item.origin || null,
+            flightDestination: item.flightDestination || null,
+            departureTime: item.departureTime ? new Date(item.departureTime) : null,
+            arrivalTime: item.arrivalTime ? new Date(item.arrivalTime) : null,
+            flightClass: item.flightClass || null,
+            direction: item.direction || null,
+            tourName: item.tourName || null,
+            tourDate: item.tourDate ? new Date(item.tourDate) : null,
+            numPeople: item.numPeople ?? null,
+            pricePerPerson: item.pricePerPerson ?? null,
+          })),
+        });
+      }
+    }
 
     // Recreate payment plan if needed
     const existingPayments = await prisma.paymentPlan.count({ where: { bookingId: id } });
@@ -151,6 +218,12 @@ export async function PUT(
         destination: { include: { season: true } },
         payments: true,
         supplier: true,
+        hotel: true,
+        passengers: true,
+        items: {
+          include: { hotel: true },
+          orderBy: { sortOrder: 'asc' },
+        },
       },
     });
 

@@ -20,6 +20,9 @@ import {
   Landmark,
   UserCog,
   FileText,
+  Wallet,
+  Hotel,
+  Target,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from './ui/button';
@@ -45,6 +48,12 @@ const menuItems = [
     module: 'destinos',
   },
   {
+    title: 'Hoteles',
+    icon: Hotel,
+    href: '/hotels',
+    module: 'destinos',
+  },
+  {
     title: 'Temporadas',
     icon: CalendarDays,
     href: '/seasons',
@@ -57,6 +66,12 @@ const menuItems = [
     module: 'ventas',
   },
   {
+    title: 'Metas',
+    icon: Target,
+    href: '/sales/goals',
+    module: 'ventas',
+  },
+  {
     title: 'Cotizaciones',
     icon: FileText,
     href: '/quotations',
@@ -66,6 +81,12 @@ const menuItems = [
     title: 'Proveedores',
     icon: Truck,
     href: '/suppliers',
+    module: 'proveedores',
+  },
+  {
+    title: 'Deudas',
+    icon: Wallet,
+    href: '/suppliers/debts',
     module: 'proveedores',
   },
   {
@@ -157,7 +178,10 @@ export function Sidebar() {
       <nav className="flex-1 overflow-y-auto py-4 px-2">
         <div className="space-y-1">
           {filteredItems.map((item) => {
-            const isActive = pathname === item.href || pathname?.startsWith(item.href + '/');
+            const isActive = pathname === item.href || (
+              pathname?.startsWith(item.href + '/') &&
+              !filteredItems.some((other) => other.href !== item.href && other.href.startsWith(item.href + '/') && (pathname === other.href || pathname?.startsWith(other.href + '/')))
+            );
             return (
               <Link
                 key={item.href}

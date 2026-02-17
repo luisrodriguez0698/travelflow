@@ -22,6 +22,12 @@ export async function GET(
         destination: { include: { season: true } },
         payments: { orderBy: { paymentNumber: 'asc' } },
         tenant: true,
+        hotel: true,
+        passengers: true,
+        items: {
+          include: { hotel: true },
+          orderBy: { sortOrder: 'asc' },
+        },
       },
     });
 
@@ -47,6 +53,88 @@ export async function GET(
       } catch (e) {
         console.error('Error getting logo URL:', e);
       }
+    }
+
+    // Get hotel image URLs if hotel exists
+    const hotelImageUrls: string[] = [];
+    if (booking.hotel?.images?.length) {
+      for (const imgPath of booking.hotel.images.slice(0, 6)) {
+        try {
+          const isPublic = imgPath.includes('/public/');
+          const url = await getFileUrl(imgPath, isPublic);
+          hotelImageUrls.push(url);
+        } catch (e) {
+          console.error('Error getting hotel image URL:', e);
+        }
+      }
+    }
+
+    // Build hotel section HTML
+    let hotelSectionHtml = '';
+    if (booking.hotel) {
+      const h = booking.hotel;
+      const starsStr = h.stars > 0 ? '★'.repeat(h.stars) : '';
+      const diamondsStr = h.diamonds > 0 ? '◆'.repeat(h.diamonds) : '';
+      const classification = [starsStr, diamondsStr].filter(Boolean).join(' ');
+
+      hotelSectionHtml = `
+      <div class="section">
+        <div class="section-title">Información del Hotel</div>
+        <div style="background: #f8fafc; border-radius: 8px; padding: 16px; margin-bottom: 12px;">
+          <div style="font-size: 18px; font-weight: bold; color: #0891b2; margin-bottom: 4px;">${h.name}</div>
+          ${classification ? `<div style="font-size: 14px; color: #eab308; margin-bottom: 8px;">${classification}</div>` : ''}
+          <div class="info-grid">
+            ${h.plan ? `<div class="info-item"><div class="info-label">Plan</div><div class="info-value">${h.plan}</div></div>` : ''}
+            ${h.roomType ? `<div class="info-item"><div class="info-label">Tipo de Habitación</div><div class="info-value">${h.roomType}</div></div>` : ''}
+            ${h.checkIn ? `<div class="info-item"><div class="info-label">Check-In</div><div class="info-value">${h.checkIn}${h.checkInNote ? `<br><span style="font-size:11px;color:#666;">${h.checkInNote}</span>` : ''}</div></div>` : ''}
+            ${h.checkOut ? `<div class="info-item"><div class="info-label">Check-Out</div><div class="info-value">${h.checkOut}${h.checkOutNote ? `<br><span style="font-size:11px;color:#666;">${h.checkOutNote}</span>` : ''}</div></div>` : ''}
+          </div>
+          ${h.idRequirement ? `<div style="margin-top: 10px; padding: 8px; background: #fef3c7; border-radius: 6px; font-size: 12px; color: #92400e;"><strong>Identificación requerida:</strong> ${h.idRequirement}</div>` : ''}
+        </div>
+        ${h.includes.length > 0 ? `
+        <div style="margin-bottom: 10px;">
+          <div style="font-weight: 600; font-size: 13px; color: #16a34a; margin-bottom: 6px;">Incluye:</div>
+          <ul style="list-style: none; padding: 0; margin: 0;">
+            ${h.includes.map((item: string) => `<li style="font-size: 13px; padding: 2px 0; color: #333;">✓ ${item}</li>`).join('')}
+          </ul>
+        </div>` : ''}
+        ${h.notIncludes.length > 0 ? `
+        <div style="margin-bottom: 10px;">
+          <div style="font-weight: 600; font-size: 13px; color: #dc2626; margin-bottom: 6px;">No Incluye:</div>
+          <ul style="list-style: none; padding: 0; margin: 0;">
+            ${h.notIncludes.map((item: string) => `<li style="font-size: 13px; padding: 2px 0; color: #333;">✗ ${item}</li>`).join('')}
+          </ul>
+        </div>` : ''}
+        ${hotelImageUrls.length > 0 ? `
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px;">
+          ${hotelImageUrls.map((url) => `<img src="${url}" style="width: 100%; height: 120px; object-fit: cover; border-radius: 6px;" />`).join('')}
+        </div>` : ''}
+      </div>`;
+    }
+
+    // Build passengers section HTML
+    let passengersSectionHtml = '';
+    if (booking.passengers?.length > 0) {
+      const holder = booking.passengers.find((p: any) => p.isHolder);
+      const others = booking.passengers.filter((p: any) => !p.isHolder);
+      passengersSectionHtml = `
+      <div class="section">
+        <div class="section-title">Pasajeros</div>
+        <table>
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th>Tipo</th>
+              <th>Edad</th>
+              <th>Rol</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${holder ? `<tr><td><strong>${holder.name}</strong></td><td>${holder.type === 'ADULT' ? 'Adulto' : 'Menor'}</td><td>${holder.age || '-'}</td><td><span style="background: #0891b2; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px;">Titular</span></td></tr>` : ''}
+            ${others.map((p: any) => `<tr><td>${p.name}</td><td>${p.type === 'ADULT' ? 'Adulto' : 'Menor'}</td><td>${p.age || '-'}</td><td>Acompañante</td></tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`;
     }
 
     // Build payment section HTML for quotation (all pending - preview only)
@@ -197,6 +285,105 @@ export async function GET(
           </div>
         </div>
       </div>
+
+      ${hotelSectionHtml}
+
+      ${passengersSectionHtml}
+
+      ${(booking as any).items?.length > 0 ? `
+      <div class="section">
+        <div class="section-title">Servicios del Paquete</div>
+        ${(() => {
+          const items = (booking as any).items || [];
+          const hotelItems = items.filter((i: any) => i.type === 'HOTEL');
+          const flightItems = items.filter((i: any) => i.type === 'FLIGHT');
+          const tourItems = items.filter((i: any) => i.type === 'TOUR');
+          let html = '';
+
+          if (hotelItems.length > 0) {
+            html += `
+            <div style="margin-bottom: 15px;">
+              <div style="font-weight: 600; font-size: 14px; color: #2563eb; margin-bottom: 8px;">Hospedaje</div>
+              <table>
+                <thead><tr><th>#</th><th>Hotel</th><th>Tipo Hab.</th><th>Plan</th><th>Ocupación</th><th>Noches</th><th style="text-align:right;">Costo</th></tr></thead>
+                <tbody>
+                  ${hotelItems.map((item: any, idx: number) => `
+                    <tr>
+                      <td>Hab. ${idx + 1}</td>
+                      <td>${item.hotel?.name || '-'}</td>
+                      <td>${item.roomType || '-'}</td>
+                      <td>${item.plan || '-'}</td>
+                      <td>${item.numAdults || 0} Ad. / ${item.numChildren || 0} Men.</td>
+                      <td>${item.numNights || 0}</td>
+                      <td style="text-align:right;">${formatCurrency(item.cost || 0)}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>`;
+          }
+
+          if (flightItems.length > 0) {
+            html += `
+            <div style="margin-bottom: 15px;">
+              <div style="font-weight: 600; font-size: 14px; color: #0891b2; margin-bottom: 8px;">Vuelos</div>
+              <table>
+                <thead><tr><th>Dirección</th><th>Aerolínea</th><th>Vuelo</th><th>Ruta</th><th>Horario</th><th>Clase</th><th style="text-align:right;">Costo</th></tr></thead>
+                <tbody>
+                  ${flightItems.map((item: any) => {
+                    let timeStr = '';
+                    if (item.departureTime) {
+                      const dt = new Date(item.departureTime);
+                      timeStr = `${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`;
+                    }
+                    if (item.arrivalTime) {
+                      const at = new Date(item.arrivalTime);
+                      timeStr += ` - ${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`;
+                    }
+                    const classLabel = item.flightClass === 'ECONOMICA' ? 'Económica' : item.flightClass === 'BUSINESS' ? 'Business' : item.flightClass || '-';
+                    return `
+                    <tr>
+                      <td>${item.direction === 'IDA' ? 'Ida' : 'Regreso'}</td>
+                      <td>${item.airline || '-'}</td>
+                      <td>${item.flightNumber || '-'}</td>
+                      <td>${item.origin || '?'} → ${item.flightDestination || '?'}</td>
+                      <td>${timeStr || '-'}</td>
+                      <td>${classLabel}</td>
+                      <td style="text-align:right;">${formatCurrency(item.cost || 0)}</td>
+                    </tr>`;
+                  }).join('')}
+                </tbody>
+              </table>
+            </div>`;
+          }
+
+          if (tourItems.length > 0) {
+            html += `
+            <div style="margin-bottom: 15px;">
+              <div style="font-weight: 600; font-size: 14px; color: #b45309; margin-bottom: 8px;">Tours</div>
+              <table>
+                <thead><tr><th>Tour</th><th>Fecha</th><th>Personas</th><th style="text-align:right;">Precio/Persona</th><th style="text-align:right;">Costo</th></tr></thead>
+                <tbody>
+                  ${tourItems.map((item: any) => `
+                    <tr>
+                      <td>${item.tourName || '-'}</td>
+                      <td>${item.tourDate ? formatDate(item.tourDate) : '-'}</td>
+                      <td>${item.numPeople || 0}</td>
+                      <td style="text-align:right;">${formatCurrency(item.pricePerPerson || 0)}</td>
+                      <td style="text-align:right;">${formatCurrency(item.cost || 0)}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>`;
+          }
+
+          const totalCost = items.reduce((s: number, i: any) => s + (i.cost || 0), 0);
+          html += `<div style="text-align: right; font-weight: bold; font-size: 14px; color: #1e293b; margin-top: 8px;">Costo Neto Total: ${formatCurrency(totalCost)}</div>`;
+          return html;
+        })()}
+      </div>
+      ` : ''}
 
       <div class="section">
         <div class="section-title">Resumen Financiero</div>
