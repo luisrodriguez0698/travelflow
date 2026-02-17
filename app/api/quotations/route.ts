@@ -131,6 +131,7 @@ export async function POST(request: NextRequest) {
         expirationDate: body.expirationDate ? new Date(body.expirationDate) : null,
         hotelId: body.hotelId || null,
         createdBy: sessionUser?.id || null,
+        paymentFrequency: body.paymentFrequency || 'QUINCENAL',
       },
     });
 

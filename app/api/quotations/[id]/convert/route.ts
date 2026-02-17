@@ -13,8 +13,12 @@ export async function POST(
     const tenantId = await requireTenantId();
     const { id } = await params;
 
+    const body = await request.json().catch(() => ({}));
+    const bankAccountId = body.bankAccountId || null;
+
     const booking = await prisma.booking.findFirst({
       where: { id, tenantId, type: 'QUOTATION' },
+      include: { client: true, destination: true },
     });
 
     if (!booking) {
@@ -32,6 +36,34 @@ export async function POST(
       },
     });
 
+    // Register down payment (anticipo) as bank income if bank selected and downPayment > 0
+    if (bankAccountId && booking.downPayment > 0) {
+      const bankAccount = await prisma.bankAccount.findFirst({
+        where: { id: bankAccountId, tenantId },
+      });
+
+      if (bankAccount) {
+        await prisma.$transaction([
+          prisma.bankTransaction.create({
+            data: {
+              tenantId,
+              bankAccountId,
+              type: 'INCOME',
+              amount: booking.downPayment,
+              description: `Anticipo - ${booking.client?.fullName || ''} - ${booking.destination?.name || ''}`,
+              reference: 'Conversión de cotización a venta',
+              bookingId: id,
+              date: new Date(),
+            },
+          }),
+          prisma.bankAccount.update({
+            where: { id: bankAccountId },
+            data: { currentBalance: { increment: booking.downPayment } },
+          }),
+        ]);
+      }
+    }
+
     // Regenerate payment plan with fresh dates for credit sales
     if (booking.paymentType === 'CREDIT' && booking.numberOfPayments > 0) {
       await prisma.paymentPlan.deleteMany({ where: { bookingId: id } });
@@ -40,6 +72,7 @@ export async function POST(
       const paymentAmount = Math.floor(remaining / booking.numberOfPayments);
       const lastPayment = remaining - (paymentAmount * (booking.numberOfPayments - 1));
       const payments = [];
+      const frequency = booking.paymentFrequency || 'QUINCENAL';
 
       const getNextQuincenalDate = (fromDate: Date, count: number): Date => {
         const result = new Date(fromDate);
@@ -55,9 +88,17 @@ export async function POST(
         return result;
       };
 
+      const getNextMonthlyDate = (fromDate: Date, count: number): Date => {
+        const result = new Date(fromDate);
+        result.setMonth(result.getMonth() + count);
+        return result;
+      };
+
       const startDate = new Date();
       for (let i = 0; i < booking.numberOfPayments; i++) {
-        const dueDate = getNextQuincenalDate(startDate, i + 1);
+        const dueDate = frequency === 'MENSUAL'
+          ? getNextMonthlyDate(startDate, i + 1)
+          : getNextQuincenalDate(startDate, i + 1);
         payments.push({
           bookingId: id,
           paymentNumber: i + 1,
@@ -80,7 +121,7 @@ export async function POST(
         action: 'UPDATE',
         entity: 'quotations',
         entityId: id,
-        changes: { action: 'CONVERT_TO_SALE', totalPrice: booking.totalPrice },
+        changes: { action: 'CONVERT_TO_SALE', totalPrice: booking.totalPrice, bankAccountId },
       });
     }
 

@@ -394,7 +394,7 @@ export async function GET(
           </div>
           ${!isCash ? `
           <div class="summary-card down">
-            <div class="summary-label">Enganche</div>
+            <div class="summary-label">Anticipo</div>
             <div class="summary-value">${formatCurrency(booking.downPayment || 0)}</div>
           </div>
           <div class="summary-card payments">

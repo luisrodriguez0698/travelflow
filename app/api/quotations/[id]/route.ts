@@ -118,6 +118,7 @@ export async function PUT(
         supplierDeadline: body.supplierDeadline ? new Date(body.supplierDeadline) : null,
         expirationDate: body.expirationDate ? new Date(body.expirationDate) : existing.expirationDate,
         hotelId: body.hotelId !== undefined ? (body.hotelId || null) : existing.hotelId,
+        paymentFrequency: body.paymentFrequency || existing.paymentFrequency,
       },
     });
 

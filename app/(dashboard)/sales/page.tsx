@@ -115,10 +115,12 @@ interface FormData {
   paymentType: 'CASH' | 'CREDIT';
   downPayment: number;
   numberOfPayments: number;
+  paymentFrequency: 'QUINCENAL' | 'MENSUAL';
   notes: string;
   supplierId: string;
   supplierDeadline: Date | null;
   hotelId: string;
+  reservationNumber: string;
 }
 
 const initialFormData: FormData = {
@@ -138,10 +140,12 @@ const initialFormData: FormData = {
   paymentType: 'CASH',
   downPayment: 0,
   numberOfPayments: 1,
+  paymentFrequency: 'QUINCENAL',
   notes: '',
   supplierId: '',
   supplierDeadline: null,
   hotelId: '',
+  reservationNumber: '',
 };
 
 export default function SalesPage() {
@@ -343,6 +347,8 @@ export default function SalesPage() {
       supplierId: sale.supplierId || '',
       supplierDeadline: sale.supplierDeadline ? new Date(sale.supplierDeadline) : null,
       hotelId: (sale as any).hotelId || '',
+      paymentFrequency: ((sale as any).paymentFrequency as 'QUINCENAL' | 'MENSUAL') || 'QUINCENAL',
+      reservationNumber: (sale as any).reservationNumber || '',
     });
     setPassengers((sale as any).passengers?.map((p: any) => ({
       name: p.name,
@@ -390,7 +396,7 @@ export default function SalesPage() {
       return;
     }
     if (formData.paymentType === 'CREDIT' && formData.downPayment >= formData.totalPrice) {
-      toast({ title: 'Error', description: 'El enganche debe ser menor al precio total', variant: 'destructive' });
+      toast({ title: 'Error', description: 'El anticipo debe ser menor al precio total', variant: 'destructive' });
       return;
     }
 
@@ -421,6 +427,8 @@ export default function SalesPage() {
           supplierId: formData.supplierId || null,
           supplierDeadline: formData.supplierDeadline ? formData.supplierDeadline.toISOString() : null,
           hotelId: formData.hotelId || null,
+          reservationNumber: formData.reservationNumber || null,
+          paymentFrequency: formData.paymentFrequency,
           passengers,
           items: bookingItems.map((item, idx) => ({
             ...item,
@@ -1237,25 +1245,47 @@ export default function SalesPage() {
 
             {/* Credit Options */}
             {formData.paymentType === 'CREDIT' && (
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Enganche</Label>
-                  <Input
-                    type="number" min={0}
-                    value={formData.downPayment || ''}
-                    onChange={(e) => setFormData((p) => ({ ...p, downPayment: parseFloat(e.target.value) || 0 }))}
-                  />
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Anticipo</Label>
+                    <Input
+                      type="number" min={0}
+                      value={formData.downPayment || ''}
+                      onChange={(e) => setFormData((p) => ({ ...p, downPayment: parseFloat(e.target.value) || 0 }))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Número de Pagos</Label>
+                    <Input
+                      type="number" min={1} max={24}
+                      value={formData.numberOfPayments}
+                      onChange={(e) => setFormData((p) => ({ ...p, numberOfPayments: Math.min(24, Math.max(1, parseInt(e.target.value) || 1)) }))}
+                    />
+                  </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Número de Pagos</Label>
-                  <Input
-                    type="number" min={1} max={24}
-                    value={formData.numberOfPayments}
-                    onChange={(e) => setFormData((p) => ({ ...p, numberOfPayments: Math.min(24, Math.max(1, parseInt(e.target.value) || 1)) }))}
-                  />
+                  <Label>Frecuencia de Pagos</Label>
+                  <Select value={formData.paymentFrequency} onValueChange={(v: 'QUINCENAL' | 'MENSUAL') => setFormData((p) => ({ ...p, paymentFrequency: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="QUINCENAL">Quincenal</SelectItem>
+                      <SelectItem value="MENSUAL">Mensual</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             )}
+
+            {/* Reservation Number (solo ventas) */}
+            <div className="space-y-2">
+              <Label>Número de Reservación</Label>
+              <Input
+                value={formData.reservationNumber}
+                onChange={(e) => setFormData((p) => ({ ...p, reservationNumber: e.target.value }))}
+                placeholder="Ej: RES-2026-001"
+              />
+            </div>
 
             {/* Notes */}
             <div className="space-y-2">

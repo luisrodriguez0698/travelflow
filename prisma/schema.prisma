@@ -254,6 +254,10 @@ model Booking {
   type             String   @default("SALE") // SALE or QUOTATION
   expirationDate   DateTime?
 
+  // Reservation & Payment frequency
+  reservationNumber String?
+  paymentFrequency  String   @default("QUINCENAL") // QUINCENAL, MENSUAL
+
   // Hotel
   hotelId          String?
 

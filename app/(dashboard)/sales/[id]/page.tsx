@@ -144,6 +144,7 @@ interface Sale {
     serviceType: string;
   };
   items?: BookingItem[];
+  reservationNumber?: string;
   creatorName?: string;
 }
 
@@ -377,6 +378,11 @@ export default function SaleDetailPage() {
             <div className="flex items-center gap-3 mt-1">
               <p className="text-gray-600 dark:text-gray-400">
                 Folio: {sale.id.slice(-8).toUpperCase()}
+                {sale.reservationNumber && (
+                  <span className="ml-3 text-blue-600 dark:text-blue-400 font-medium">
+                    Reservación: {sale.reservationNumber}
+                  </span>
+                )}
               </p>
               {sale.creatorName && (
                 <span className="inline-flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
@@ -745,7 +751,7 @@ export default function SaleDetailPage() {
             </Card>
             {sale.downPayment > 0 && (
               <Card className="p-6 bg-purple-50 dark:bg-purple-950/20 border-purple-200 dark:border-purple-800">
-                <p className="text-sm text-purple-600 dark:text-purple-400 font-medium">Enganche</p>
+                <p className="text-sm text-purple-600 dark:text-purple-400 font-medium">Anticipo</p>
                 <p className="text-3xl font-bold text-purple-700 dark:text-purple-300 mt-1">
                   ${sale.downPayment?.toLocaleString('es-MX')}
                 </p>

@@ -103,7 +103,7 @@ export default function NewSalePage() {
           </div>
           {formData.paymentType === 'CREDIT' && (
             <>
-              <div><Label>Enganche</Label><Input type="number" value={formData.downPayment} onChange={(e) => setFormData({ ...formData, downPayment: e.target.value })} /></div>
+              <div><Label>Anticipo</Label><Input type="number" value={formData.downPayment} onChange={(e) => setFormData({ ...formData, downPayment: e.target.value })} /></div>
               <div><Label>Número de Quincenas</Label><Input type="number" value={formData.numberOfPayments} onChange={(e) => setFormData({ ...formData, numberOfPayments: e.target.value })} /></div>
             </>
           )}

@@ -133,6 +133,8 @@ export async function POST(request: NextRequest) {
         hotelId: body.hotelId || null,
         createdBy: sessionUser?.id || null,
         type: 'SALE',
+        reservationNumber: body.reservationNumber || null,
+        paymentFrequency: body.paymentFrequency || 'QUINCENAL',
       },
     });
 
@@ -189,38 +191,36 @@ export async function POST(request: NextRequest) {
       const lastPayment = remaining - (paymentAmount * (body.numberOfPayments - 1));
       const payments = [];
 
+      const frequency = body.paymentFrequency || 'QUINCENAL';
+
       // Helper function to get next quincenal date (15th or last day of month)
       const getNextQuincenalDate = (fromDate: Date, count: number): Date => {
         const result = new Date(fromDate);
-        
         for (let i = 0; i < count; i++) {
           const currentDay = result.getDate();
           const currentMonth = result.getMonth();
           const currentYear = result.getFullYear();
-          
-          // Get last day of current month
           const lastDayOfMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-          
-          if (currentDay < 15) {
-            // Move to day 15 of current month
-            result.setDate(15);
-          } else if (currentDay < lastDayOfMonth) {
-            // Move to last day of current month
-            result.setDate(lastDayOfMonth);
-          } else {
-            // Move to day 15 of next month
-            result.setMonth(currentMonth + 1);
-            result.setDate(15);
-          }
+          if (currentDay < 15) { result.setDate(15); }
+          else if (currentDay < lastDayOfMonth) { result.setDate(lastDayOfMonth); }
+          else { result.setMonth(currentMonth + 1); result.setDate(15); }
         }
-        
+        return result;
+      };
+
+      // Helper function to get next monthly date
+      const getNextMonthlyDate = (fromDate: Date, count: number): Date => {
+        const result = new Date(fromDate);
+        result.setMonth(result.getMonth() + count);
         return result;
       };
 
       const startDate = new Date();
-      
+
       for (let i = 0; i < body.numberOfPayments; i++) {
-        const dueDate = getNextQuincenalDate(startDate, i + 1);
+        const dueDate = frequency === 'MENSUAL'
+          ? getNextMonthlyDate(startDate, i + 1)
+          : getNextQuincenalDate(startDate, i + 1);
         payments.push({
           bookingId: booking.id,
           paymentNumber: i + 1,

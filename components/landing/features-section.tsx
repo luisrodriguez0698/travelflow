@@ -28,7 +28,7 @@ const features = [
   {
     icon: CreditCard,
     title: 'Control de Pagos',
-    description: 'Planes de pago a plazos, enganche, abonos parciales y seguimiento automático de pagos pendientes y vencidos.',
+    description: 'Planes de pago a plazos, anticipo, abonos parciales y seguimiento automático de pagos pendientes y vencidos.',
     color: 'from-purple-500 to-pink-500',
     bg: 'bg-purple-50 dark:bg-purple-950/30',
   },

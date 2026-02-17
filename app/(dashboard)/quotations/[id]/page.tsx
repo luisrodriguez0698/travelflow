@@ -638,7 +638,7 @@ export default function QuotationDetailPage() {
             </Card>
             {quotation.downPayment > 0 && (
               <Card className="p-6 bg-purple-50 dark:bg-purple-950/20 border-purple-200 dark:border-purple-800">
-                <p className="text-sm text-purple-600 dark:text-purple-400 font-medium">Enganche</p>
+                <p className="text-sm text-purple-600 dark:text-purple-400 font-medium">Anticipo</p>
                 <p className="text-3xl font-bold text-purple-700 dark:text-purple-300 mt-1">
                   ${quotation.downPayment?.toLocaleString('es-MX')}
                 </p>

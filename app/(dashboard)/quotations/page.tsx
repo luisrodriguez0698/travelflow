@@ -75,6 +75,13 @@ const datePresets = [
   { label: 'Este año', getRange: () => ({ from: startOfYear(new Date()), to: endOfMonth(new Date()) }) },
 ];
 
+interface BankAccount {
+  id: string;
+  bankName: string;
+  referenceName: string;
+  currentBalance: number;
+}
+
 interface FormData {
   clientId: string;
   destinationId: string;
@@ -92,6 +99,7 @@ interface FormData {
   paymentType: 'CASH' | 'CREDIT';
   downPayment: number;
   numberOfPayments: number;
+  paymentFrequency: 'QUINCENAL' | 'MENSUAL';
   notes: string;
   supplierId: string;
   supplierDeadline: Date | null;
@@ -116,6 +124,7 @@ const initialFormData: FormData = {
   paymentType: 'CASH',
   downPayment: 0,
   numberOfPayments: 1,
+  paymentFrequency: 'QUINCENAL',
   notes: '',
   supplierId: '',
   supplierDeadline: null,
@@ -140,6 +149,8 @@ export default function QuotationsPage() {
   const [editingQuotation, setEditingQuotation] = useState<Quotation | null>(null);
   const [deletingQuotation, setDeletingQuotation] = useState<Quotation | null>(null);
   const [convertingQuotation, setConvertingQuotation] = useState<Quotation | null>(null);
+  const [convertBankAccountId, setConvertBankAccountId] = useState('');
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [formData, setFormData] = useState<FormData>(initialFormData);
 
   const [showClientModal, setShowClientModal] = useState(false);
@@ -223,6 +234,10 @@ export default function QuotationsPage() {
       setLoading(false);
     };
     init();
+    fetch('/api/bank-accounts?all=true')
+      .then((r) => r.json())
+      .then(setBankAccounts)
+      .catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -319,6 +334,7 @@ export default function QuotationsPage() {
       supplierDeadline: q.supplierDeadline ? new Date(q.supplierDeadline) : null,
       expirationDate: q.expirationDate ? new Date(q.expirationDate) : null,
       hotelId: (q as any).hotelId || '',
+      paymentFrequency: ((q as any).paymentFrequency as 'QUINCENAL' | 'MENSUAL') || 'QUINCENAL',
     });
     setPassengers((q as any).passengers?.map((p: any) => ({
       name: p.name,
@@ -394,6 +410,7 @@ export default function QuotationsPage() {
           supplierDeadline: formData.supplierDeadline ? formData.supplierDeadline.toISOString() : null,
           expirationDate: formData.expirationDate ? formData.expirationDate.toISOString() : null,
           hotelId: formData.hotelId || null,
+          paymentFrequency: formData.paymentFrequency,
           passengers,
           items: bookingItems.map((item, idx) => ({
             ...item,
@@ -436,7 +453,11 @@ export default function QuotationsPage() {
     if (!convertingQuotation) return;
     setSaving(true);
     try {
-      const res = await fetch(`/api/quotations/${convertingQuotation.id}/convert`, { method: 'POST' });
+      const res = await fetch(`/api/quotations/${convertingQuotation.id}/convert`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bankAccountId: convertBankAccountId || null }),
+      });
       if (!res.ok) throw new Error('Error converting');
       toast({ title: 'Éxito', description: 'Cotización convertida a venta' });
       setIsConvertModalOpen(false);
@@ -1108,14 +1129,26 @@ export default function QuotationsPage() {
             </div>
 
             {formData.paymentType === 'CREDIT' && (
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Enganche</Label>
-                  <Input type="number" min={0} value={formData.downPayment || ''} onChange={(e) => setFormData((p) => ({ ...p, downPayment: parseFloat(e.target.value) || 0 }))} />
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Anticipo</Label>
+                    <Input type="number" min={0} value={formData.downPayment || ''} onChange={(e) => setFormData((p) => ({ ...p, downPayment: parseFloat(e.target.value) || 0 }))} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Número de Pagos</Label>
+                    <Input type="number" min={1} max={24} value={formData.numberOfPayments} onChange={(e) => setFormData((p) => ({ ...p, numberOfPayments: Math.min(24, Math.max(1, parseInt(e.target.value) || 1)) }))} />
+                  </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Número de Pagos</Label>
-                  <Input type="number" min={1} max={24} value={formData.numberOfPayments} onChange={(e) => setFormData((p) => ({ ...p, numberOfPayments: Math.min(24, Math.max(1, parseInt(e.target.value) || 1)) }))} />
+                  <Label>Frecuencia de Pagos</Label>
+                  <Select value={formData.paymentFrequency} onValueChange={(v: 'QUINCENAL' | 'MENSUAL') => setFormData((p) => ({ ...p, paymentFrequency: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="QUINCENAL">Quincenal</SelectItem>
+                      <SelectItem value="MENSUAL">Mensual</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             )}
@@ -1377,7 +1410,7 @@ export default function QuotationsPage() {
       </Dialog>
 
       {/* ===== CONVERT TO SALE MODAL ===== */}
-      <Dialog open={isConvertModalOpen} onOpenChange={setIsConvertModalOpen}>
+      <Dialog open={isConvertModalOpen} onOpenChange={(open) => { setIsConvertModalOpen(open); if (!open) setConvertBankAccountId(''); }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>¿Convertir a venta?</DialogTitle>
@@ -1386,9 +1419,37 @@ export default function QuotationsPage() {
               {convertingQuotation?.paymentType === 'CREDIT' && ' El plan de pagos se generará con fechas a partir de hoy.'}
             </DialogDescription>
           </DialogHeader>
+          {convertingQuotation && convertingQuotation.downPayment > 0 && (
+            <div className="space-y-3 py-2">
+              <div className="rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 p-3">
+                <p className="text-sm text-blue-700 dark:text-blue-300">
+                  Esta cotización tiene un anticipo de <strong>${convertingQuotation.downPayment.toLocaleString('es-MX')}</strong>. Selecciona la cuenta donde se registrará el ingreso.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label>Cuenta Bancaria para el Anticipo *</Label>
+                <Select value={convertBankAccountId} onValueChange={setConvertBankAccountId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona cuenta destino" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {bankAccounts.map((acc) => (
+                      <SelectItem key={acc.id} value={acc.id}>
+                        {acc.referenceName} - {acc.bankName} (${acc.currentBalance.toLocaleString('es-MX')})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsConvertModalOpen(false)} disabled={saving}>Cancelar</Button>
-            <Button onClick={handleConvert} disabled={saving} className="bg-green-600 hover:bg-green-700">
+            <Button
+              onClick={handleConvert}
+              disabled={saving || (convertingQuotation !== null && convertingQuotation.downPayment > 0 && !convertBankAccountId)}
+              className="bg-green-600 hover:bg-green-700"
+            >
               {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               Convertir a Venta
             </Button>

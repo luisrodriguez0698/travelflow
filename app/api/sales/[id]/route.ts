@@ -116,6 +116,8 @@ export async function PUT(
         supplierId: body.supplierId || null,
         supplierDeadline: body.supplierDeadline ? new Date(body.supplierDeadline) : null,
         hotelId: body.hotelId !== undefined ? (body.hotelId || null) : existing.hotelId,
+        reservationNumber: body.reservationNumber !== undefined ? (body.reservationNumber || null) : existing.reservationNumber,
+        paymentFrequency: body.paymentFrequency || existing.paymentFrequency,
       },
     });
 
@@ -182,9 +184,31 @@ export async function PUT(
       const lastPayment = remaining - (paymentAmount * (body.numberOfPayments - 1));
       const payments = [];
 
+      const frequency = body.paymentFrequency || existing.paymentFrequency || 'QUINCENAL';
+      const getNextQuincenalDate = (fromDate: Date, count: number): Date => {
+        const result = new Date(fromDate);
+        for (let i = 0; i < count; i++) {
+          const currentDay = result.getDate();
+          const currentMonth = result.getMonth();
+          const currentYear = result.getFullYear();
+          const lastDayOfMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+          if (currentDay < 15) { result.setDate(15); }
+          else if (currentDay < lastDayOfMonth) { result.setDate(lastDayOfMonth); }
+          else { result.setMonth(currentMonth + 1); result.setDate(15); }
+        }
+        return result;
+      };
+      const getNextMonthlyDate = (fromDate: Date, count: number): Date => {
+        const result = new Date(fromDate);
+        result.setMonth(result.getMonth() + count);
+        return result;
+      };
+
       for (let i = 0; i < body.numberOfPayments; i++) {
-        const dueDate = new Date();
-        dueDate.setDate(dueDate.getDate() + ((i + 1) * 15));
+        const startDate = new Date();
+        const dueDate = frequency === 'MENSUAL'
+          ? getNextMonthlyDate(startDate, i + 1)
+          : getNextQuincenalDate(startDate, i + 1);
         payments.push({
           bookingId: booking.id,
           paymentNumber: i + 1,
