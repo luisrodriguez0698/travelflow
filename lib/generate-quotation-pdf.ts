@@ -352,7 +352,7 @@ export async function generateQuotationPdf(quotation: QuotationData) {
     doc.setFontSize(8);
     doc.setTextColor(...GRAY);
     doc.setFont('helvetica', 'normal');
-    doc.text('ENGANCHE', card2X + cardWidth / 2, cardY + 7, { align: 'center' });
+    doc.text('ANTICIPO', card2X + cardWidth / 2, cardY + 7, { align: 'center' });
     doc.setFontSize(14);
     doc.setTextColor(37, 99, 235);
     doc.setFont('helvetica', 'bold');

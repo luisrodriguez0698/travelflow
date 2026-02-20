@@ -621,10 +621,12 @@ export default function QuotationsPage() {
           <h1 className="text-3xl font-bold">Cotizaciones</h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">Gestiona tus cotizaciones y borradores</p>
         </div>
-        <Button onClick={openCreateModal} className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600">
-          <Plus className="w-4 h-4 mr-2" />
-          Nueva Cotización
-        </Button>
+        <Link href="/quotations/new">
+          <Button className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600">
+            <Plus className="w-4 h-4 mr-2" />
+            Nueva Cotización
+          </Button>
+        </Link>
       </div>
 
       {/* Filters */}
@@ -824,7 +826,7 @@ export default function QuotationsPage() {
           <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-semibold mb-2">No hay cotizaciones registradas</h3>
           <p className="text-gray-600 dark:text-gray-400 mb-6">Comienza creando tu primera cotización</p>
-          <Button onClick={openCreateModal}><Plus className="w-4 h-4 mr-2" />Nueva Cotización</Button>
+          <Link href="/quotations/new"><Button><Plus className="w-4 h-4 mr-2" />Nueva Cotización</Button></Link>
         </Card>
       )}
 

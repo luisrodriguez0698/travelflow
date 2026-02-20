@@ -146,6 +146,7 @@ interface Sale {
   items?: BookingItem[];
   reservationNumber?: string;
   creatorName?: string;
+  paymentFrequency?: string;
 }
 
 export default function SaleDetailPage() {
@@ -788,9 +789,14 @@ export default function SaleDetailPage() {
           {/* Payment Plan Table */}
           <Card>
             <div className="p-6 border-b">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <CreditCard className="w-5 h-5 text-purple-500" />
                 <h3 className="text-lg font-semibold">Plan de Pagos</h3>
+                {sale.paymentFrequency && (
+                  <Badge variant="outline" className="ml-1 text-xs">
+                    {sale.paymentFrequency === 'MENSUAL' ? 'Mensual' : 'Quincenal'}
+                  </Badge>
+                )}
               </div>
             </div>
             <Table>

@@ -11,16 +11,26 @@ export async function GET(request: NextRequest) {
     const month = parseInt(searchParams.get('month') || String(new Date().getMonth() + 1));
     const year = parseInt(searchParams.get('year') || String(new Date().getFullYear()));
 
-    const startOfMonth = new Date(year, month - 1, 1);
-    const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
+    const startDateParam = searchParams.get('startDate');
+    const endDateParam = searchParams.get('endDate');
+    let startOfRange: Date;
+    let endOfRange: Date;
+
+    if (startDateParam && endDateParam) {
+      startOfRange = new Date(startDateParam + 'T00:00:00');
+      endOfRange = new Date(endDateParam + 'T23:59:59.999');
+    } else {
+      startOfRange = new Date(year, month - 1, 1);
+      endOfRange = new Date(year, month, 0, 23, 59, 59, 999);
+    }
 
     const bookings = await prisma.booking.findMany({
       where: {
         tenantId,
         type: 'SALE',
         status: { not: 'CANCELLED' },
-        departureDate: { not: null, lte: endOfMonth },
-        returnDate: { not: null, gte: startOfMonth },
+        departureDate: { not: null, lte: endOfRange },
+        returnDate: { not: null, gte: startOfRange },
       },
       include: {
         client: { select: { fullName: true } },

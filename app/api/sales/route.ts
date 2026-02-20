@@ -208,10 +208,12 @@ export async function POST(request: NextRequest) {
         return result;
       };
 
-      // Helper function to get next monthly date
+      // Helper function to get last day of each consecutive month
       const getNextMonthlyDate = (fromDate: Date, count: number): Date => {
         const result = new Date(fromDate);
+        result.setDate(1); // avoid overflow
         result.setMonth(result.getMonth() + count);
+        result.setDate(new Date(result.getFullYear(), result.getMonth() + 1, 0).getDate());
         return result;
       };
 
@@ -219,7 +221,7 @@ export async function POST(request: NextRequest) {
 
       for (let i = 0; i < body.numberOfPayments; i++) {
         const dueDate = frequency === 'MENSUAL'
-          ? getNextMonthlyDate(startDate, i + 1)
+          ? getNextMonthlyDate(startDate, i)
           : getNextQuincenalDate(startDate, i + 1);
         payments.push({
           bookingId: booking.id,

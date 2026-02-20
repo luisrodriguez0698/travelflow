@@ -183,6 +183,8 @@ export async function PUT(
       const lastPayment = remaining - (paymentAmount * (body.numberOfPayments - 1));
       const payments = [];
 
+      const frequency = body.paymentFrequency || 'QUINCENAL';
+
       const getNextQuincenalDate = (fromDate: Date, count: number): Date => {
         const result = new Date(fromDate);
         for (let i = 0; i < count; i++) {
@@ -197,9 +199,19 @@ export async function PUT(
         return result;
       };
 
+      const getNextMonthlyDate = (fromDate: Date, count: number): Date => {
+        const result = new Date(fromDate);
+        result.setDate(1); // avoid overflow
+        result.setMonth(result.getMonth() + count);
+        result.setDate(new Date(result.getFullYear(), result.getMonth() + 1, 0).getDate());
+        return result;
+      };
+
       const startDate = new Date();
       for (let i = 0; i < body.numberOfPayments; i++) {
-        const dueDate = getNextQuincenalDate(startDate, i + 1);
+        const dueDate = frequency === 'MENSUAL'
+          ? getNextMonthlyDate(startDate, i)
+          : getNextQuincenalDate(startDate, i + 1);
         payments.push({
           bookingId: booking.id,
           paymentNumber: i + 1,

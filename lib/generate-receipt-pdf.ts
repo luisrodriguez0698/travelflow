@@ -60,6 +60,7 @@ interface SaleData {
     season?: { name: string };
   };
   payments: Payment[];
+  paymentFrequency?: string;
   items?: BookingItem[];
   tenant?: {
     name: string;
@@ -549,6 +550,13 @@ export async function generateReceiptPdf(sale: SaleData) {
     doc.setTextColor(...CYAN);
     doc.setFont('helvetica', 'bold');
     doc.text('Historial de Pagos', margin, y);
+    if (sale.paymentFrequency) {
+      const freqLabel = sale.paymentFrequency === 'MENSUAL' ? 'Mensual' : 'Quincenal';
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...GRAY);
+      doc.text(`Frecuencia: ${freqLabel}`, margin + 47, y);
+    }
     y += 2;
     doc.setDrawColor(226, 232, 240);
     doc.setLineWidth(0.3);

@@ -200,14 +200,16 @@ export async function PUT(
       };
       const getNextMonthlyDate = (fromDate: Date, count: number): Date => {
         const result = new Date(fromDate);
+        result.setDate(1); // avoid overflow
         result.setMonth(result.getMonth() + count);
+        result.setDate(new Date(result.getFullYear(), result.getMonth() + 1, 0).getDate());
         return result;
       };
 
       for (let i = 0; i < body.numberOfPayments; i++) {
         const startDate = new Date();
         const dueDate = frequency === 'MENSUAL'
-          ? getNextMonthlyDate(startDate, i + 1)
+          ? getNextMonthlyDate(startDate, i)
           : getNextQuincenalDate(startDate, i + 1);
         payments.push({
           bookingId: booking.id,

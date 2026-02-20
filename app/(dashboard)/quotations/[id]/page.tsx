@@ -133,6 +133,7 @@ interface Quotation {
   };
   items?: BookingItem[];
   creatorName?: string;
+  paymentFrequency?: string;
 }
 
 export default function QuotationDetailPage() {
@@ -657,10 +658,15 @@ export default function QuotationDetailPage() {
           {/* Payment Plan Table - Read Only */}
           <Card>
             <div className="p-6 border-b">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <CreditCard className="w-5 h-5 text-amber-500" />
                 <h3 className="text-lg font-semibold">Plan de Pagos Propuesto</h3>
                 <Badge variant="secondary" className="ml-2">Vista previa</Badge>
+                {quotation.paymentFrequency && (
+                  <Badge variant="outline" className="text-xs">
+                    {quotation.paymentFrequency === 'MENSUAL' ? 'Mensual' : 'Quincenal'}
+                  </Badge>
+                )}
               </div>
             </div>
             <Table>

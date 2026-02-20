@@ -656,10 +656,12 @@ export default function SalesPage() {
               Márgenes
             </Button>
           </Link>
-          <Button onClick={openCreateModal} className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600">
-            <Plus className="w-4 h-4 mr-2" />
-            Nueva Venta
-          </Button>
+          <Link href="/sales/new">
+            <Button className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600">
+              <Plus className="w-4 h-4 mr-2" />
+              Nueva Venta
+            </Button>
+          </Link>
         </div>
       </div>
 
@@ -901,7 +903,7 @@ export default function SalesPage() {
           <ShoppingCart className="w-16 h-16 text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-semibold mb-2">No hay ventas registradas</h3>
           <p className="text-gray-600 dark:text-gray-400 mb-6">Comienza registrando tu primera venta</p>
-          <Button onClick={openCreateModal}><Plus className="w-4 h-4 mr-2" />Nueva Venta</Button>
+          <Link href="/sales/new"><Button><Plus className="w-4 h-4 mr-2" />Nueva Venta</Button></Link>
         </Card>
       )}
 

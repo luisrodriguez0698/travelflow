@@ -160,9 +160,11 @@ export async function GET(
           </tr>`;
       }).join('');
 
+      const frequencyLabel = (booking as any).paymentFrequency === 'MENSUAL' ? 'Mensual' : 'Quincenal';
       paymentSectionHtml = `
       <div class="section">
         <div class="section-title">Plan de Pagos Propuesto</div>
+        <div style="font-size: 12px; color: #666; margin-bottom: 8px;">Frecuencia de pagos: <strong>${frequencyLabel}</strong></div>
         <table>
           <thead>
             <tr>
