@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Hotel, Plane, MapPin, Trash2, Pencil, Check, ChevronsUpDown } from 'lucide-react';
+import { Plus, Hotel, Plane, MapPin, Trash2, Pencil, Check, ChevronsUpDown, Truck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // ─── Types ───────────────────────────────────────────
@@ -32,6 +32,8 @@ export interface BookingItemData {
   priceAdult?: number;
   priceChild?: number;
   plan?: string;
+  // Destination (for HOTEL)
+  destinationId?: string;
   // Flight
   airline?: string;
   flightNumber?: string;
@@ -46,6 +48,9 @@ export interface BookingItemData {
   tourDate?: Date | null;
   numPeople?: number;
   pricePerPerson?: number;
+  // Supplier (per item)
+  supplierId?: string;
+  supplierDeadline?: Date | null;
 }
 
 interface HotelOption {
@@ -57,10 +62,15 @@ interface HotelOption {
   roomType: string;
 }
 
+interface Season { id: string; name: string; color: string; }
+interface Destination { id: string; name: string; description: string; season?: Season | null; }
+interface Supplier { id: string; name: string; phone: string; serviceType: string; }
+
 interface BookingItemsFormProps {
   items: BookingItemData[];
   onChange: (items: BookingItemData[]) => void;
-  hotels: HotelOption[];
+  destinations: Destination[];
+  suppliers: Supplier[];
 }
 
 const formatCurrency = (n: number) =>
@@ -82,7 +92,7 @@ function parseTimeInput(timeStr: string): Date | null {
 
 // ─── Main Component ──────────────────────────────────
 
-export function BookingItemsForm({ items, onChange, hotels }: BookingItemsFormProps) {
+export function BookingItemsForm({ items, onChange, destinations, suppliers }: BookingItemsFormProps) {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [draftItem, setDraftItem] = useState<BookingItemData | null>(null);
@@ -146,7 +156,7 @@ export function BookingItemsForm({ items, onChange, hotels }: BookingItemsFormPr
       <div className="flex items-center gap-2 flex-wrap">
         <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Agregar:</span>
         <Button type="button" variant="outline" size="sm" onClick={() => openAddModal('HOTEL')} className="gap-1.5 h-8">
-          <Hotel className="w-3.5 h-3.5" />Habitación
+          <Hotel className="w-3.5 h-3.5" />Habitacion
         </Button>
         <Button type="button" variant="outline" size="sm" onClick={() => openAddModal('FLIGHT')} className="gap-1.5 h-8">
           <Plane className="w-3.5 h-3.5" />Vuelo
@@ -176,7 +186,8 @@ export function BookingItemsForm({ items, onChange, hotels }: BookingItemsFormPr
             <ItemCard
               key={index}
               item={item}
-              hotels={hotels}
+              destinations={destinations}
+              suppliers={suppliers}
               onEdit={() => openEditModal(index)}
               onDelete={() => removeItem(index)}
             />
@@ -198,7 +209,7 @@ export function BookingItemsForm({ items, onChange, hotels }: BookingItemsFormPr
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               {draftItem?.type === 'HOTEL' && (
-                <><Hotel className="w-4 h-4 text-blue-500" />{editingIndex === null ? 'Agregar Habitación' : 'Editar Habitación'}</>
+                <><Hotel className="w-4 h-4 text-blue-500" />{editingIndex === null ? 'Agregar Habitacion' : 'Editar Habitacion'}</>
               )}
               {draftItem?.type === 'FLIGHT' && (
                 <><Plane className="w-4 h-4 text-cyan-500" />{editingIndex === null ? 'Agregar Vuelo' : 'Editar Vuelo'}</>
@@ -212,13 +223,13 @@ export function BookingItemsForm({ items, onChange, hotels }: BookingItemsFormPr
           {draftItem && (
             <div className="space-y-4 py-1">
               {draftItem.type === 'HOTEL' && (
-                <HotelForm item={draftItem} hotels={hotels} onChange={updateDraft} />
+                <HotelForm item={draftItem} destinations={destinations} suppliers={suppliers} onChange={updateDraft} />
               )}
               {draftItem.type === 'FLIGHT' && (
-                <FlightForm item={draftItem} onChange={updateDraft} />
+                <FlightForm item={draftItem} suppliers={suppliers} onChange={updateDraft} />
               )}
               {draftItem.type === 'TOUR' && (
-                <TourForm item={draftItem} onChange={updateDraft} />
+                <TourForm item={draftItem} suppliers={suppliers} onChange={updateDraft} />
               )}
             </div>
           )}
@@ -237,20 +248,90 @@ export function BookingItemsForm({ items, onChange, hotels }: BookingItemsFormPr
   );
 }
 
+// ─── Supplier Section (shared by all forms) ──────────
+
+function SupplierSection({
+  item,
+  suppliers,
+  onChange,
+}: {
+  item: BookingItemData;
+  suppliers: Supplier[];
+  onChange: (updates: Partial<BookingItemData>) => void;
+}) {
+  const [supplierOpen, setSupplierOpen] = useState(false);
+  const selectedSupplier = suppliers.find((s) => s.id === item.supplierId);
+
+  return (
+    <div className="space-y-3 pt-3 border-t">
+      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+        <Truck className="w-3.5 h-3.5" /> Proveedor
+      </p>
+      <div className="space-y-1.5">
+        <Label>Proveedor</Label>
+        <Popover open={supplierOpen} onOpenChange={setSupplierOpen}>
+          <PopoverTrigger asChild>
+            <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
+              {selectedSupplier ? `${selectedSupplier.name} (${selectedSupplier.serviceType})` : 'Sin proveedor'}
+              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+            <Command>
+              <CommandInput placeholder="Buscar proveedor..." />
+              <CommandList>
+                <CommandEmpty>No se encontraron proveedores.</CommandEmpty>
+                <CommandGroup>
+                  <CommandItem value="__none__" onSelect={() => { onChange({ supplierId: undefined, supplierDeadline: null }); setSupplierOpen(false); }}>
+                    <Check className={cn('mr-2 h-4 w-4', !item.supplierId ? 'opacity-100' : 'opacity-0')} />
+                    Sin proveedor
+                  </CommandItem>
+                  {suppliers.map((s) => (
+                    <CommandItem
+                      key={s.id}
+                      value={`${s.name} ${s.serviceType}`}
+                      onSelect={() => { onChange({ supplierId: s.id }); setSupplierOpen(false); }}
+                    >
+                      <Check className={cn('mr-2 h-4 w-4', item.supplierId === s.id ? 'opacity-100' : 'opacity-0')} />
+                      {s.name} ({s.serviceType})
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
+      </div>
+      {item.supplierId && (
+        <div className="space-y-1.5">
+          <Label>Fecha Limite Proveedor</Label>
+          <DatePicker
+            value={item.supplierDeadline || undefined}
+            onChange={(date) => onChange({ supplierDeadline: date || null })}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Item Card (compact summary) ─────────────────────
 
 function ItemCard({
   item,
-  hotels,
+  destinations,
+  suppliers,
   onEdit,
   onDelete,
 }: {
   item: BookingItemData;
-  hotels: HotelOption[];
+  destinations: Destination[];
+  suppliers: Supplier[];
   onEdit: () => void;
   onDelete: () => void;
 }) {
-  const selectedHotel = hotels.find((h) => h.id === item.hotelId);
+  const selectedDestination = destinations.find((d) => d.id === item.destinationId);
+  const selectedSupplier = suppliers.find((s) => s.id === item.supplierId);
 
   const borderColor = {
     HOTEL: 'border-l-blue-400',
@@ -280,8 +361,11 @@ function ItemCard({
         {item.type === 'HOTEL' && (
           <>
             <p className="text-sm font-medium leading-tight truncate">
-              {selectedHotel ? selectedHotel.name : item.roomType || 'Habitación'}
+              {item.roomType || 'Habitacion'}
             </p>
+            {selectedDestination && (
+              <p className="text-xs text-muted-foreground">{selectedDestination.name}</p>
+            )}
             {(item.roomType || item.plan) && (
               <p className="text-xs text-muted-foreground">
                 {[item.roomType, item.plan].filter(Boolean).join(' · ')}
@@ -296,13 +380,13 @@ function ItemCard({
         {item.type === 'FLIGHT' && (
           <>
             <p className="text-sm font-medium leading-tight">
-              {item.airline || 'Aerolínea'}{item.flightNumber ? ` · ${item.flightNumber}` : ''}
+              {item.airline || 'Aerolinea'}{item.flightNumber ? ` · ${item.flightNumber}` : ''}
             </p>
             <p className="text-xs text-muted-foreground">
               {item.origin || '?'} → {item.flightDestination || '?'}
             </p>
             <p className="text-xs text-muted-foreground">
-              {item.direction === 'IDA' ? 'Ida' : 'Regreso'} · {item.flightClass || 'Económica'}
+              {item.direction === 'IDA' ? 'Ida' : 'Regreso'} · {item.flightClass || 'Economica'}
             </p>
           </>
         )}
@@ -318,6 +402,11 @@ function ItemCard({
               </p>
             )}
           </>
+        )}
+        {selectedSupplier && (
+          <p className="text-xs text-muted-foreground/80 flex items-center gap-1 mt-0.5">
+            <Truck className="w-3 h-3" /> {selectedSupplier.name}
+          </p>
         )}
       </div>
 
@@ -349,69 +438,140 @@ function ItemCard({
 
 function HotelForm({
   item,
-  hotels,
+  destinations,
+  suppliers,
   onChange,
 }: {
   item: BookingItemData;
-  hotels: HotelOption[];
+  destinations: Destination[];
+  suppliers: Supplier[];
   onChange: (updates: Partial<BookingItemData>) => void;
 }) {
+  const [destOpen, setDestOpen] = useState(false);
   const [hotelOpen, setHotelOpen] = useState(false);
+  const [hotels, setHotels] = useState<HotelOption[]>([]);
+  const [loadingHotels, setLoadingHotels] = useState(false);
+
+  const selectedDestination = destinations.find((d) => d.id === item.destinationId);
   const selectedHotel = hotels.find((h) => h.id === item.hotelId);
+
+  // Load hotels when destination changes
+  useEffect(() => {
+    if (item.destinationId) {
+      setLoadingHotels(true);
+      fetch(`/api/hotels?destinationId=${item.destinationId}&all=true`)
+        .then(r => r.ok ? r.json() : [])
+        .then(setHotels)
+        .catch(() => setHotels([]))
+        .finally(() => setLoadingHotels(false));
+    } else {
+      setHotels([]);
+    }
+  }, [item.destinationId]);
 
   return (
     <div className="space-y-4">
-      {/* Hotel selector */}
-      {hotels.length > 0 && (
-        <div className="space-y-1.5">
-          <Label>Hotel</Label>
-          <Popover open={hotelOpen} onOpenChange={setHotelOpen}>
-            <PopoverTrigger asChild>
-              <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
-                {selectedHotel ? selectedHotel.name : 'Seleccionar hotel'}
-                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-              <Command>
-                <CommandInput placeholder="Buscar hotel..." />
-                <CommandList>
-                  <CommandEmpty>No se encontraron hoteles.</CommandEmpty>
-                  <CommandGroup>
-                    <CommandItem value="__none__" onSelect={() => { onChange({ hotelId: undefined, plan: undefined }); setHotelOpen(false); }}>
-                      <Check className={cn('mr-2 h-4 w-4', !item.hotelId ? 'opacity-100' : 'opacity-0')} />
-                      Sin hotel específico
+      {/* Destination selector */}
+      <div className="space-y-1.5">
+        <Label>Destino *</Label>
+        <Popover open={destOpen} onOpenChange={setDestOpen}>
+          <PopoverTrigger asChild>
+            <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
+              {selectedDestination ? (
+                <span className="flex items-center gap-2">
+                  {selectedDestination.name}
+                  {selectedDestination.season && (
+                    <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: selectedDestination.season.color }} />
+                  )}
+                </span>
+              ) : 'Selecciona un destino'}
+              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+            <Command>
+              <CommandInput placeholder="Buscar destino..." />
+              <CommandList>
+                <CommandEmpty>No se encontraron destinos.</CommandEmpty>
+                <CommandGroup>
+                  {destinations.map((d) => (
+                    <CommandItem
+                      key={d.id}
+                      value={d.name}
+                      onSelect={() => {
+                        onChange({ destinationId: d.id, hotelId: undefined });
+                        setDestOpen(false);
+                      }}
+                    >
+                      <Check className={cn('mr-2 h-4 w-4', item.destinationId === d.id ? 'opacity-100' : 'opacity-0')} />
+                      <span className="flex items-center gap-2">
+                        {d.name}
+                        {d.season && <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: d.season.color }} />}
+                      </span>
                     </CommandItem>
-                    {hotels.map((h) => (
-                      <CommandItem
-                        key={h.id}
-                        value={h.name}
-                        onSelect={() => {
-                          onChange({ hotelId: h.id, plan: h.plan || undefined, roomType: h.roomType || undefined });
-                          setHotelOpen(false);
-                        }}
-                      >
-                        <Check className={cn('mr-2 h-4 w-4', item.hotelId === h.id ? 'opacity-100' : 'opacity-0')} />
-                        <div className="flex flex-col">
-                          <span>{h.name}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {h.stars > 0 && `${h.stars}★`}{h.diamonds > 0 && ` ${h.diamonds}◆`}{h.plan && ` · ${h.plan}`}
-                          </span>
-                        </div>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
+      </div>
+
+      {/* Hotel selector */}
+      {item.destinationId && (
+        <div className="space-y-1.5">
+          <Label>Hotel (opcional)</Label>
+          {loadingHotels ? (
+            <p className="text-xs text-muted-foreground">Cargando hoteles...</p>
+          ) : (
+            <Popover open={hotelOpen} onOpenChange={setHotelOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
+                  {selectedHotel ? selectedHotel.name : 'Sin hotel'}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="Buscar hotel..." />
+                  <CommandList>
+                    <CommandEmpty>No se encontraron hoteles.</CommandEmpty>
+                    <CommandGroup>
+                      <CommandItem value="__none__" onSelect={() => { onChange({ hotelId: undefined, plan: undefined }); setHotelOpen(false); }}>
+                        <Check className={cn('mr-2 h-4 w-4', !item.hotelId ? 'opacity-100' : 'opacity-0')} />
+                        Sin hotel especifico
                       </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
-            </PopoverContent>
-          </Popover>
+                      {hotels.map((h) => (
+                        <CommandItem
+                          key={h.id}
+                          value={h.name}
+                          onSelect={() => {
+                            onChange({ hotelId: h.id, plan: h.plan || undefined, roomType: h.roomType || undefined });
+                            setHotelOpen(false);
+                          }}
+                        >
+                          <Check className={cn('mr-2 h-4 w-4', item.hotelId === h.id ? 'opacity-100' : 'opacity-0')} />
+                          <div className="flex flex-col">
+                            <span>{h.name}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {h.stars > 0 && `${h.stars}★`}{h.diamonds > 0 && ` ${h.diamonds}◆`}{h.plan && ` · ${h.plan}`}
+                            </span>
+                          </div>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          )}
         </div>
       )}
 
       {/* Room type + Plan */}
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
-          <Label>Tipo de Habitación</Label>
+          <Label>Tipo de Habitacion</Label>
           <Input
             value={item.roomType || ''}
             onChange={(e) => onChange({ roomType: e.target.value })}
@@ -426,8 +586,8 @@ function HotelForm({
               <SelectItem value="none">Sin plan</SelectItem>
               <SelectItem value="All Inclusive">All Inclusive</SelectItem>
               <SelectItem value="EP">EP (Solo hospedaje)</SelectItem>
-              <SelectItem value="MAP">MAP (Media pensión)</SelectItem>
-              <SelectItem value="AP">AP (Pensión completa)</SelectItem>
+              <SelectItem value="MAP">MAP (Media pension)</SelectItem>
+              <SelectItem value="AP">AP (Pension completa)</SelectItem>
               <SelectItem value="BB">BB (Desayuno)</SelectItem>
             </SelectContent>
           </Select>
@@ -487,7 +647,7 @@ function HotelForm({
           />
         </div>
         <div className="space-y-1.5">
-          <Label>Precio por Niño ($)</Label>
+          <Label>Precio por Nino ($)</Label>
           <Input
             type="number" min={0}
             value={item.priceChild || ''}
@@ -497,11 +657,11 @@ function HotelForm({
         </div>
       </div>
 
-      {/* Free children toggle (only shown when there are children) */}
+      {/* Free children toggle */}
       {(item.numChildren || 0) > 0 && (
         <div className="flex items-center justify-between rounded-lg border p-3 bg-muted/30">
           <div className="space-y-0.5">
-            <Label className="text-sm font-medium">Niños Gratis</Label>
+            <Label className="text-sm font-medium">Ninos Gratis</Label>
             <p className="text-xs text-muted-foreground">Menores que no pagan</p>
           </div>
           <div className="flex items-center gap-3">
@@ -552,10 +712,13 @@ function HotelForm({
           </div>
         )}
         <div className="flex items-center justify-between pt-1 border-t">
-          <span className="text-sm font-medium">Total habitación</span>
+          <span className="text-sm font-medium">Total habitacion</span>
           <span className="font-semibold text-lg">{formatCurrency(item.cost || 0)}</span>
         </div>
       </div>
+
+      {/* Supplier */}
+      <SupplierSection item={item} suppliers={suppliers} onChange={onChange} />
     </div>
   );
 }
@@ -564,9 +727,11 @@ function HotelForm({
 
 function FlightForm({
   item,
+  suppliers,
   onChange,
 }: {
   item: BookingItemData;
+  suppliers: Supplier[];
   onChange: (updates: Partial<BookingItemData>) => void;
 }) {
   return (
@@ -574,7 +739,7 @@ function FlightForm({
       {/* Direction + Class */}
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
-          <Label>Dirección</Label>
+          <Label>Direccion</Label>
           <Select value={item.direction || 'IDA'} onValueChange={(v) => onChange({ direction: v as 'IDA' | 'REGRESO' })}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -588,7 +753,7 @@ function FlightForm({
           <Select value={item.flightClass || 'ECONOMICA'} onValueChange={(v) => onChange({ flightClass: v })}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="ECONOMICA">Económica</SelectItem>
+              <SelectItem value="ECONOMICA">Economica</SelectItem>
               <SelectItem value="BUSINESS">Business</SelectItem>
               <SelectItem value="PRIMERA">Primera</SelectItem>
             </SelectContent>
@@ -599,11 +764,11 @@ function FlightForm({
       {/* Airline + Flight Number */}
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
-          <Label>Aerolínea</Label>
+          <Label>Aerolinea</Label>
           <Input
             value={item.airline || ''}
             onChange={(e) => onChange({ airline: e.target.value })}
-            placeholder="Ej: Aeroméxico"
+            placeholder="Ej: Aeromexico"
           />
         </div>
         <div className="space-y-1.5">
@@ -666,6 +831,9 @@ function FlightForm({
           placeholder="0"
         />
       </div>
+
+      {/* Supplier */}
+      <SupplierSection item={item} suppliers={suppliers} onChange={onChange} />
     </div>
   );
 }
@@ -674,9 +842,11 @@ function FlightForm({
 
 function TourForm({
   item,
+  suppliers,
   onChange,
 }: {
   item: BookingItemData;
+  suppliers: Supplier[];
   onChange: (updates: Partial<BookingItemData>) => void;
 }) {
   return (
@@ -687,7 +857,7 @@ function TourForm({
         <Input
           value={item.tourName || ''}
           onChange={(e) => onChange({ tourName: e.target.value })}
-          placeholder="Ej: Chichén Itzá, Xcaret"
+          placeholder="Ej: Chichen Itza, Xcaret"
         />
       </div>
 
@@ -728,6 +898,9 @@ function TourForm({
         </span>
         <span className="font-semibold text-lg">{formatCurrency(item.cost || 0)}</span>
       </div>
+
+      {/* Supplier */}
+      <SupplierSection item={item} suppliers={suppliers} onChange={onChange} />
     </div>
   );
 }

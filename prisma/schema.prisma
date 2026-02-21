@@ -168,10 +168,11 @@ model Destination {
   updatedAt   DateTime @updatedAt
 
   // Relations
-  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  season   Season?   @relation(fields: [seasonId], references: [id], onDelete: SetNull)
-  bookings Booking[]
-  hotels   Hotel[]
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  season       Season?       @relation(fields: [seasonId], references: [id], onDelete: SetNull)
+  bookings     Booking[]
+  hotels       Hotel[]
+  bookingItems BookingItem[]
 
   @@index([tenantId])
   @@index([seasonId])
@@ -321,14 +322,25 @@ model BookingItem {
   numPeople      Int?
   pricePerPerson Float?
 
+  // ── Destination (for HOTEL items) ──
+  destinationId  String?
+
+  // ── Supplier per item ──
+  supplierId       String?
+  supplierDeadline DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // Relations
-  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  hotel   Hotel?  @relation(fields: [hotelId], references: [id], onDelete: SetNull)
+  booking     Booking      @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  hotel       Hotel?       @relation(fields: [hotelId], references: [id], onDelete: SetNull)
+  destination Destination? @relation(fields: [destinationId], references: [id], onDelete: SetNull)
+  supplier    Supplier?    @relation(fields: [supplierId], references: [id], onDelete: SetNull)
 
   @@index([bookingId])
+  @@index([destinationId])
+  @@index([supplierId])
   @@map("booking_items")
 }
 
@@ -364,6 +376,7 @@ model Supplier {
   tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   bookings         Booking[]
   supplierPayments SupplierPayment[]
+  bookingItems     BookingItem[]
 
   @@index([tenantId])
   @@map("suppliers")

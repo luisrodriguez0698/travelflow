@@ -75,7 +75,21 @@ interface BookingItem {
   cost: number;
   sortOrder: number;
   hotelId?: string;
-  hotel?: { name: string };
+  hotel?: {
+    id: string;
+    name: string;
+    stars?: number;
+    diamonds?: number;
+    plan?: string;
+    checkIn?: string;
+    checkOut?: string;
+    checkInNote?: string;
+    checkOutNote?: string;
+    idRequirement?: string;
+    includes?: string[];
+    notIncludes?: string[];
+    images?: string[];
+  };
   roomType?: string;
   numAdults?: number;
   numChildren?: number;

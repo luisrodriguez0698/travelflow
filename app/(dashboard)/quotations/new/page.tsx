@@ -26,12 +26,10 @@ interface Client { id: string; fullName: string; phone: string; email?: string; 
 interface Season { id: string; name: string; color: string; }
 interface Destination { id: string; name: string; description: string; season?: Season | null; }
 interface Supplier { id: string; name: string; phone: string; serviceType: string; }
-interface HotelOption { id: string; name: string; stars: number; diamonds: number; plan: string; roomType: string; }
 interface Passenger { name: string; type: 'ADULT' | 'MINOR'; age: number | null; isHolder: boolean; }
 
 interface FormData {
   clientId: string;
-  destinationId: string;
   departureDate: Date | null;
   returnDate: Date | null;
   totalPrice: number;
@@ -40,17 +38,13 @@ interface FormData {
   numberOfPayments: number;
   paymentFrequency: 'QUINCENAL' | 'MENSUAL';
   notes: string;
-  supplierId: string;
-  supplierDeadline: Date | null;
-  hotelId: string;
   expirationDate: Date | null;
 }
 
 const initialFormData: FormData = {
-  clientId: '', destinationId: '', departureDate: null, returnDate: null,
+  clientId: '', departureDate: null, returnDate: null,
   totalPrice: 0, paymentType: 'CASH', downPayment: 0, numberOfPayments: 1,
-  paymentFrequency: 'QUINCENAL', notes: '', supplierId: '', supplierDeadline: null,
-  hotelId: '', expirationDate: null,
+  paymentFrequency: 'QUINCENAL', notes: '', expirationDate: null,
 };
 
 export default function NewQuotationPage() {
@@ -62,7 +56,6 @@ export default function NewQuotationPage() {
   const [destinations, setDestinations] = useState<Destination[]>([]);
   const [seasons, setSeasons] = useState<Season[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [hotels, setHotels] = useState<HotelOption[]>([]);
   const [passengers, setPassengers] = useState<Passenger[]>([]);
   const [bookingItems, setBookingItems] = useState<BookingItemData[]>([]);
   const [formData, setFormData] = useState<FormData>(initialFormData);
@@ -71,19 +64,10 @@ export default function NewQuotationPage() {
   const [newPassengerAge, setNewPassengerAge] = useState('');
 
   const [clientComboOpen, setClientComboOpen] = useState(false);
-  const [destinationComboOpen, setDestinationComboOpen] = useState(false);
-  const [supplierComboOpen, setSupplierComboOpen] = useState(false);
-  const [hotelComboOpen, setHotelComboOpen] = useState(false);
 
   const [showClientModal, setShowClientModal] = useState(false);
-  const [showDestinationModal, setShowDestinationModal] = useState(false);
-  const [showSupplierModal, setShowSupplierModal] = useState(false);
   const [editingClientId, setEditingClientId] = useState<string | null>(null);
-  const [editingDestinationId, setEditingDestinationId] = useState<string | null>(null);
-  const [editingSupplierId, setEditingSupplierId] = useState<string | null>(null);
   const [newClient, setNewClient] = useState({ fullName: '', phone: '', email: '' });
-  const [newDestination, setNewDestination] = useState({ name: '', description: '', seasonId: '' });
-  const [newSupplier, setNewSupplier] = useState({ name: '', phone: '', email: '', serviceType: 'OTRO' });
   const [savingInline, setSavingInline] = useState(false);
 
   useEffect(() => {
@@ -100,24 +84,13 @@ export default function NewQuotationPage() {
     }).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => {
-    if (formData.destinationId) {
-      fetch(`/api/hotels?destinationId=${formData.destinationId}&all=true`)
-        .then(r => r.ok ? r.json() : [])
-        .then(setHotels)
-        .catch(() => setHotels([]));
-    } else {
-      setHotels([]);
-    }
-  }, [formData.destinationId]);
-
   const netCost = bookingItems.reduce((sum, item) => sum + (item.cost || 0), 0);
   const profit = formData.totalPrice - netCost;
   const profitPercent = netCost > 0 ? ((profit / netCost) * 100) : 0;
 
   const handleSave = async () => {
-    if (!formData.clientId || !formData.destinationId) {
-      toast({ title: 'Error', description: 'Selecciona un cliente y un destino', variant: 'destructive' });
+    if (!formData.clientId) {
+      toast({ title: 'Error', description: 'Selecciona un cliente', variant: 'destructive' });
       return;
     }
     if (formData.totalPrice <= 0) {
@@ -131,7 +104,6 @@ export default function NewQuotationPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           clientId: formData.clientId,
-          destinationId: formData.destinationId,
           departureDate: formData.departureDate?.toISOString() || null,
           returnDate: formData.returnDate?.toISOString() || null,
           totalPrice: formData.totalPrice,
@@ -139,10 +111,7 @@ export default function NewQuotationPage() {
           downPayment: formData.downPayment,
           numberOfPayments: formData.numberOfPayments,
           notes: formData.notes || null,
-          supplierId: formData.supplierId || null,
-          supplierDeadline: formData.supplierDeadline ? formData.supplierDeadline.toISOString() : null,
           expirationDate: formData.expirationDate ? formData.expirationDate.toISOString() : null,
-          hotelId: formData.hotelId || null,
           paymentFrequency: formData.paymentFrequency,
           passengers,
           items: bookingItems.map((item, idx) => ({
@@ -151,15 +120,16 @@ export default function NewQuotationPage() {
             departureTime: item.departureTime?.toISOString() || null,
             arrivalTime: item.arrivalTime?.toISOString() || null,
             tourDate: item.tourDate instanceof Date ? item.tourDate.toISOString() : item.tourDate || null,
+            supplierDeadline: item.supplierDeadline instanceof Date ? item.supplierDeadline.toISOString() : item.supplierDeadline || null,
           })),
         }),
       });
       if (!res.ok) throw new Error();
       const created = await res.json();
-      toast({ title: 'Éxito', description: 'Cotización creada exitosamente' });
+      toast({ title: 'Exito', description: 'Cotizacion creada exitosamente' });
       router.push(`/quotations/${created.id}`);
     } catch {
-      toast({ title: 'Error', description: 'No se pudo crear la cotización', variant: 'destructive' });
+      toast({ title: 'Error', description: 'No se pudo crear la cotizacion', variant: 'destructive' });
     } finally {
       setSaving(false);
     }
@@ -167,7 +137,7 @@ export default function NewQuotationPage() {
 
   const handleSaveClient = async () => {
     if (!newClient.fullName.trim() || !newClient.phone.trim()) {
-      toast({ title: 'Error', description: 'Nombre y teléfono son requeridos', variant: 'destructive' });
+      toast({ title: 'Error', description: 'Nombre y telefono son requeridos', variant: 'destructive' });
       return;
     }
     setSavingInline(true);
@@ -192,69 +162,7 @@ export default function NewQuotationPage() {
         const data = await res.json();
         toast({ title: 'Error', description: data.error || 'Error al guardar cliente', variant: 'destructive' });
       }
-    } catch { toast({ title: 'Error', description: 'Error de conexión', variant: 'destructive' }); }
-    finally { setSavingInline(false); }
-  };
-
-  const handleSaveDestination = async () => {
-    if (!newDestination.name.trim()) {
-      toast({ title: 'Error', description: 'El nombre del destino es requerido', variant: 'destructive' });
-      return;
-    }
-    setSavingInline(true);
-    try {
-      const isEdit = !!editingDestinationId;
-      const url = isEdit ? `/api/destinations/${editingDestinationId}` : '/api/destinations';
-      const res = await fetch(url, { method: isEdit ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: newDestination.name, description: newDestination.description, seasonId: newDestination.seasonId || null }) });
-      if (res.ok) {
-        const data = await res.json();
-        if (isEdit) {
-          setDestinations(prev => prev.map(d => d.id === editingDestinationId ? { ...d, ...data } : d));
-          toast({ title: 'Destino actualizado' });
-        } else {
-          setDestinations(prev => [...prev, data]);
-          setFormData(prev => ({ ...prev, destinationId: data.id }));
-          toast({ title: 'Destino creado' });
-        }
-        setShowDestinationModal(false);
-        setEditingDestinationId(null);
-        setNewDestination({ name: '', description: '', seasonId: '' });
-      } else {
-        const errData = await res.json();
-        toast({ title: 'Error', description: errData.error || 'Error al guardar destino', variant: 'destructive' });
-      }
-    } catch { toast({ title: 'Error', description: 'Error de conexión', variant: 'destructive' }); }
-    finally { setSavingInline(false); }
-  };
-
-  const handleSaveSupplier = async () => {
-    if (!newSupplier.name.trim() || !newSupplier.phone.trim()) {
-      toast({ title: 'Error', description: 'Nombre y teléfono son requeridos', variant: 'destructive' });
-      return;
-    }
-    setSavingInline(true);
-    try {
-      const isEdit = !!editingSupplierId;
-      const url = isEdit ? `/api/suppliers/${editingSupplierId}` : '/api/suppliers';
-      const res = await fetch(url, { method: isEdit ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newSupplier) });
-      if (res.ok) {
-        if (isEdit) {
-          setSuppliers(prev => prev.map(s => s.id === editingSupplierId ? { ...s, ...newSupplier } : s));
-          toast({ title: 'Proveedor actualizado' });
-        } else {
-          const created = await res.json();
-          setSuppliers(prev => [...prev, created]);
-          setFormData(prev => ({ ...prev, supplierId: created.id }));
-          toast({ title: 'Proveedor creado' });
-        }
-        setShowSupplierModal(false);
-        setEditingSupplierId(null);
-        setNewSupplier({ name: '', phone: '', email: '', serviceType: 'OTRO' });
-      } else {
-        const data = await res.json();
-        toast({ title: 'Error', description: data.error || 'Error al guardar proveedor', variant: 'destructive' });
-      }
-    } catch { toast({ title: 'Error', description: 'Error de conexión', variant: 'destructive' }); }
+    } catch { toast({ title: 'Error', description: 'Error de conexion', variant: 'destructive' }); }
     finally { setSavingInline(false); }
   };
 
@@ -275,13 +183,13 @@ export default function NewQuotationPage() {
             <Button variant="ghost" size="icon"><ArrowLeft className="w-5 h-5" /></Button>
           </Link>
           <div>
-            <h1 className="text-xl font-bold">Nueva Cotización</h1>
-            <p className="text-xs text-muted-foreground">Completa la información y los servicios del paquete</p>
+            <h1 className="text-xl font-bold">Nueva Cotizacion</h1>
+            <p className="text-xs text-muted-foreground">Completa la informacion y los servicios del paquete</p>
           </div>
         </div>
         <Button onClick={handleSave} disabled={saving} className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600">
           {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-          Crear Cotización
+          Crear Cotizacion
         </Button>
       </div>
 
@@ -291,9 +199,9 @@ export default function NewQuotationPage() {
         {/* ── LEFT COLUMN ── */}
         <div className="space-y-5">
 
-          {/* Card 1: Client, Destination, Hotel, Dates */}
+          {/* Card 1: Client, Dates */}
           <Card className="p-5 space-y-4">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Destino y Cliente</p>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cliente y Fechas</p>
 
             {/* Client */}
             <div className="space-y-2">
@@ -333,90 +241,6 @@ export default function NewQuotationPage() {
                 </Button>
               </div>
             </div>
-
-            {/* Destination */}
-            <div className="space-y-2">
-              <Label>Destino *</Label>
-              <div className="flex gap-2">
-                <Popover open={destinationComboOpen} onOpenChange={setDestinationComboOpen}>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" role="combobox" className="flex-1 justify-between font-normal">
-                      {formData.destinationId ? (
-                        <span className="flex items-center gap-2">
-                          {destinations.find(d => d.id === formData.destinationId)?.name || 'Selecciona un destino'}
-                          {destinations.find(d => d.id === formData.destinationId)?.season && (
-                            <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: destinations.find(d => d.id === formData.destinationId)?.season?.color }} />
-                          )}
-                        </span>
-                      ) : 'Selecciona un destino'}
-                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                    <Command>
-                      <CommandInput placeholder="Buscar destino..." />
-                      <CommandList>
-                        <CommandEmpty>No se encontraron destinos.</CommandEmpty>
-                        <CommandGroup>
-                          {destinations.map(d => (
-                            <CommandItem key={d.id} value={d.name} onSelect={() => { setFormData(p => ({ ...p, destinationId: d.id, hotelId: '' })); setDestinationComboOpen(false); }}>
-                              <Check className={cn('mr-2 h-4 w-4', formData.destinationId === d.id ? 'opacity-100' : 'opacity-0')} />
-                              <span className="flex items-center gap-2">{d.name}{d.season && <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: d.season.color }} />}</span>
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-                <Button type="button" variant="outline" size="icon" title="Editar destino" disabled={!formData.destinationId}
-                  onClick={() => { const dest = destinations.find(d => d.id === formData.destinationId); if (dest) { setEditingDestinationId(dest.id); setNewDestination({ name: dest.name, description: dest.description || '', seasonId: dest.season?.id || '' }); setShowDestinationModal(true); } }}>
-                  <Pencil className="w-4 h-4" />
-                </Button>
-                <Button type="button" variant="outline" size="icon" title="Nuevo destino"
-                  onClick={() => { setEditingDestinationId(null); setNewDestination({ name: '', description: '', seasonId: '' }); setShowDestinationModal(true); }}>
-                  <Plus className="w-4 h-4" />
-                </Button>
-              </div>
-            </div>
-
-            {/* Hotel */}
-            {formData.destinationId && hotels.length > 0 && (
-              <div className="space-y-2">
-                <Label>Hotel (opcional)</Label>
-                <Popover open={hotelComboOpen} onOpenChange={setHotelComboOpen}>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
-                      {formData.hotelId ? hotels.find(h => h.id === formData.hotelId)?.name || 'Selecciona hotel' : 'Sin hotel'}
-                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                    <Command>
-                      <CommandInput placeholder="Buscar hotel..." />
-                      <CommandList>
-                        <CommandEmpty>No se encontraron hoteles.</CommandEmpty>
-                        <CommandGroup>
-                          <CommandItem value="__none__" onSelect={() => { setFormData(p => ({ ...p, hotelId: '' })); setHotelComboOpen(false); }}>
-                            <Check className={cn('mr-2 h-4 w-4', !formData.hotelId ? 'opacity-100' : 'opacity-0')} />
-                            Sin hotel
-                          </CommandItem>
-                          {hotels.map(h => (
-                            <CommandItem key={h.id} value={h.name} onSelect={() => { setFormData(p => ({ ...p, hotelId: h.id })); setHotelComboOpen(false); }}>
-                              <Check className={cn('mr-2 h-4 w-4', formData.hotelId === h.id ? 'opacity-100' : 'opacity-0')} />
-                              <div className="flex flex-col">
-                                <span>{h.name}</span>
-                                <span className="text-xs text-muted-foreground">{h.stars > 0 && `${h.stars}★`}{h.diamonds > 0 && ` ${h.diamonds}◆`}{h.plan && ` · ${h.plan}`}</span>
-                              </div>
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-              </div>
-            )}
 
             {/* Dates */}
             <div className="grid grid-cols-2 gap-4">
@@ -466,7 +290,7 @@ export default function NewQuotationPage() {
               <Label>Tipo de Pago *</Label>
               <Select value={formData.paymentType} onValueChange={(v: 'CASH' | 'CREDIT') => setFormData(p => ({ ...p, paymentType: v }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent><SelectItem value="CASH">Contado</SelectItem><SelectItem value="CREDIT">Crédito</SelectItem></SelectContent>
+                <SelectContent><SelectItem value="CASH">Contado</SelectItem><SelectItem value="CREDIT">Credito</SelectItem></SelectContent>
               </Select>
             </div>
 
@@ -475,7 +299,7 @@ export default function NewQuotationPage() {
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2"><Label>Anticipo</Label><Input type="number" min={0} value={formData.downPayment || ''} onChange={(e) => setFormData(p => ({ ...p, downPayment: parseFloat(e.target.value) || 0 }))} /></div>
-                  <div className="space-y-2"><Label>Número de Pagos</Label><Input type="number" min={1} max={24} value={formData.numberOfPayments} onChange={(e) => setFormData(p => ({ ...p, numberOfPayments: Math.min(24, Math.max(1, parseInt(e.target.value) || 1)) }))} /></div>
+                  <div className="space-y-2"><Label>Numero de Pagos</Label><Input type="number" min={1} max={24} value={formData.numberOfPayments} onChange={(e) => setFormData(p => ({ ...p, numberOfPayments: Math.min(24, Math.max(1, parseInt(e.target.value) || 1)) }))} /></div>
                 </div>
                 <div className="space-y-2">
                   <Label>Frecuencia de Pagos</Label>
@@ -488,7 +312,7 @@ export default function NewQuotationPage() {
             )}
           </Card>
 
-          {/* Card 3: Notes, Expiration, Passengers, Supplier */}
+          {/* Card 3: Notes, Expiration, Passengers */}
           <Card className="p-5 space-y-4">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Detalles Adicionales</p>
 
@@ -500,9 +324,9 @@ export default function NewQuotationPage() {
 
             {/* Expiration Date */}
             <div className="space-y-2">
-              <Label>Fecha de Expiración</Label>
+              <Label>Fecha de Expiracion</Label>
               <DatePicker value={formData.expirationDate || undefined} onChange={(date) => setFormData(p => ({ ...p, expirationDate: date || null }))} />
-              <p className="text-xs text-muted-foreground">Fecha hasta la cual esta cotización es válida</p>
+              <p className="text-xs text-muted-foreground">Fecha hasta la cual esta cotizacion es valida</p>
             </div>
 
             {/* Passengers */}
@@ -515,7 +339,7 @@ export default function NewQuotationPage() {
                     {p.name}
                   </span>
                   <Badge variant={p.type === 'ADULT' ? 'default' : 'outline'} className="text-xs">
-                    {p.type === 'ADULT' ? 'Adulto' : `Menor${p.age ? ` (${p.age} años)` : ''}`}
+                    {p.type === 'ADULT' ? 'Adulto' : `Menor${p.age ? ` (${p.age} anos)` : ''}`}
                   </Badge>
                   <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-red-500" onClick={() => setPassengers(prev => prev.filter((_, i) => i !== idx))}>
                     <X className="w-3.5 h-3.5" />
@@ -550,57 +374,7 @@ export default function NewQuotationPage() {
                   }
                 }}><Plus className="w-4 h-4" /></Button>
               </div>
-              {passengers.length === 0 && <p className="text-xs text-muted-foreground">El primer pasajero será marcado como titular</p>}
-            </div>
-
-            {/* Supplier */}
-            <div className="space-y-3 pt-2 border-t">
-              <p className="text-sm font-semibold">Proveedor (opcional)</p>
-              <div className="space-y-2">
-                <Label>Proveedor</Label>
-                <div className="flex gap-2">
-                  <Popover open={supplierComboOpen} onOpenChange={setSupplierComboOpen}>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" role="combobox" className="flex-1 justify-between font-normal">
-                        {formData.supplierId ? (() => { const s = suppliers.find(s => s.id === formData.supplierId); return s ? `${s.name} (${s.serviceType})` : 'Selecciona proveedor'; })() : 'Selecciona proveedor'}
-                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                      <Command>
-                        <CommandInput placeholder="Buscar proveedor..." />
-                        <CommandList>
-                          <CommandEmpty>No se encontraron proveedores.</CommandEmpty>
-                          <CommandGroup>
-                            <CommandItem value="__none__" onSelect={() => { setFormData(p => ({ ...p, supplierId: '' })); setSupplierComboOpen(false); }}>
-                              <Check className={cn('mr-2 h-4 w-4', !formData.supplierId ? 'opacity-100' : 'opacity-0')} />
-                              Sin proveedor
-                            </CommandItem>
-                            {suppliers.map(s => (
-                              <CommandItem key={s.id} value={`${s.name} ${s.serviceType}`} onSelect={() => { setFormData(p => ({ ...p, supplierId: s.id })); setSupplierComboOpen(false); }}>
-                                <Check className={cn('mr-2 h-4 w-4', formData.supplierId === s.id ? 'opacity-100' : 'opacity-0')} />
-                                {s.name} ({s.serviceType})
-                              </CommandItem>
-                            ))}
-                          </CommandGroup>
-                        </CommandList>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
-                  <Button type="button" variant="outline" size="icon" title="Editar proveedor" disabled={!formData.supplierId}
-                    onClick={() => { const s = suppliers.find(s => s.id === formData.supplierId); if (s) { setEditingSupplierId(s.id); setNewSupplier({ name: s.name, phone: s.phone || '', email: '', serviceType: s.serviceType || 'OTRO' }); setShowSupplierModal(true); } }}>
-                    <Pencil className="w-4 h-4" />
-                  </Button>
-                  <Button type="button" variant="outline" size="icon" title="Nuevo proveedor"
-                    onClick={() => { setEditingSupplierId(null); setNewSupplier({ name: '', phone: '', email: '', serviceType: 'OTRO' }); setShowSupplierModal(true); }}>
-                    <Plus className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>Fecha Límite Proveedor</Label>
-                <DatePicker value={formData.supplierDeadline || undefined} onChange={(date) => setFormData(p => ({ ...p, supplierDeadline: date || null }))} />
-              </div>
+              {passengers.length === 0 && <p className="text-xs text-muted-foreground">El primer pasajero sera marcado como titular</p>}
             </div>
           </Card>
         </div>
@@ -647,7 +421,8 @@ export default function NewQuotationPage() {
                   const cost = newItems.reduce((s, i) => s + (i.cost || 0), 0);
                   if (cost > 0 && formData.totalPrice < cost) setFormData(p => ({ ...p, totalPrice: cost }));
                 }}
-                hotels={hotels}
+                destinations={destinations}
+                suppliers={suppliers}
               />
             </div>
           </Card>
@@ -659,73 +434,16 @@ export default function NewQuotationPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{editingClientId ? 'Editar Cliente' : 'Nuevo Cliente'}</DialogTitle>
-            <DialogDescription>{editingClientId ? 'Modifica los datos del cliente' : 'Crea un cliente rápidamente'}</DialogDescription>
+            <DialogDescription>{editingClientId ? 'Modifica los datos del cliente' : 'Crea un cliente rapidamente'}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2"><Label>Nombre completo *</Label><Input value={newClient.fullName} onChange={(e) => setNewClient(p => ({ ...p, fullName: e.target.value }))} placeholder="Nombre completo" /></div>
-            <div className="space-y-2"><Label>Teléfono *</Label><Input value={newClient.phone} onChange={(e) => setNewClient(p => ({ ...p, phone: e.target.value }))} placeholder="Teléfono" /></div>
+            <div className="space-y-2"><Label>Telefono *</Label><Input value={newClient.phone} onChange={(e) => setNewClient(p => ({ ...p, phone: e.target.value }))} placeholder="Telefono" /></div>
             <div className="space-y-2"><Label>Email</Label><Input value={newClient.email} onChange={(e) => setNewClient(p => ({ ...p, email: e.target.value }))} placeholder="Email (opcional)" /></div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowClientModal(false)}>Cancelar</Button>
             <Button onClick={handleSaveClient} disabled={savingInline}>{savingInline && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}{editingClientId ? 'Guardar Cambios' : 'Crear Cliente'}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── Inline Destination Modal ── */}
-      <Dialog open={showDestinationModal} onOpenChange={(open) => { setShowDestinationModal(open); if (!open) { setEditingDestinationId(null); setNewDestination({ name: '', description: '', seasonId: '' }); } }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{editingDestinationId ? 'Editar Destino' : 'Nuevo Destino'}</DialogTitle>
-            <DialogDescription>{editingDestinationId ? 'Modifica los datos del destino' : 'Crea un destino rápidamente'}</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2"><Label>Nombre del Destino *</Label><Input value={newDestination.name} onChange={(e) => setNewDestination(p => ({ ...p, name: e.target.value }))} placeholder="Ej: Cancún - Riviera Maya" /></div>
-            <div className="space-y-2"><Label>Descripción</Label><Textarea value={newDestination.description} onChange={(e) => setNewDestination(p => ({ ...p, description: e.target.value }))} placeholder="Descripción del destino..." rows={2} /></div>
-            <div className="space-y-2">
-              <Label>Temporada (opcional)</Label>
-              <Select value={newDestination.seasonId || 'none'} onValueChange={(v) => setNewDestination(p => ({ ...p, seasonId: v === 'none' ? '' : v }))}>
-                <SelectTrigger><SelectValue placeholder="Sin temporada" /></SelectTrigger>
-                <SelectContent><SelectItem value="none">Sin temporada</SelectItem>{seasons.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDestinationModal(false)}>Cancelar</Button>
-            <Button onClick={handleSaveDestination} disabled={savingInline}>{savingInline && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}{editingDestinationId ? 'Guardar Cambios' : 'Crear Destino'}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── Inline Supplier Modal ── */}
-      <Dialog open={showSupplierModal} onOpenChange={(open) => { setShowSupplierModal(open); if (!open) { setEditingSupplierId(null); setNewSupplier({ name: '', phone: '', email: '', serviceType: 'OTRO' }); } }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{editingSupplierId ? 'Editar Proveedor' : 'Nuevo Proveedor'}</DialogTitle>
-            <DialogDescription>{editingSupplierId ? 'Modifica los datos del proveedor' : 'Crea un proveedor rápidamente'}</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2"><Label>Nombre *</Label><Input value={newSupplier.name} onChange={(e) => setNewSupplier(p => ({ ...p, name: e.target.value }))} placeholder="Nombre del proveedor" /></div>
-            <div className="space-y-2"><Label>Teléfono *</Label><Input value={newSupplier.phone} onChange={(e) => setNewSupplier(p => ({ ...p, phone: e.target.value }))} placeholder="Teléfono" /></div>
-            <div className="space-y-2"><Label>Email</Label><Input value={newSupplier.email} onChange={(e) => setNewSupplier(p => ({ ...p, email: e.target.value }))} placeholder="Email (opcional)" /></div>
-            <div className="space-y-2">
-              <Label>Tipo de Servicio</Label>
-              <Select value={newSupplier.serviceType} onValueChange={(v) => setNewSupplier(p => ({ ...p, serviceType: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="HOTEL">Hotel</SelectItem>
-                  <SelectItem value="TRANSPORTE">Transporte</SelectItem>
-                  <SelectItem value="TOUR">Tour</SelectItem>
-                  <SelectItem value="SEGURO">Seguro</SelectItem>
-                  <SelectItem value="OTRO">Otro</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowSupplierModal(false)}>Cancelar</Button>
-            <Button onClick={handleSaveSupplier} disabled={savingInline}>{savingInline && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}{editingSupplierId ? 'Guardar Cambios' : 'Crear Proveedor'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

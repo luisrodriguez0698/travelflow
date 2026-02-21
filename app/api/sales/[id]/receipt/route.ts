@@ -30,7 +30,7 @@ export async function GET(
         hotel: true,
         passengers: true,
         items: {
-          include: { hotel: true },
+          include: { hotel: true, destination: true },
           orderBy: { sortOrder: 'asc' },
         },
       },
@@ -66,61 +66,81 @@ export async function GET(
       }
     }
 
-    // Get hotel image URLs if hotel exists
-    const hotelImageUrls: string[] = [];
-    if (booking.hotel?.images?.length) {
-      for (const imgPath of booking.hotel.images.slice(0, 6)) {
-        try {
-          const isPublic = imgPath.includes('/public/');
-          const url = await getFileUrl(imgPath, isPublic);
-          hotelImageUrls.push(url);
-        } catch (e) {
-          console.error('Error getting hotel image URL:', e);
-        }
+    // Collect unique hotels from booking items (deduplicate by hotel ID)
+    const itemHotels: any[] = [];
+    const seenHotelIds = new Set<string>();
+    const items = (booking as any).items || [];
+    for (const item of items) {
+      if (item.type === 'HOTEL' && item.hotel && !seenHotelIds.has(item.hotel.id)) {
+        seenHotelIds.add(item.hotel.id);
+        itemHotels.push(item.hotel);
       }
     }
+    // Fallback to booking-level hotel for legacy data
+    if (itemHotels.length === 0 && booking.hotel) {
+      itemHotels.push(booking.hotel);
+    }
 
-    // Build hotel section HTML
-    let hotelSectionHtml = '';
-    if (booking.hotel) {
-      const h = booking.hotel;
-      const starsStr = h.stars > 0 ? '★'.repeat(h.stars) : '';
-      const diamondsStr = h.diamonds > 0 ? '◆'.repeat(h.diamonds) : '';
-      const classification = [starsStr, diamondsStr].filter(Boolean).join(' ');
+    // Resolve image URLs for each unique hotel
+    const hotelImageMap: Record<string, string[]> = {};
+    for (const hotel of itemHotels) {
+      const urls: string[] = [];
+      if (hotel.images?.length) {
+        for (const imgPath of hotel.images.slice(0, 6)) {
+          try {
+            const isPublic = imgPath.includes('/public/');
+            const url = await getFileUrl(imgPath, isPublic);
+            urls.push(url);
+          } catch (e) {
+            console.error('Error getting hotel image URL:', e);
+          }
+        }
+      }
+      hotelImageMap[hotel.id] = urls;
+    }
 
-      hotelSectionHtml = `
-      <div class="section">
-        <div class="section-title">Información del Hotel</div>
-        <div style="background: #f8fafc; border-radius: 8px; padding: 16px; margin-bottom: 12px;">
+    // Build legacy hotel section (for bookings without hotel items, e.g. old data)
+    const hasHotelItems = items.some((i: any) => i.type === 'HOTEL' && i.hotel);
+    let hotelsSectionHtml = '';
+    if (!hasHotelItems && itemHotels.length > 0) {
+      hotelsSectionHtml = `<div class="section"><div class="section-title">Información de Hoteles</div>`;
+      for (const h of itemHotels) {
+        const starsStr = h.stars > 0 ? '★'.repeat(h.stars) : '';
+        const diamondsStr = h.diamonds > 0 ? '◆'.repeat(h.diamonds) : '';
+        const classification = [starsStr, diamondsStr].filter(Boolean).join(' ');
+        const imgUrls = hotelImageMap[h.id] || [];
+
+        hotelsSectionHtml += `
+        <div style="background: #f8fafc; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
           <div style="font-size: 18px; font-weight: bold; color: #0891b2; margin-bottom: 4px;">${h.name}</div>
           ${classification ? `<div style="font-size: 14px; color: #eab308; margin-bottom: 8px;">${classification}</div>` : ''}
           <div class="info-grid">
             ${h.plan ? `<div class="info-item"><div class="info-label">Plan</div><div class="info-value">${h.plan}</div></div>` : ''}
-            ${h.roomType ? `<div class="info-item"><div class="info-label">Tipo de Habitación</div><div class="info-value">${h.roomType}</div></div>` : ''}
             ${h.checkIn ? `<div class="info-item"><div class="info-label">Check-In</div><div class="info-value">${h.checkIn}${h.checkInNote ? `<br><span style="font-size:11px;color:#666;">${h.checkInNote}</span>` : ''}</div></div>` : ''}
             ${h.checkOut ? `<div class="info-item"><div class="info-label">Check-Out</div><div class="info-value">${h.checkOut}${h.checkOutNote ? `<br><span style="font-size:11px;color:#666;">${h.checkOutNote}</span>` : ''}</div></div>` : ''}
           </div>
           ${h.idRequirement ? `<div style="margin-top: 10px; padding: 8px; background: #fef3c7; border-radius: 6px; font-size: 12px; color: #92400e;"><strong>Identificación requerida:</strong> ${h.idRequirement}</div>` : ''}
-        </div>
-        ${h.includes.length > 0 ? `
-        <div style="margin-bottom: 10px;">
-          <div style="font-weight: 600; font-size: 13px; color: #16a34a; margin-bottom: 6px;">Incluye:</div>
-          <ul style="list-style: none; padding: 0; margin: 0;">
-            ${h.includes.map((item: string) => `<li style="font-size: 13px; padding: 2px 0; color: #333;">✓ ${item}</li>`).join('')}
-          </ul>
-        </div>` : ''}
-        ${h.notIncludes.length > 0 ? `
-        <div style="margin-bottom: 10px;">
-          <div style="font-weight: 600; font-size: 13px; color: #dc2626; margin-bottom: 6px;">No Incluye:</div>
-          <ul style="list-style: none; padding: 0; margin: 0;">
-            ${h.notIncludes.map((item: string) => `<li style="font-size: 13px; padding: 2px 0; color: #333;">✗ ${item}</li>`).join('')}
-          </ul>
-        </div>` : ''}
-        ${hotelImageUrls.length > 0 ? `
-        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px;">
-          ${hotelImageUrls.map((url) => `<img src="${url}" style="width: 100%; height: 120px; object-fit: cover; border-radius: 6px;" />`).join('')}
-        </div>` : ''}
-      </div>`;
+          ${h.includes?.length > 0 ? `
+          <div style="margin-top: 10px;">
+            <div style="font-weight: 600; font-size: 13px; color: #16a34a; margin-bottom: 6px;">Incluye:</div>
+            <ul style="list-style: none; padding: 0; margin: 0;">
+              ${h.includes.map((inc: string) => `<li style="font-size: 13px; padding: 2px 0; color: #333;">✓ ${inc}</li>`).join('')}
+            </ul>
+          </div>` : ''}
+          ${h.notIncludes?.length > 0 ? `
+          <div style="margin-top: 10px;">
+            <div style="font-weight: 600; font-size: 13px; color: #dc2626; margin-bottom: 6px;">No Incluye:</div>
+            <ul style="list-style: none; padding: 0; margin: 0;">
+              ${h.notIncludes.map((ni: string) => `<li style="font-size: 13px; padding: 2px 0; color: #333;">✗ ${ni}</li>`).join('')}
+            </ul>
+          </div>` : ''}
+          ${imgUrls.length > 0 ? `
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px;">
+            ${imgUrls.map((url) => `<img src="${url}" style="width: 100%; height: 120px; object-fit: cover; border-radius: 6px;" />`).join('')}
+          </div>` : ''}
+        </div>`;
+      }
+      hotelsSectionHtml += `</div>`;
     }
 
     // Build passengers section HTML
@@ -147,6 +167,134 @@ export async function GET(
         </table>
       </div>`;
     }
+
+    // Build services section HTML (pre-built to avoid IIFE scoping issues)
+    let servicesSectionHtml = '';
+    if (items.length > 0) {
+      const hotelItems = items.filter((i: any) => i.type === 'HOTEL');
+      const flightItems = items.filter((i: any) => i.type === 'FLIGHT');
+      const tourItems = items.filter((i: any) => i.type === 'TOUR');
+
+      servicesSectionHtml = '<div class="section"><div class="section-title">Servicios del Paquete</div>';
+
+      // Hospedaje table + hotel detail cards
+      if (hotelItems.length > 0) {
+        servicesSectionHtml += '<div style="margin-bottom: 15px;">';
+        servicesSectionHtml += '<div style="font-weight: 600; font-size: 14px; color: #2563eb; margin-bottom: 8px;">Hospedaje</div>';
+        servicesSectionHtml += '<table><thead><tr><th>#</th><th>Hotel</th><th>Tipo Hab.</th><th>Plan</th><th>Ocupación</th><th>Noches</th><th style="text-align:right;">Costo</th></tr></thead><tbody>';
+        hotelItems.forEach((item: any, idx: number) => {
+          servicesSectionHtml += '<tr>';
+          servicesSectionHtml += '<td>Hab. ' + (idx + 1) + '</td>';
+          servicesSectionHtml += '<td>' + (item.hotel?.name || '-') + '</td>';
+          servicesSectionHtml += '<td>' + (item.roomType || '-') + '</td>';
+          servicesSectionHtml += '<td>' + (item.plan || '-') + '</td>';
+          servicesSectionHtml += '<td>' + (item.numAdults || 0) + ' Ad. / ' + (item.numChildren || 0) + ' Men.</td>';
+          servicesSectionHtml += '<td>' + (item.numNights || 0) + '</td>';
+          servicesSectionHtml += '<td style="text-align:right;">' + formatCurrency(item.cost || 0) + '</td>';
+          servicesSectionHtml += '</tr>';
+        });
+        servicesSectionHtml += '</tbody></table></div>';
+
+        // Hotel detail cards with images (unique hotels only)
+        const uniqueHotels: any[] = [];
+        const seenHIds = new Set<string>();
+        for (const hi of hotelItems) {
+          if (hi.hotel && !seenHIds.has(hi.hotel.id)) {
+            seenHIds.add(hi.hotel.id);
+            uniqueHotels.push(hi.hotel);
+          }
+        }
+
+        for (const h of uniqueHotels) {
+          const starsStr = h.stars > 0 ? '★'.repeat(h.stars) : '';
+          const diamondsStr = h.diamonds > 0 ? '◆'.repeat(h.diamonds) : '';
+          const classif = [starsStr, diamondsStr].filter(Boolean).join(' ');
+          const imgUrls = hotelImageMap[h.id] || [];
+
+          servicesSectionHtml += '<div style="background: #f8fafc; border-radius: 8px; padding: 16px; margin-top: 12px; margin-bottom: 8px;">';
+          servicesSectionHtml += '<div style="font-size: 16px; font-weight: bold; color: #0891b2; margin-bottom: 4px;">' + h.name + '</div>';
+          if (classif) servicesSectionHtml += '<div style="font-size: 14px; color: #eab308; margin-bottom: 8px;">' + classif + '</div>';
+          servicesSectionHtml += '<div class="info-grid">';
+          if (h.plan) servicesSectionHtml += '<div class="info-item"><div class="info-label">Plan</div><div class="info-value">' + h.plan + '</div></div>';
+          if (h.checkIn) servicesSectionHtml += '<div class="info-item"><div class="info-label">Check-In</div><div class="info-value">' + h.checkIn + (h.checkInNote ? '<br><span style="font-size:11px;color:#666;">' + h.checkInNote + '</span>' : '') + '</div></div>';
+          if (h.checkOut) servicesSectionHtml += '<div class="info-item"><div class="info-label">Check-Out</div><div class="info-value">' + h.checkOut + (h.checkOutNote ? '<br><span style="font-size:11px;color:#666;">' + h.checkOutNote + '</span>' : '') + '</div></div>';
+          servicesSectionHtml += '</div>';
+          if (h.idRequirement) servicesSectionHtml += '<div style="margin-top: 10px; padding: 8px; background: #fef3c7; border-radius: 6px; font-size: 12px; color: #92400e;"><strong>Identificación requerida:</strong> ' + h.idRequirement + '</div>';
+          if (h.includes?.length > 0) {
+            servicesSectionHtml += '<div style="margin-top: 10px;"><div style="font-weight: 600; font-size: 13px; color: #16a34a; margin-bottom: 6px;">Incluye:</div><ul style="list-style: none; padding: 0; margin: 0;">';
+            h.includes.forEach((inc: string) => { servicesSectionHtml += '<li style="font-size: 13px; padding: 2px 0; color: #333;">✓ ' + inc + '</li>'; });
+            servicesSectionHtml += '</ul></div>';
+          }
+          if (h.notIncludes?.length > 0) {
+            servicesSectionHtml += '<div style="margin-top: 10px;"><div style="font-weight: 600; font-size: 13px; color: #dc2626; margin-bottom: 6px;">No Incluye:</div><ul style="list-style: none; padding: 0; margin: 0;">';
+            h.notIncludes.forEach((ni: string) => { servicesSectionHtml += '<li style="font-size: 13px; padding: 2px 0; color: #333;">✗ ' + ni + '</li>'; });
+            servicesSectionHtml += '</ul></div>';
+          }
+          if (imgUrls.length > 0) {
+            servicesSectionHtml += '<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px;">';
+            imgUrls.forEach((url: string) => { servicesSectionHtml += '<img src="' + url + '" style="width: 100%; height: 120px; object-fit: cover; border-radius: 6px;" />'; });
+            servicesSectionHtml += '</div>';
+          }
+          servicesSectionHtml += '</div>';
+        }
+      }
+
+      // Vuelos table
+      if (flightItems.length > 0) {
+        servicesSectionHtml += '<div style="margin-bottom: 15px;">';
+        servicesSectionHtml += '<div style="font-weight: 600; font-size: 14px; color: #0891b2; margin-bottom: 8px;">Vuelos</div>';
+        servicesSectionHtml += '<table><thead><tr><th>Dirección</th><th>Aerolínea</th><th>Vuelo</th><th>Ruta</th><th>Horario</th><th>Clase</th><th style="text-align:right;">Costo</th></tr></thead><tbody>';
+        flightItems.forEach((item: any) => {
+          let timeStr = '';
+          if (item.departureTime) {
+            const dt = new Date(item.departureTime);
+            timeStr = String(dt.getHours()).padStart(2, '0') + ':' + String(dt.getMinutes()).padStart(2, '0');
+          }
+          if (item.arrivalTime) {
+            const at = new Date(item.arrivalTime);
+            timeStr += ' - ' + String(at.getHours()).padStart(2, '0') + ':' + String(at.getMinutes()).padStart(2, '0');
+          }
+          const classLabel = item.flightClass === 'ECONOMICA' ? 'Económica' : item.flightClass === 'BUSINESS' ? 'Business' : item.flightClass || '-';
+          servicesSectionHtml += '<tr>';
+          servicesSectionHtml += '<td>' + (item.direction === 'IDA' ? 'Ida' : 'Regreso') + '</td>';
+          servicesSectionHtml += '<td>' + (item.airline || '-') + '</td>';
+          servicesSectionHtml += '<td>' + (item.flightNumber || '-') + '</td>';
+          servicesSectionHtml += '<td>' + (item.origin || '?') + ' → ' + (item.flightDestination || '?') + '</td>';
+          servicesSectionHtml += '<td>' + (timeStr || '-') + '</td>';
+          servicesSectionHtml += '<td>' + classLabel + '</td>';
+          servicesSectionHtml += '<td style="text-align:right;">' + formatCurrency(item.cost || 0) + '</td>';
+          servicesSectionHtml += '</tr>';
+        });
+        servicesSectionHtml += '</tbody></table></div>';
+      }
+
+      // Tours table
+      if (tourItems.length > 0) {
+        servicesSectionHtml += '<div style="margin-bottom: 15px;">';
+        servicesSectionHtml += '<div style="font-weight: 600; font-size: 14px; color: #b45309; margin-bottom: 8px;">Tours</div>';
+        servicesSectionHtml += '<table><thead><tr><th>Tour</th><th>Fecha</th><th>Personas</th><th style="text-align:right;">Precio/Persona</th><th style="text-align:right;">Costo</th></tr></thead><tbody>';
+        tourItems.forEach((item: any) => {
+          servicesSectionHtml += '<tr>';
+          servicesSectionHtml += '<td>' + (item.tourName || '-') + '</td>';
+          servicesSectionHtml += '<td>' + (item.tourDate ? formatDate(item.tourDate) : '-') + '</td>';
+          servicesSectionHtml += '<td>' + (item.numPeople || 0) + '</td>';
+          servicesSectionHtml += '<td style="text-align:right;">' + formatCurrency(item.pricePerPerson || 0) + '</td>';
+          servicesSectionHtml += '<td style="text-align:right;">' + formatCurrency(item.cost || 0) + '</td>';
+          servicesSectionHtml += '</tr>';
+        });
+        servicesSectionHtml += '</tbody></table></div>';
+      }
+
+      const totalCost = items.reduce((s: number, i: any) => s + (i.cost || 0), 0);
+      servicesSectionHtml += '<div style="text-align: right; font-weight: bold; font-size: 14px; color: #1e293b; margin-top: 8px;">Costo Neto Total: ' + formatCurrency(totalCost) + '</div>';
+      servicesSectionHtml += '</div>';
+    }
+
+    // Build destination display
+    const destinationDisplay = booking.destination?.name || (() => {
+      const destNames = [...new Set(items.filter((i: any) => i.destination).map((i: any) => i.destination.name))];
+      return destNames.length > 0 ? destNames.join(', ') : '-';
+    })();
 
     // Build payment section HTML
     let paymentSectionHtml = '';
@@ -431,11 +579,7 @@ export async function GET(
         <div class="info-grid">
           <div class="info-item">
             <div class="info-label">Destino</div>
-            <div class="info-value">${booking.destination?.name || '-'}</div>
-          </div>
-          <div class="info-item">
-            <div class="info-label">Temporada</div>
-            <div class="info-value">${booking.destination?.season?.name || 'Sin temporada'}</div>
+            <div class="info-value">${destinationDisplay}</div>
           </div>
           <div class="info-item">
             <div class="info-label">Fecha de Salida</div>
@@ -448,104 +592,11 @@ export async function GET(
         </div>
       </div>
 
-      ${hotelSectionHtml}
+      ${hotelsSectionHtml}
 
       ${passengersSectionHtml}
 
-      ${(booking as any).items?.length > 0 ? `
-      <div class="section">
-        <div class="section-title">Servicios del Paquete</div>
-        ${(() => {
-          const items = (booking as any).items || [];
-          const hotelItems = items.filter((i: any) => i.type === 'HOTEL');
-          const flightItems = items.filter((i: any) => i.type === 'FLIGHT');
-          const tourItems = items.filter((i: any) => i.type === 'TOUR');
-          let html = '';
-
-          if (hotelItems.length > 0) {
-            html += `
-            <div style="margin-bottom: 15px;">
-              <div style="font-weight: 600; font-size: 14px; color: #2563eb; margin-bottom: 8px;">Hospedaje</div>
-              <table>
-                <thead><tr><th>#</th><th>Hotel</th><th>Tipo Hab.</th><th>Plan</th><th>Ocupación</th><th>Noches</th><th style="text-align:right;">Costo</th></tr></thead>
-                <tbody>
-                  ${hotelItems.map((item: any, idx: number) => `
-                    <tr>
-                      <td>Hab. ${idx + 1}</td>
-                      <td>${item.hotel?.name || '-'}</td>
-                      <td>${item.roomType || '-'}</td>
-                      <td>${item.plan || '-'}</td>
-                      <td>${item.numAdults || 0} Ad. / ${item.numChildren || 0} Men.</td>
-                      <td>${item.numNights || 0}</td>
-                      <td style="text-align:right;">${formatCurrency(item.cost || 0)}</td>
-                    </tr>
-                  `).join('')}
-                </tbody>
-              </table>
-            </div>`;
-          }
-
-          if (flightItems.length > 0) {
-            html += `
-            <div style="margin-bottom: 15px;">
-              <div style="font-weight: 600; font-size: 14px; color: #0891b2; margin-bottom: 8px;">Vuelos</div>
-              <table>
-                <thead><tr><th>Dirección</th><th>Aerolínea</th><th>Vuelo</th><th>Ruta</th><th>Horario</th><th>Clase</th><th style="text-align:right;">Costo</th></tr></thead>
-                <tbody>
-                  ${flightItems.map((item: any) => {
-                    let timeStr = '';
-                    if (item.departureTime) {
-                      const dt = new Date(item.departureTime);
-                      timeStr = `${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`;
-                    }
-                    if (item.arrivalTime) {
-                      const at = new Date(item.arrivalTime);
-                      timeStr += ` - ${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`;
-                    }
-                    const classLabel = item.flightClass === 'ECONOMICA' ? 'Económica' : item.flightClass === 'BUSINESS' ? 'Business' : item.flightClass || '-';
-                    return `
-                    <tr>
-                      <td>${item.direction === 'IDA' ? 'Ida' : 'Regreso'}</td>
-                      <td>${item.airline || '-'}</td>
-                      <td>${item.flightNumber || '-'}</td>
-                      <td>${item.origin || '?'} → ${item.flightDestination || '?'}</td>
-                      <td>${timeStr || '-'}</td>
-                      <td>${classLabel}</td>
-                      <td style="text-align:right;">${formatCurrency(item.cost || 0)}</td>
-                    </tr>`;
-                  }).join('')}
-                </tbody>
-              </table>
-            </div>`;
-          }
-
-          if (tourItems.length > 0) {
-            html += `
-            <div style="margin-bottom: 15px;">
-              <div style="font-weight: 600; font-size: 14px; color: #b45309; margin-bottom: 8px;">Tours</div>
-              <table>
-                <thead><tr><th>Tour</th><th>Fecha</th><th>Personas</th><th style="text-align:right;">Precio/Persona</th><th style="text-align:right;">Costo</th></tr></thead>
-                <tbody>
-                  ${tourItems.map((item: any) => `
-                    <tr>
-                      <td>${item.tourName || '-'}</td>
-                      <td>${item.tourDate ? formatDate(item.tourDate) : '-'}</td>
-                      <td>${item.numPeople || 0}</td>
-                      <td style="text-align:right;">${formatCurrency(item.pricePerPerson || 0)}</td>
-                      <td style="text-align:right;">${formatCurrency(item.cost || 0)}</td>
-                    </tr>
-                  `).join('')}
-                </tbody>
-              </table>
-            </div>`;
-          }
-
-          const totalCost = items.reduce((s: number, i: any) => s + (i.cost || 0), 0);
-          html += `<div style="text-align: right; font-weight: bold; font-size: 14px; color: #1e293b; margin-top: 8px;">Costo Neto Total: ${formatCurrency(totalCost)}</div>`;
-          return html;
-        })()}
-      </div>
-      ` : ''}
+      ${servicesSectionHtml}
 
       <div class="section">
         <div class="section-title">Resumen Financiero</div>
