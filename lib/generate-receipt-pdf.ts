@@ -12,12 +12,28 @@ interface Payment {
   paidDate?: string;
 }
 
+interface HotelData {
+  id: string;
+  name: string;
+  stars?: number;
+  diamonds?: number;
+  plan?: string;
+  checkIn?: string;
+  checkOut?: string;
+  checkInNote?: string;
+  checkOutNote?: string;
+  idRequirement?: string;
+  includes?: string[];
+  notIncludes?: string[];
+  images?: string[];
+}
+
 interface BookingItem {
   type: string;
   cost: number;
   // Hotel
   hotelId?: string;
-  hotel?: { name: string };
+  hotel?: HotelData;
   roomType?: string;
   numAdults?: number;
   numChildren?: number;
@@ -131,6 +147,37 @@ function checkPageBreak(doc: jsPDF, y: number, needed: number, margin: number): 
     return margin + 5;
   }
   return y;
+}
+
+/** Draws a filled 5-pointed star at (cx, cy) with given size in mm */
+function drawStar(doc: jsPDF, cx: number, cy: number, size: number) {
+  const outerR = size / 2;
+  const innerR = outerR * 0.382;
+  const points: [number, number][] = [];
+  for (let i = 0; i < 10; i++) {
+    const angle = (i * 36 - 90) * (Math.PI / 180);
+    const r = i % 2 === 0 ? outerR : innerR;
+    points.push([cx + r * Math.cos(angle), cy + r * Math.sin(angle)]);
+  }
+  const lines: [number, number][] = [];
+  for (let i = 1; i < points.length; i++) {
+    lines.push([points[i][0] - points[i - 1][0], points[i][1] - points[i - 1][1]]);
+  }
+  doc.lines(lines, points[0][0], points[0][1], [1, 1], 'F', true);
+}
+
+/** Draws a filled diamond/rhombus at (cx, cy) with given size in mm */
+function drawDiamond(doc: jsPDF, cx: number, cy: number, size: number) {
+  const halfW = size / 2 * 0.7;
+  const halfH = size / 2;
+  const startX = cx;
+  const startY = cy - halfH;
+  const dLines: [number, number][] = [
+    [halfW, halfH],
+    [-halfW, halfH],
+    [-halfW, -halfH],
+  ];
+  doc.lines(dLines, startX, startY, [1, 1], 'F', true);
 }
 
 /** Adds the watermark logo centered on every page */
@@ -353,6 +400,190 @@ export async function generateReceiptPdf(sale: SaleData) {
         columnStyles: { 0: { cellWidth: 14 }, 6: { halign: 'right' } },
       });
       y = (doc as any).lastAutoTable.finalY + 6;
+
+      // ── Hotel detail cards (unique hotels) ──
+      const uniqueHotels: HotelData[] = [];
+      const seenHIds = new Set<string>();
+      for (const hi of hotelItems) {
+        if (hi.hotel && !seenHIds.has(hi.hotel.id)) {
+          seenHIds.add(hi.hotel.id);
+          uniqueHotels.push(hi.hotel);
+        }
+      }
+
+      for (const h of uniqueHotels) {
+        // Estimate needed height: name + classification + fields + includes/notIncludes + images
+        let estimatedHeight = 30;
+        if (h.plan || h.checkIn || h.checkOut) estimatedHeight += 12;
+        if (h.idRequirement) estimatedHeight += 8;
+        if (h.includes?.length) estimatedHeight += 6 + h.includes.length * 5;
+        if (h.notIncludes?.length) estimatedHeight += 6 + h.notIncludes.length * 5;
+        if (h.images?.length) estimatedHeight += 35;
+
+        y = checkPageBreak(doc, y, estimatedHeight, margin);
+
+        // Card background
+        const cardX = margin;
+        const cardW = pageWidth - margin * 2;
+        const cardStartY = y;
+
+        // Hotel name
+        doc.setFontSize(12);
+        doc.setTextColor(8, 145, 178);
+        doc.setFont('helvetica', 'bold');
+        doc.text(h.name, cardX + 4, y + 5);
+        y += 8;
+
+        // Stars and diamonds (drawn as vector icons)
+        const hasStars = (h.stars || 0) > 0;
+        const hasDiamonds = (h.diamonds || 0) > 0;
+        if (hasStars || hasDiamonds) {
+          let classifX = cardX + 4;
+          const iconSize = 3;
+          const iconGap = 1;
+          const iconCenterY = y + 3;
+
+          if (hasStars) {
+            doc.setFillColor(234, 179, 8);
+            doc.setDrawColor(234, 179, 8);
+            for (let si = 0; si < h.stars!; si++) {
+              drawStar(doc, classifX + iconSize / 2, iconCenterY, iconSize);
+              classifX += iconSize + iconGap;
+            }
+            classifX += 1.5;
+            doc.setFontSize(8);
+            doc.setTextColor(234, 179, 8);
+            doc.setFont('helvetica', 'bold');
+            const starLabel = `${h.stars} Estrella${h.stars! > 1 ? 's' : ''}`;
+            doc.text(starLabel, classifX, iconCenterY + 1);
+            classifX += doc.getTextWidth(starLabel) + 5;
+          }
+
+          if (hasDiamonds) {
+            doc.setFillColor(59, 130, 246);
+            doc.setDrawColor(59, 130, 246);
+            for (let di = 0; di < h.diamonds!; di++) {
+              drawDiamond(doc, classifX + iconSize / 2, iconCenterY, iconSize);
+              classifX += iconSize + iconGap;
+            }
+            classifX += 1.5;
+            doc.setFontSize(8);
+            doc.setTextColor(59, 130, 246);
+            doc.setFont('helvetica', 'bold');
+            const diamondLabel = `${h.diamonds} Diamante${h.diamonds! > 1 ? 's' : ''}`;
+            doc.text(diamondLabel, classifX, iconCenterY + 1);
+          }
+
+          y += 6;
+        }
+
+        // Plan, Check-In, Check-Out in a row
+        const infoFields: { label: string; value: string }[] = [];
+        if (h.plan) infoFields.push({ label: 'Plan', value: h.plan });
+        if (h.checkIn) infoFields.push({ label: 'Check-In', value: h.checkIn + (h.checkInNote ? ` (${h.checkInNote})` : '') });
+        if (h.checkOut) infoFields.push({ label: 'Check-Out', value: h.checkOut + (h.checkOutNote ? ` (${h.checkOutNote})` : '') });
+
+        if (infoFields.length > 0) {
+          const fieldW = cardW / infoFields.length;
+          for (let fi = 0; fi < infoFields.length; fi++) {
+            const fx = cardX + 4 + fi * fieldW;
+            doc.setFontSize(7);
+            doc.setTextColor(...GRAY);
+            doc.setFont('helvetica', 'normal');
+            doc.text(infoFields[fi].label, fx, y + 3);
+            doc.setFontSize(9);
+            doc.setTextColor(...DARK);
+            doc.setFont('helvetica', 'bold');
+            doc.text(infoFields[fi].value, fx, y + 7);
+          }
+          y += 11;
+        }
+
+        // ID Requirement
+        if (h.idRequirement) {
+          doc.setFontSize(8);
+          doc.setTextColor(146, 64, 14);
+          doc.setFont('helvetica', 'bold');
+          doc.text(`Identificacion requerida: ${h.idRequirement}`, cardX + 4, y + 3);
+          y += 7;
+        }
+
+        // Includes
+        if (h.includes && h.includes.length > 0) {
+          doc.setFontSize(9);
+          doc.setTextColor(22, 163, 74);
+          doc.setFont('helvetica', 'bold');
+          doc.text('Incluye:', cardX + 4, y + 3);
+          y += 5;
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(...DARK);
+          doc.setFontSize(8);
+          for (const inc of h.includes) {
+            doc.text(`  + ${inc}`, cardX + 6, y + 3);
+            y += 4.5;
+          }
+          y += 1;
+        }
+
+        // Not Includes
+        if (h.notIncludes && h.notIncludes.length > 0) {
+          doc.setFontSize(9);
+          doc.setTextColor(220, 38, 38);
+          doc.setFont('helvetica', 'bold');
+          doc.text('No Incluye:', cardX + 4, y + 3);
+          y += 5;
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(...DARK);
+          doc.setFontSize(8);
+          for (const ni of h.notIncludes) {
+            doc.text(`  - ${ni}`, cardX + 6, y + 3);
+            y += 4.5;
+          }
+          y += 1;
+        }
+
+        // Hotel images (load and render in a row, max 3 per row)
+        if (h.images && h.images.length > 0) {
+          const imgWidth = (cardW - 16) / 3;
+          const imgHeight = 28;
+          let imgX = cardX + 4;
+          let imgCount = 0;
+          for (const imgPath of h.images.slice(0, 6)) {
+            try {
+              const imgUrl = `/api/files/${encodeURIComponent(imgPath)}`;
+              const imgBase64 = await loadImageAsBase64(imgUrl);
+              if (imgBase64) {
+                y = checkPageBreak(doc, y, imgHeight + 4, margin);
+                doc.addImage(imgBase64, 'AUTO', imgX, y + 2, imgWidth - 2, imgHeight);
+                imgX += imgWidth;
+                imgCount++;
+                if (imgCount % 3 === 0) {
+                  imgX = cardX + 4;
+                  y += imgHeight + 3;
+                }
+              }
+            } catch {
+              // skip failed image
+            }
+          }
+          if (imgCount % 3 !== 0) {
+            y += imgHeight + 3;
+          }
+        }
+
+        // Draw card background behind content
+        const cardEndY = y + 2;
+        const cardH = cardEndY - cardStartY;
+        doc.setFillColor(248, 250, 252);
+        doc.setDrawColor(226, 232, 240);
+        doc.setLineWidth(0.3);
+
+        // Move to correct page and draw background behind the text
+        // Since jsPDF draws in order, we need to use a workaround:
+        // We'll draw a subtle bottom border instead
+        doc.line(cardX, cardEndY, cardX + cardW, cardEndY);
+        y = cardEndY + 4;
+      }
     }
 
     // Flight items table

@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
         hotel: { include: { destination: true } },
         passengers: true,
         items: {
-          include: { hotel: true },
+          include: { hotel: true, destination: { include: { season: true } }, supplier: true },
           orderBy: { sortOrder: 'asc' },
         },
       },
@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
         tenantId,
         type: 'QUOTATION',
         clientId: body.clientId,
-        destinationId: body.destinationId,
+        destinationId: body.destinationId || null,
         departureDate: body.departureDate ? new Date(body.departureDate) : null,
         returnDate: body.returnDate ? new Date(body.returnDate) : null,
         priceAdult,
@@ -130,6 +130,7 @@ export async function POST(request: NextRequest) {
         supplierDeadline: body.supplierDeadline ? new Date(body.supplierDeadline) : null,
         expirationDate: body.expirationDate ? new Date(body.expirationDate) : null,
         hotelId: body.hotelId || null,
+
         createdBy: sessionUser?.id || null,
         paymentFrequency: body.paymentFrequency || 'QUINCENAL',
       },
@@ -177,6 +178,9 @@ export async function POST(request: NextRequest) {
           tourDate: item.tourDate ? new Date(item.tourDate) : null,
           numPeople: item.numPeople ?? null,
           pricePerPerson: item.pricePerPerson ?? null,
+          destinationId: item.destinationId || null,
+          supplierId: item.supplierId || null,
+          supplierDeadline: item.supplierDeadline ? new Date(item.supplierDeadline) : null,
         })),
       });
     }
@@ -244,7 +248,7 @@ export async function POST(request: NextRequest) {
         hotel: true,
         passengers: true,
         items: {
-          include: { hotel: true },
+          include: { hotel: true, destination: { include: { season: true } }, supplier: true },
           orderBy: { sortOrder: 'asc' },
         },
       },

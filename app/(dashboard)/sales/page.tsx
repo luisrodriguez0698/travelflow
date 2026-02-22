@@ -1096,7 +1096,8 @@ export default function SalesPage() {
                     setFormData((p) => ({ ...p, totalPrice: newItemsCost }));
                   }
                 }}
-                hotels={hotels}
+                destinations={destinations}
+                suppliers={suppliers}
               />
             </div>
 

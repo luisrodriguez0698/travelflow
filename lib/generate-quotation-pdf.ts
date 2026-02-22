@@ -11,6 +11,47 @@ interface Payment {
   status: string;
 }
 
+interface HotelData {
+  id: string;
+  name: string;
+  stars?: number;
+  diamonds?: number;
+  plan?: string;
+  checkIn?: string;
+  checkOut?: string;
+  checkInNote?: string;
+  checkOutNote?: string;
+  idRequirement?: string;
+  includes?: string[];
+  notIncludes?: string[];
+  images?: string[];
+}
+
+interface BookingItem {
+  type: string;
+  cost: number;
+  hotelId?: string;
+  hotel?: HotelData;
+  roomType?: string;
+  numAdults?: number;
+  numChildren?: number;
+  pricePerNight?: number;
+  numNights?: number;
+  plan?: string;
+  airline?: string;
+  flightNumber?: string;
+  origin?: string;
+  flightDestination?: string;
+  departureTime?: string;
+  arrivalTime?: string;
+  flightClass?: string;
+  direction?: string;
+  tourName?: string;
+  tourDate?: string;
+  numPeople?: number;
+  pricePerPerson?: number;
+}
+
 interface QuotationData {
   id: string;
   totalPrice: number;
@@ -32,6 +73,7 @@ interface QuotationData {
     season?: { name: string };
   };
   payments: Payment[];
+  items?: BookingItem[];
   tenant?: {
     name: string;
     phone?: string;
@@ -101,6 +143,37 @@ function checkPageBreak(doc: jsPDF, y: number, needed: number, margin: number): 
     return margin + 5;
   }
   return y;
+}
+
+/** Draws a filled 5-pointed star at (cx, cy) with given size in mm */
+function drawStar(doc: jsPDF, cx: number, cy: number, size: number) {
+  const outerR = size / 2;
+  const innerR = outerR * 0.382;
+  const points: [number, number][] = [];
+  for (let i = 0; i < 10; i++) {
+    const angle = (i * 36 - 90) * (Math.PI / 180);
+    const r = i % 2 === 0 ? outerR : innerR;
+    points.push([cx + r * Math.cos(angle), cy + r * Math.sin(angle)]);
+  }
+  const lines: [number, number][] = [];
+  for (let i = 1; i < points.length; i++) {
+    lines.push([points[i][0] - points[i - 1][0], points[i][1] - points[i - 1][1]]);
+  }
+  doc.lines(lines, points[0][0], points[0][1], [1, 1], 'F', true);
+}
+
+/** Draws a filled diamond/rhombus at (cx, cy) with given size in mm */
+function drawDiamond(doc: jsPDF, cx: number, cy: number, size: number) {
+  const halfW = size / 2 * 0.7;
+  const halfH = size / 2;
+  const startX = cx;
+  const startY = cy - halfH;
+  const dLines: [number, number][] = [
+    [halfW, halfH],
+    [-halfW, halfH],
+    [-halfW, -halfH],
+  ];
+  doc.lines(dLines, startX, startY, [1, 1], 'F', true);
 }
 
 async function addWatermarkToAllPages(doc: jsPDF, logoBase64: string) {
@@ -295,6 +368,311 @@ export async function generateQuotationPdf(quotation: QuotationData) {
   yRight = drawField('FECHA DE REGRESO', quotation.returnDate ? formatDate(quotation.returnDate) : '-', rightX, yRight);
 
   y = Math.max(yLeft, yRight) + 5;
+
+  // ─── SERVICIOS DEL PAQUETE ───
+  const bookingItems = quotation.items || [];
+  if (bookingItems.length > 0) {
+    const hotelItems = bookingItems.filter(i => i.type === 'HOTEL');
+    const flightItems = bookingItems.filter(i => i.type === 'FLIGHT');
+    const tourItems = bookingItems.filter(i => i.type === 'TOUR');
+
+    y = checkPageBreak(doc, y, 30, margin);
+    doc.setFontSize(12);
+    doc.setTextColor(...CYAN);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Servicios del Paquete', margin, y);
+    y += 2;
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.3);
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 6;
+
+    // Hotel items table
+    if (hotelItems.length > 0) {
+      doc.setFontSize(10);
+      doc.setTextColor(...DARK);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Hospedaje', margin, y);
+      y += 4;
+
+      const hotelBody = hotelItems.map((item, idx) => [
+        `Hab. ${idx + 1}`,
+        item.hotel?.name || '-',
+        item.roomType || '-',
+        item.plan || '-',
+        `${item.numAdults || 0} Ad. / ${item.numChildren || 0} Men.`,
+        `${item.numNights || 0} noches`,
+        formatCurrency(item.cost || 0),
+      ]);
+
+      autoTable(doc, {
+        startY: y,
+        head: [['#', 'Hotel', 'Tipo Hab.', 'Plan', 'Ocupación', 'Noches', 'Costo']],
+        body: hotelBody,
+        margin: { left: margin, right: margin },
+        styles: { fontSize: 8, cellPadding: 2.5, textColor: [30, 41, 59] },
+        headStyles: { fillColor: [239, 246, 255], textColor: [37, 99, 235], fontStyle: 'bold', lineWidth: 0.3, lineColor: [226, 232, 240] },
+        bodyStyles: { lineWidth: 0.2, lineColor: [226, 232, 240] },
+        columnStyles: { 0: { cellWidth: 14 }, 6: { halign: 'right' } },
+      });
+      y = (doc as any).lastAutoTable.finalY + 6;
+
+      // ── Hotel detail cards (unique hotels) ──
+      const uniqueHotels: HotelData[] = [];
+      const seenHIds = new Set<string>();
+      for (const hi of hotelItems) {
+        if (hi.hotel && !seenHIds.has(hi.hotel.id)) {
+          seenHIds.add(hi.hotel.id);
+          uniqueHotels.push(hi.hotel);
+        }
+      }
+
+      for (const h of uniqueHotels) {
+        let estimatedHeight = 30;
+        if (h.plan || h.checkIn || h.checkOut) estimatedHeight += 12;
+        if (h.idRequirement) estimatedHeight += 8;
+        if (h.includes?.length) estimatedHeight += 6 + h.includes.length * 5;
+        if (h.notIncludes?.length) estimatedHeight += 6 + h.notIncludes.length * 5;
+        if (h.images?.length) estimatedHeight += 35;
+
+        y = checkPageBreak(doc, y, estimatedHeight, margin);
+
+        const cardX = margin;
+        const cardW = pageWidth - margin * 2;
+
+        // Hotel name
+        doc.setFontSize(12);
+        doc.setTextColor(8, 145, 178);
+        doc.setFont('helvetica', 'bold');
+        doc.text(h.name, cardX + 4, y + 5);
+        y += 8;
+
+        // Stars and diamonds (drawn as vector icons)
+        const hasStars = (h.stars || 0) > 0;
+        const hasDiamonds = (h.diamonds || 0) > 0;
+        if (hasStars || hasDiamonds) {
+          let classifX = cardX + 4;
+          const iconSize = 3;
+          const iconGap = 1;
+          const iconCenterY = y + 3;
+
+          if (hasStars) {
+            doc.setFillColor(234, 179, 8);
+            doc.setDrawColor(234, 179, 8);
+            for (let si = 0; si < h.stars!; si++) {
+              drawStar(doc, classifX + iconSize / 2, iconCenterY, iconSize);
+              classifX += iconSize + iconGap;
+            }
+            classifX += 1.5;
+            doc.setFontSize(8);
+            doc.setTextColor(234, 179, 8);
+            doc.setFont('helvetica', 'bold');
+            const starLabel = `${h.stars} Estrella${h.stars! > 1 ? 's' : ''}`;
+            doc.text(starLabel, classifX, iconCenterY + 1);
+            classifX += doc.getTextWidth(starLabel) + 5;
+          }
+
+          if (hasDiamonds) {
+            doc.setFillColor(59, 130, 246);
+            doc.setDrawColor(59, 130, 246);
+            for (let di = 0; di < h.diamonds!; di++) {
+              drawDiamond(doc, classifX + iconSize / 2, iconCenterY, iconSize);
+              classifX += iconSize + iconGap;
+            }
+            classifX += 1.5;
+            doc.setFontSize(8);
+            doc.setTextColor(59, 130, 246);
+            doc.setFont('helvetica', 'bold');
+            const diamondLabel = `${h.diamonds} Diamante${h.diamonds! > 1 ? 's' : ''}`;
+            doc.text(diamondLabel, classifX, iconCenterY + 1);
+          }
+
+          y += 6;
+        }
+
+        // Plan, Check-In, Check-Out
+        const infoFields: { label: string; value: string }[] = [];
+        if (h.plan) infoFields.push({ label: 'Plan', value: h.plan });
+        if (h.checkIn) infoFields.push({ label: 'Check-In', value: h.checkIn + (h.checkInNote ? ` (${h.checkInNote})` : '') });
+        if (h.checkOut) infoFields.push({ label: 'Check-Out', value: h.checkOut + (h.checkOutNote ? ` (${h.checkOutNote})` : '') });
+
+        if (infoFields.length > 0) {
+          const fieldW = cardW / infoFields.length;
+          for (let fi = 0; fi < infoFields.length; fi++) {
+            const fx = cardX + 4 + fi * fieldW;
+            doc.setFontSize(7);
+            doc.setTextColor(...GRAY);
+            doc.setFont('helvetica', 'normal');
+            doc.text(infoFields[fi].label, fx, y + 3);
+            doc.setFontSize(9);
+            doc.setTextColor(...DARK);
+            doc.setFont('helvetica', 'bold');
+            doc.text(infoFields[fi].value, fx, y + 7);
+          }
+          y += 11;
+        }
+
+        // ID Requirement
+        if (h.idRequirement) {
+          doc.setFontSize(8);
+          doc.setTextColor(146, 64, 14);
+          doc.setFont('helvetica', 'bold');
+          doc.text(`Identificacion requerida: ${h.idRequirement}`, cardX + 4, y + 3);
+          y += 7;
+        }
+
+        // Includes
+        if (h.includes && h.includes.length > 0) {
+          doc.setFontSize(9);
+          doc.setTextColor(22, 163, 74);
+          doc.setFont('helvetica', 'bold');
+          doc.text('Incluye:', cardX + 4, y + 3);
+          y += 5;
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(...DARK);
+          doc.setFontSize(8);
+          for (const inc of h.includes) {
+            doc.text(`  + ${inc}`, cardX + 6, y + 3);
+            y += 4.5;
+          }
+          y += 1;
+        }
+
+        // Not Includes
+        if (h.notIncludes && h.notIncludes.length > 0) {
+          doc.setFontSize(9);
+          doc.setTextColor(220, 38, 38);
+          doc.setFont('helvetica', 'bold');
+          doc.text('No Incluye:', cardX + 4, y + 3);
+          y += 5;
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(...DARK);
+          doc.setFontSize(8);
+          for (const ni of h.notIncludes) {
+            doc.text(`  - ${ni}`, cardX + 6, y + 3);
+            y += 4.5;
+          }
+          y += 1;
+        }
+
+        // Hotel images
+        if (h.images && h.images.length > 0) {
+          const imgWidth = (cardW - 16) / 3;
+          const imgHeight = 28;
+          let imgX = cardX + 4;
+          let imgCount = 0;
+          for (const imgPath of h.images.slice(0, 6)) {
+            try {
+              const imgUrl = `/api/files/${encodeURIComponent(imgPath)}`;
+              const imgBase64 = await loadImageAsBase64(imgUrl);
+              if (imgBase64) {
+                y = checkPageBreak(doc, y, imgHeight + 4, margin);
+                doc.addImage(imgBase64, 'AUTO', imgX, y + 2, imgWidth - 2, imgHeight);
+                imgX += imgWidth;
+                imgCount++;
+                if (imgCount % 3 === 0) {
+                  imgX = cardX + 4;
+                  y += imgHeight + 3;
+                }
+              }
+            } catch {
+              // skip failed image
+            }
+          }
+          if (imgCount % 3 !== 0) {
+            y += imgHeight + 3;
+          }
+        }
+
+        // Bottom border
+        doc.setDrawColor(226, 232, 240);
+        doc.setLineWidth(0.3);
+        doc.line(cardX, y + 2, cardX + cardW, y + 2);
+        y += 6;
+      }
+    }
+
+    // Flight items table
+    if (flightItems.length > 0) {
+      y = checkPageBreak(doc, y, 20, margin);
+      doc.setFontSize(10);
+      doc.setTextColor(...DARK);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Vuelos', margin, y);
+      y += 4;
+
+      const flightBody = flightItems.map((item) => {
+        let timeStr = '';
+        if (item.departureTime) {
+          const dt = new Date(item.departureTime);
+          timeStr = `${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`;
+        }
+        if (item.arrivalTime) {
+          const at = new Date(item.arrivalTime);
+          timeStr += ` - ${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`;
+        }
+        return [
+          item.direction === 'IDA' ? 'Ida' : 'Regreso',
+          item.airline || '-',
+          item.flightNumber || '-',
+          `${item.origin || '?'} -> ${item.flightDestination || '?'}`,
+          timeStr || '-',
+          item.flightClass === 'ECONOMICA' ? 'Economica' : item.flightClass === 'BUSINESS' ? 'Business' : item.flightClass || '-',
+          formatCurrency(item.cost || 0),
+        ];
+      });
+
+      autoTable(doc, {
+        startY: y,
+        head: [['Direccion', 'Aerolinea', 'Vuelo', 'Ruta', 'Horario', 'Clase', 'Costo']],
+        body: flightBody,
+        margin: { left: margin, right: margin },
+        styles: { fontSize: 8, cellPadding: 2.5, textColor: [30, 41, 59] },
+        headStyles: { fillColor: [236, 254, 255], textColor: [8, 145, 178], fontStyle: 'bold', lineWidth: 0.3, lineColor: [226, 232, 240] },
+        bodyStyles: { lineWidth: 0.2, lineColor: [226, 232, 240] },
+        columnStyles: { 6: { halign: 'right' } },
+      });
+      y = (doc as any).lastAutoTable.finalY + 6;
+    }
+
+    // Tour items table
+    if (tourItems.length > 0) {
+      y = checkPageBreak(doc, y, 20, margin);
+      doc.setFontSize(10);
+      doc.setTextColor(...DARK);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Tours', margin, y);
+      y += 4;
+
+      const tourBody = tourItems.map((item) => [
+        item.tourName || '-',
+        item.tourDate ? formatDate(item.tourDate) : '-',
+        String(item.numPeople || 0),
+        formatCurrency(item.pricePerPerson || 0),
+        formatCurrency(item.cost || 0),
+      ]);
+
+      autoTable(doc, {
+        startY: y,
+        head: [['Tour', 'Fecha', 'Personas', 'Precio/Persona', 'Costo']],
+        body: tourBody,
+        margin: { left: margin, right: margin },
+        styles: { fontSize: 8, cellPadding: 2.5, textColor: [30, 41, 59] },
+        headStyles: { fillColor: [255, 251, 235], textColor: [180, 83, 9], fontStyle: 'bold', lineWidth: 0.3, lineColor: [226, 232, 240] },
+        bodyStyles: { lineWidth: 0.2, lineColor: [226, 232, 240] },
+        columnStyles: { 2: { halign: 'center' }, 3: { halign: 'right' }, 4: { halign: 'right' } },
+      });
+      y = (doc as any).lastAutoTable.finalY + 6;
+    }
+
+    // Total services cost
+    const totalServicesCost = bookingItems.reduce((sum, i) => sum + (i.cost || 0), 0);
+    doc.setFontSize(9);
+    doc.setTextColor(...DARK);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Costo Neto Total: ${formatCurrency(totalServicesCost)}`, pageWidth - margin, y, { align: 'right' });
+    y += 10;
+  }
 
   // ─── RESUMEN FINANCIERO ───
   y = checkPageBreak(doc, y, 45, margin);
