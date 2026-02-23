@@ -158,6 +158,7 @@ export default function BanksPage() {
   const [editingAccount, setEditingAccount] = useState<BankAccount | null>(null);
   const [accountForm, setAccountForm] = useState<AccountFormData>(initialAccountForm);
   const [deleteAccount, setDeleteAccount] = useState<BankAccount | null>(null);
+  const [deleteTransferAccountId, setDeleteTransferAccountId] = useState('');
 
   // Transaction modals
   const [txModalType, setTxModalType] = useState<'INCOME' | 'EXPENSE' | 'TRANSFER' | null>(null);
@@ -304,18 +305,34 @@ export default function BanksPage() {
 
   const handleDeleteAccount = async () => {
     if (!deleteAccount) return;
+
+    const hasBalance = deleteAccount.currentBalance > 0;
+    if (hasBalance && !deleteTransferAccountId) {
+      toast({ title: 'Error', description: 'Selecciona una cuenta destino para transferir el saldo', variant: 'destructive' });
+      return;
+    }
+
     setSaving(true);
     try {
-      const res = await fetch(`/api/bank-accounts/${deleteAccount.id}`, { method: 'DELETE' });
+      const body: any = {};
+      if (deleteTransferAccountId) body.transferToAccountId = deleteTransferAccountId;
+
+      const res = await fetch(`/api/bank-accounts/${deleteAccount.id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
       if (!res.ok) {
         const err = await res.json();
         throw new Error(err.error || 'Error');
       }
-      toast({ title: 'Éxito', description: 'Cuenta eliminada' });
+      toast({ title: 'Cuenta archivada', description: hasBalance ? `Saldo de $${deleteAccount.currentBalance.toLocaleString('es-MX')} transferido y cuenta archivada` : 'La cuenta fue archivada correctamente' });
       setDeleteAccount(null);
+      setDeleteTransferAccountId('');
+      if (selectedAccount?.id === deleteAccount.id) setSelectedAccount(null);
       fetchAccounts();
     } catch (error: any) {
-      toast({ title: 'Error', description: error.message || 'No se pudo eliminar', variant: 'destructive' });
+      toast({ title: 'Error', description: error.message || 'No se pudo archivar', variant: 'destructive' });
     } finally {
       setSaving(false);
     }
@@ -1139,25 +1156,71 @@ export default function BanksPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation */}
-      <AlertDialog open={deleteAccount !== null} onOpenChange={(open) => { if (!open) setDeleteAccount(null); }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>¿Eliminar cuenta?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta acción eliminará la cuenta <strong>{deleteAccount?.referenceName}</strong> ({deleteAccount?.bankName}).
-              Solo se puede eliminar si no tiene movimientos registrados.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={saving}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteAccount} disabled={saving} className="bg-red-600 hover:bg-red-700">
+      {/* Archive Account Dialog */}
+      <Dialog open={deleteAccount !== null} onOpenChange={(open) => { if (!open) { setDeleteAccount(null); setDeleteTransferAccountId(''); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Archivar cuenta</DialogTitle>
+            <DialogDescription>
+              La cuenta y todo su historial de movimientos se conservarán, pero ya no aparecerá en las listas activas.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="rounded-lg border p-3 bg-muted/40">
+              <p className="text-sm font-medium">{deleteAccount?.referenceName}</p>
+              <p className="text-xs text-muted-foreground">{deleteAccount?.bankName} · {deleteAccount?.accountType}</p>
+              <p className={`text-sm font-semibold mt-1 ${(deleteAccount?.currentBalance ?? 0) > 0 ? 'text-green-600' : 'text-muted-foreground'}`}>
+                Saldo actual: ${(deleteAccount?.currentBalance ?? 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+              </p>
+            </div>
+
+            {(deleteAccount?.currentBalance ?? 0) > 0 ? (
+              <div className="space-y-2">
+                <div className="flex items-start gap-2 rounded-lg border border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-900/20 p-3">
+                  <span className="text-yellow-600 dark:text-yellow-400 mt-0.5 text-sm">⚠️</span>
+                  <p className="text-sm text-yellow-700 dark:text-yellow-300">
+                    Esta cuenta tiene saldo. Debes transferirlo a otra cuenta antes de archivarla.
+                  </p>
+                </div>
+                <Label>Transferir saldo a <span className="text-red-500">*</span></Label>
+                <Select value={deleteTransferAccountId} onValueChange={setDeleteTransferAccountId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona cuenta destino..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {accounts
+                      .filter((a) => a.id !== deleteAccount?.id)
+                      .map((a) => (
+                        <SelectItem key={a.id} value={a.id}>
+                          {a.referenceName} — {a.bankName} (${a.currentBalance.toLocaleString('es-MX')})
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                El saldo es cero, la cuenta se archivará directamente.
+              </p>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setDeleteAccount(null); setDeleteTransferAccountId(''); }} disabled={saving}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleDeleteAccount}
+              disabled={saving || ((deleteAccount?.currentBalance ?? 0) > 0 && !deleteTransferAccountId)}
+              variant="destructive"
+            >
               {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              Eliminar
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+              Archivar cuenta
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

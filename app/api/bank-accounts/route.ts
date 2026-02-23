@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
 
     if (all === 'true') {
       const allAccounts = await prisma.bankAccount.findMany({
-        where: { tenantId },
+        where: { tenantId, isActive: true },
         orderBy: { referenceName: 'asc' },
       });
 
@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search') || '';
     const skip = (page - 1) * limit;
 
-    const where: any = { tenantId };
+    const where: any = { tenantId, isActive: true };
     if (search) {
       where.OR = [
         { referenceName: { contains: search, mode: 'insensitive' } },

@@ -10,17 +10,18 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Hotel, Plane, MapPin, Trash2, Pencil, Check, ChevronsUpDown, Truck } from 'lucide-react';
+import { Plus, Hotel, Plane, MapPin, Trash2, Pencil, Check, ChevronsUpDown, Truck, Bus, Globe, ArrowLeftRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // ─── Types ───────────────────────────────────────────
 
 export interface BookingItemData {
   id?: string;
-  type: 'HOTEL' | 'FLIGHT' | 'TOUR' | 'OTHER';
+  type: 'HOTEL' | 'FLIGHT' | 'TOUR' | 'TRANSFER' | 'OTHER';
   description?: string;
   cost: number;
   sortOrder: number;
+  isInternational?: boolean;
   // Hotel
   hotelId?: string;
   roomType?: string;
@@ -42,12 +43,18 @@ export interface BookingItemData {
   departureTime?: Date | null;
   arrivalTime?: Date | null;
   flightClass?: string;
-  direction?: 'IDA' | 'REGRESO';
+  direction?: 'IDA' | 'REGRESO' | 'IDA_Y_VUELTA';
+  // Return leg (IDA_Y_VUELTA)
+  returnDepartureTime?: Date | null;
+  returnArrivalTime?: Date | null;
+  returnFlightNumber?: string;
   // Tour
   tourName?: string;
   tourDate?: Date | null;
   numPeople?: number;
   pricePerPerson?: number;
+  // Transport (TRANSFER)
+  transportType?: string;
   // Supplier (per item)
   supplierId?: string;
   supplierDeadline?: Date | null;
@@ -82,12 +89,74 @@ function formatTime(date: Date | string): string {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
-function parseTimeInput(timeStr: string): Date | null {
-  if (!timeStr) return null;
-  const [hours, minutes] = timeStr.split(':').map(Number);
-  const d = new Date();
-  d.setHours(hours, minutes, 0, 0);
-  return d;
+// ─── TimePicker Component (custom HH:MM — no native browser picker) ──
+
+function TimePicker({
+  value,
+  onChange,
+}: {
+  value?: Date | null;
+  onChange: (date: Date | null) => void;
+}) {
+  const toHH = (d?: Date | null) => (d && !isNaN(d.getTime()) ? String(d.getHours()).padStart(2, '0') : '');
+  const toMM = (d?: Date | null) => (d && !isNaN(d.getTime()) ? String(d.getMinutes()).padStart(2, '0') : '');
+
+  const [hh, setHh] = useState(toHH(value));
+  const [mm, setMm] = useState(toMM(value));
+
+  useEffect(() => {
+    setHh(toHH(value));
+    setMm(toMM(value));
+  }, [value]);
+
+  const commit = (newHh: string, newMm: string) => {
+    const h = newHh.trim();
+    const m = newMm.trim();
+    if (!h && !m) { onChange(null); return; }
+    const hNum = Math.min(23, Math.max(0, parseInt(h) || 0));
+    const mNum = Math.min(59, Math.max(0, parseInt(m) || 0));
+    const d = new Date();
+    d.setHours(hNum, mNum, 0, 0);
+    onChange(d);
+  };
+
+  const blurHh = (raw: string) => {
+    const padded = raw.trim() ? String(Math.min(23, Math.max(0, parseInt(raw) || 0))).padStart(2, '0') : '';
+    setHh(padded);
+    commit(padded, mm);
+  };
+
+  const blurMm = (raw: string) => {
+    const padded = raw.trim() ? String(Math.min(59, Math.max(0, parseInt(raw) || 0))).padStart(2, '0') : '';
+    setMm(padded);
+    commit(hh, padded);
+  };
+
+  return (
+    <div className="flex items-center h-9 rounded-md border border-input bg-background px-2 text-sm ring-offset-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
+      <input
+        type="number"
+        min={0}
+        max={23}
+        value={hh}
+        placeholder="HH"
+        onChange={(e) => { setHh(e.target.value); commit(e.target.value, mm); }}
+        onBlur={(e) => blurHh(e.target.value)}
+        className="w-8 text-center bg-transparent outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none placeholder:text-muted-foreground/50"
+      />
+      <span className="text-muted-foreground select-none">:</span>
+      <input
+        type="number"
+        min={0}
+        max={59}
+        value={mm}
+        placeholder="MM"
+        onChange={(e) => { setMm(e.target.value); commit(hh, e.target.value); }}
+        onBlur={(e) => blurMm(e.target.value)}
+        className="w-8 text-center bg-transparent outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none placeholder:text-muted-foreground/50"
+      />
+    </div>
+  );
 }
 
 // ─── Main Component ──────────────────────────────────
@@ -102,9 +171,11 @@ export function BookingItemsForm({ items, onChange, destinations, suppliers }: B
     if (type === 'HOTEL') {
       Object.assign(newItem, { numAdults: 2, numChildren: 0, freeChildren: 0, pricePerNight: 0, numNights: 1, priceAdult: 0, priceChild: 0 });
     } else if (type === 'FLIGHT') {
-      Object.assign(newItem, { direction: 'IDA', flightClass: 'ECONOMICA' });
+      Object.assign(newItem, { direction: 'IDA', flightClass: 'ECONOMICA', returnDepartureTime: null, returnArrivalTime: null, returnFlightNumber: '' });
     } else if (type === 'TOUR') {
       Object.assign(newItem, { numPeople: 1, pricePerPerson: 0 });
+    } else if (type === 'TRANSFER') {
+      Object.assign(newItem, { direction: 'IDA', numPeople: 1, pricePerPerson: 0, transportType: '', returnDepartureTime: null, returnArrivalTime: null });
     }
     setDraftItem(newItem);
     setEditingIndex(null);
@@ -120,6 +191,12 @@ export function BookingItemsForm({ items, onChange, destinations, suppliers }: B
   const updateDraft = (updates: Partial<BookingItemData>) => {
     if (!draftItem) return;
     const merged = { ...draftItem, ...updates };
+    // When switching away from IDA_Y_VUELTA, clear return fields
+    if (updates.direction && updates.direction !== 'IDA_Y_VUELTA') {
+      merged.returnDepartureTime = null;
+      merged.returnArrivalTime = null;
+      merged.returnFlightNumber = '';
+    }
     if (merged.type === 'HOTEL') {
       const paidChildren = Math.max(0, (merged.numChildren || 0) - (merged.freeChildren || 0));
       merged.cost =
@@ -128,6 +205,9 @@ export function BookingItemsForm({ items, onChange, destinations, suppliers }: B
         (merged.priceChild || 0) * paidChildren;
     }
     if (merged.type === 'TOUR') {
+      merged.cost = (merged.pricePerPerson || 0) * (merged.numPeople || 0);
+    }
+    if (merged.type === 'TRANSFER') {
       merged.cost = (merged.pricePerPerson || 0) * (merged.numPeople || 0);
     }
     setDraftItem(merged);
@@ -164,6 +244,9 @@ export function BookingItemsForm({ items, onChange, destinations, suppliers }: B
         <Button type="button" variant="outline" size="sm" onClick={() => openAddModal('TOUR')} className="gap-1.5 h-8">
           <MapPin className="w-3.5 h-3.5" />Tour
         </Button>
+        <Button type="button" variant="outline" size="sm" onClick={() => openAddModal('TRANSFER')} className="gap-1.5 h-8">
+          <Bus className="w-3.5 h-3.5" />Transporte
+        </Button>
       </div>
 
       {/* Empty state */}
@@ -173,9 +256,10 @@ export function BookingItemsForm({ items, onChange, destinations, suppliers }: B
             <Hotel className="w-5 h-5" />
             <Plane className="w-5 h-5" />
             <MapPin className="w-5 h-5" />
+            <Bus className="w-5 h-5" />
           </div>
           <p className="text-sm text-muted-foreground">Sin servicios agregados</p>
-          <p className="text-xs text-muted-foreground/70 mt-0.5">Usa los botones para agregar hospedaje, vuelos o tours</p>
+          <p className="text-xs text-muted-foreground/70 mt-0.5">Usa los botones para agregar hospedaje, vuelos, tours o transporte</p>
         </div>
       )}
 
@@ -217,6 +301,9 @@ export function BookingItemsForm({ items, onChange, destinations, suppliers }: B
               {draftItem?.type === 'TOUR' && (
                 <><MapPin className="w-4 h-4 text-amber-500" />{editingIndex === null ? 'Agregar Tour' : 'Editar Tour'}</>
               )}
+              {draftItem?.type === 'TRANSFER' && (
+                <><Bus className="w-4 h-4 text-emerald-500" />{editingIndex === null ? 'Agregar Transporte' : 'Editar Transporte'}</>
+              )}
             </DialogTitle>
           </DialogHeader>
 
@@ -231,6 +318,9 @@ export function BookingItemsForm({ items, onChange, destinations, suppliers }: B
               {draftItem.type === 'TOUR' && (
                 <TourForm item={draftItem} suppliers={suppliers} onChange={updateDraft} />
               )}
+              {draftItem.type === 'TRANSFER' && (
+                <TransportForm item={draftItem} suppliers={suppliers} onChange={updateDraft} />
+              )}
             </div>
           )}
 
@@ -244,6 +334,29 @@ export function BookingItemsForm({ items, onChange, destinations, suppliers }: B
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+// ─── Internacional Toggle (shared) ───────────────────
+
+function InternacionalToggle({
+  value,
+  onChange,
+}: {
+  value?: boolean;
+  onChange: (val: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between rounded-lg border p-3 bg-muted/30">
+      <div className="flex items-center gap-2">
+        <Globe className="w-4 h-4 text-blue-500" />
+        <div className="space-y-0.5">
+          <Label className="text-sm font-medium">Internacional</Label>
+          <p className="text-xs text-muted-foreground">Marcar si este servicio es internacional</p>
+        </div>
+      </div>
+      <Switch checked={!!value} onCheckedChange={onChange} />
     </div>
   );
 }
@@ -337,15 +450,19 @@ function ItemCard({
     HOTEL: 'border-l-blue-400',
     FLIGHT: 'border-l-cyan-400',
     TOUR: 'border-l-amber-400',
+    TRANSFER: 'border-l-emerald-400',
     OTHER: 'border-l-gray-400',
-  }[item.type];
+  }[item.type] ?? 'border-l-gray-400';
 
   const iconColor = {
     HOTEL: 'text-blue-500',
     FLIGHT: 'text-cyan-500',
     TOUR: 'text-amber-500',
+    TRANSFER: 'text-emerald-500',
     OTHER: 'text-gray-500',
-  }[item.type];
+  }[item.type] ?? 'text-gray-500';
+
+  const directionLabel = item.direction === 'IDA' ? 'Ida' : item.direction === 'REGRESO' ? 'Regreso' : 'Ida y Vuelta';
 
   return (
     <div className={cn('flex items-start gap-3 rounded-lg border border-l-4 bg-card p-3', borderColor)}>
@@ -354,14 +471,20 @@ function ItemCard({
         {item.type === 'HOTEL' && <Hotel className="w-4 h-4" />}
         {item.type === 'FLIGHT' && <Plane className="w-4 h-4" />}
         {item.type === 'TOUR' && <MapPin className="w-4 h-4" />}
+        {item.type === 'TRANSFER' && <Bus className="w-4 h-4" />}
       </div>
 
       {/* Summary */}
       <div className="flex-1 min-w-0 space-y-0.5">
         {item.type === 'HOTEL' && (
           <>
-            <p className="text-sm font-medium leading-tight truncate">
+            <p className="text-sm font-medium leading-tight truncate flex items-center gap-1.5">
               {item.roomType || 'Habitacion'}
+              {item.isInternational && (
+                <span className="inline-flex items-center gap-0.5 text-xs bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded px-1.5 py-0.5 font-medium">
+                  <Globe className="w-2.5 h-2.5" />Internacional
+                </span>
+              )}
             </p>
             {selectedDestination && (
               <p className="text-xs text-muted-foreground">{selectedDestination.name}</p>
@@ -379,26 +502,84 @@ function ItemCard({
         )}
         {item.type === 'FLIGHT' && (
           <>
-            <p className="text-sm font-medium leading-tight">
+            <p className="text-sm font-medium leading-tight flex items-center gap-1.5">
               {item.airline || 'Aerolinea'}{item.flightNumber ? ` · ${item.flightNumber}` : ''}
+              {item.isInternational && (
+                <span className="inline-flex items-center gap-0.5 text-xs bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded px-1.5 py-0.5 font-medium">
+                  <Globe className="w-2.5 h-2.5" />Internacional
+                </span>
+              )}
             </p>
             <p className="text-xs text-muted-foreground">
               {item.origin || '?'} → {item.flightDestination || '?'}
             </p>
-            <p className="text-xs text-muted-foreground">
-              {item.direction === 'IDA' ? 'Ida' : 'Regreso'} · {item.flightClass || 'Economica'}
+            <p className="text-xs text-muted-foreground flex items-center gap-1">
+              {item.direction === 'IDA_Y_VUELTA' && <ArrowLeftRight className="w-3 h-3" />}
+              {directionLabel} · {item.flightClass || 'Economica'}
             </p>
+            {item.departureTime && (
+              <p className="text-xs text-muted-foreground">
+                Salida: {formatTime(item.departureTime)}
+                {item.arrivalTime && ` → Llegada: ${formatTime(item.arrivalTime)}`}
+              </p>
+            )}
+            {item.direction === 'IDA_Y_VUELTA' && item.returnDepartureTime && (
+              <p className="text-xs text-muted-foreground">
+                Regreso: {formatTime(item.returnDepartureTime)}
+                {item.returnArrivalTime && ` → ${formatTime(item.returnArrivalTime)}`}
+              </p>
+            )}
           </>
         )}
         {item.type === 'TOUR' && (
           <>
-            <p className="text-sm font-medium leading-tight">{item.tourName || 'Tour'}</p>
+            <p className="text-sm font-medium leading-tight flex items-center gap-1.5">
+              {item.tourName || 'Tour'}
+              {item.isInternational && (
+                <span className="inline-flex items-center gap-0.5 text-xs bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded px-1.5 py-0.5 font-medium">
+                  <Globe className="w-2.5 h-2.5" />Internacional
+                </span>
+              )}
+            </p>
             <p className="text-xs text-muted-foreground">
               {item.numPeople || 0} persona{(item.numPeople || 0) !== 1 ? 's' : ''} × {formatCurrency(item.pricePerPerson || 0)}
             </p>
             {item.tourDate && (
               <p className="text-xs text-muted-foreground">
                 {new Date(item.tourDate).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
+              </p>
+            )}
+          </>
+        )}
+        {item.type === 'TRANSFER' && (
+          <>
+            <p className="text-sm font-medium leading-tight flex items-center gap-1.5">
+              {item.transportType || 'Transporte'}
+              {item.isInternational && (
+                <span className="inline-flex items-center gap-0.5 text-xs bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded px-1.5 py-0.5 font-medium">
+                  <Globe className="w-2.5 h-2.5" />Internacional
+                </span>
+              )}
+            </p>
+            {(item.origin || item.flightDestination) && (
+              <p className="text-xs text-muted-foreground">
+                {item.origin || '?'} → {item.flightDestination || '?'}
+              </p>
+            )}
+            <p className="text-xs text-muted-foreground flex items-center gap-1">
+              {item.direction === 'IDA_Y_VUELTA' && <ArrowLeftRight className="w-3 h-3" />}
+              {directionLabel} · {item.numPeople || 0} pasajero{(item.numPeople || 0) !== 1 ? 's' : ''}
+            </p>
+            {item.departureTime && (
+              <p className="text-xs text-muted-foreground">
+                Salida: {formatTime(item.departureTime)}
+                {item.arrivalTime && ` → Llegada: ${formatTime(item.arrivalTime)}`}
+              </p>
+            )}
+            {item.direction === 'IDA_Y_VUELTA' && item.returnDepartureTime && (
+              <p className="text-xs text-muted-foreground">
+                Regreso: {formatTime(item.returnDepartureTime)}
+                {item.returnArrivalTime && ` → ${formatTime(item.returnArrivalTime)}`}
               </p>
             )}
           </>
@@ -471,6 +652,9 @@ function HotelForm({
 
   return (
     <div className="space-y-4">
+      {/* Internacional toggle */}
+      <InternacionalToggle value={item.isInternational} onChange={(v) => onChange({ isInternational: v })} />
+
       {/* Destination selector */}
       <div className="space-y-1.5">
         <Label>Destino *</Label>
@@ -734,17 +918,23 @@ function FlightForm({
   suppliers: Supplier[];
   onChange: (updates: Partial<BookingItemData>) => void;
 }) {
+  const isRoundTrip = item.direction === 'IDA_Y_VUELTA';
+
   return (
     <div className="space-y-4">
+      {/* Internacional toggle */}
+      <InternacionalToggle value={item.isInternational} onChange={(v) => onChange({ isInternational: v })} />
+
       {/* Direction + Class */}
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
           <Label>Direccion</Label>
-          <Select value={item.direction || 'IDA'} onValueChange={(v) => onChange({ direction: v as 'IDA' | 'REGRESO' })}>
+          <Select value={item.direction || 'IDA'} onValueChange={(v) => onChange({ direction: v as BookingItemData['direction'] })}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="IDA">Ida</SelectItem>
               <SelectItem value="REGRESO">Regreso</SelectItem>
+              <SelectItem value="IDA_Y_VUELTA">Ida y Vuelta</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -761,24 +951,14 @@ function FlightForm({
         </div>
       </div>
 
-      {/* Airline + Flight Number */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1.5">
-          <Label>Aerolinea</Label>
-          <Input
-            value={item.airline || ''}
-            onChange={(e) => onChange({ airline: e.target.value })}
-            placeholder="Ej: Aeromexico"
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label>No. Vuelo</Label>
-          <Input
-            value={item.flightNumber || ''}
-            onChange={(e) => onChange({ flightNumber: e.target.value })}
-            placeholder="Ej: AM123"
-          />
-        </div>
+      {/* Airline */}
+      <div className="space-y-1.5">
+        <Label>Aerolinea</Label>
+        <Input
+          value={item.airline || ''}
+          onChange={(e) => onChange({ airline: e.target.value })}
+          placeholder="Ej: Aeromexico"
+        />
       </div>
 
       {/* Origin + Destination */}
@@ -801,25 +981,76 @@ function FlightForm({
         </div>
       </div>
 
-      {/* Departure + Arrival times */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1.5">
-          <Label>Hora Salida</Label>
-          <Input
-            type="time"
-            value={item.departureTime ? formatTime(item.departureTime) : ''}
-            onChange={(e) => onChange({ departureTime: parseTimeInput(e.target.value) })}
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label>Hora Llegada</Label>
-          <Input
-            type="time"
-            value={item.arrivalTime ? formatTime(item.arrivalTime) : ''}
-            onChange={(e) => onChange({ arrivalTime: parseTimeInput(e.target.value) })}
-          />
+      {/* ── Vuelo de Ida ── */}
+      <div className={cn('space-y-3 rounded-lg p-3', isRoundTrip ? 'border bg-muted/20' : '')}>
+        {isRoundTrip && (
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+            <Plane className="w-3.5 h-3.5" /> Vuelo de Ida
+          </p>
+        )}
+
+        {/* Flight Number + Departure/Arrival Times (outbound) */}
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label>No. Vuelo</Label>
+            <Input
+              value={item.flightNumber || ''}
+              onChange={(e) => onChange({ flightNumber: e.target.value })}
+              placeholder="Ej: AM123"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Hora Salida</Label>
+              <TimePicker
+                value={item.departureTime}
+                onChange={(d) => onChange({ departureTime: d })}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Hora Llegada</Label>
+              <TimePicker
+                value={item.arrivalTime}
+                onChange={(d) => onChange({ arrivalTime: d })}
+              />
+            </div>
+          </div>
         </div>
       </div>
+
+      {/* ── Vuelo de Regreso (only when IDA_Y_VUELTA) ── */}
+      {isRoundTrip && (
+        <div className="space-y-3 rounded-lg border border-cyan-200 dark:border-cyan-800 bg-cyan-50/30 dark:bg-cyan-950/20 p-3">
+          <p className="text-xs font-semibold text-cyan-600 dark:text-cyan-400 uppercase tracking-wider flex items-center gap-1.5">
+            <ArrowLeftRight className="w-3.5 h-3.5" /> Vuelo de Regreso
+          </p>
+
+          <div className="space-y-1.5">
+            <Label>No. Vuelo Regreso</Label>
+            <Input
+              value={item.returnFlightNumber || ''}
+              onChange={(e) => onChange({ returnFlightNumber: e.target.value })}
+              placeholder="Ej: AM456"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Hora Salida Regreso</Label>
+              <TimePicker
+                value={item.returnDepartureTime}
+                onChange={(d) => onChange({ returnDepartureTime: d })}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Hora Llegada Regreso</Label>
+              <TimePicker
+                value={item.returnArrivalTime}
+                onChange={(d) => onChange({ returnArrivalTime: d })}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Cost */}
       <div className="space-y-1.5">
@@ -851,6 +1082,9 @@ function TourForm({
 }) {
   return (
     <div className="space-y-4">
+      {/* Internacional toggle */}
+      <InternacionalToggle value={item.isInternational} onChange={(v) => onChange({ isInternational: v })} />
+
       {/* Tour Name */}
       <div className="space-y-1.5">
         <Label>Nombre del Tour</Label>
@@ -895,6 +1129,152 @@ function TourForm({
       <div className="flex items-center justify-between rounded-lg bg-muted/50 px-4 py-3">
         <span className="text-sm text-muted-foreground">
           {item.numPeople || 0} persona{(item.numPeople || 0) !== 1 ? 's' : ''} × {formatCurrency(item.pricePerPerson || 0)}
+        </span>
+        <span className="font-semibold text-lg">{formatCurrency(item.cost || 0)}</span>
+      </div>
+
+      {/* Supplier */}
+      <SupplierSection item={item} suppliers={suppliers} onChange={onChange} />
+    </div>
+  );
+}
+
+// ─── Transport Form (inside modal) ────────────────────
+
+function TransportForm({
+  item,
+  suppliers,
+  onChange,
+}: {
+  item: BookingItemData;
+  suppliers: Supplier[];
+  onChange: (updates: Partial<BookingItemData>) => void;
+}) {
+  const isRoundTrip = item.direction === 'IDA_Y_VUELTA';
+
+  return (
+    <div className="space-y-4">
+      {/* Internacional toggle */}
+      <InternacionalToggle value={item.isInternational} onChange={(v) => onChange({ isInternational: v })} />
+
+      {/* Tipo de unidad */}
+      <div className="space-y-1.5">
+        <Label>Tipo de Unidad</Label>
+        <Input
+          value={item.transportType || ''}
+          onChange={(e) => onChange({ transportType: e.target.value })}
+          placeholder="Ej: Sprinter, Bus, Combi, Sedan"
+        />
+      </div>
+
+      {/* Direction */}
+      <div className="space-y-1.5">
+        <Label>Direccion</Label>
+        <Select value={item.direction || 'IDA'} onValueChange={(v) => onChange({ direction: v as BookingItemData['direction'] })}>
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="IDA">Ida</SelectItem>
+            <SelectItem value="REGRESO">Regreso</SelectItem>
+            <SelectItem value="IDA_Y_VUELTA">Ida y Vuelta</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Origin + Destination */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <Label>Origen</Label>
+          <Input
+            value={item.origin || ''}
+            onChange={(e) => onChange({ origin: e.target.value })}
+            placeholder="Ej: CDMX"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Destino</Label>
+          <Input
+            value={item.flightDestination || ''}
+            onChange={(e) => onChange({ flightDestination: e.target.value })}
+            placeholder="Ej: Cancun"
+          />
+        </div>
+      </div>
+
+      {/* ── Transporte de Ida ── */}
+      <div className={cn('space-y-3 rounded-lg p-3', isRoundTrip ? 'border bg-muted/20' : '')}>
+        {isRoundTrip && (
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+            <Bus className="w-3.5 h-3.5" /> Transporte de Ida
+          </p>
+        )}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label>Hora Salida</Label>
+            <TimePicker
+              value={item.departureTime}
+              onChange={(d) => onChange({ departureTime: d })}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Hora Llegada</Label>
+            <TimePicker
+              value={item.arrivalTime}
+              onChange={(d) => onChange({ arrivalTime: d })}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* ── Transporte de Regreso (only when IDA_Y_VUELTA) ── */}
+      {isRoundTrip && (
+        <div className="space-y-3 rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50/30 dark:bg-emerald-950/20 p-3">
+          <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+            <ArrowLeftRight className="w-3.5 h-3.5" /> Transporte de Regreso
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Hora Salida Regreso</Label>
+              <TimePicker
+                value={item.returnDepartureTime}
+                onChange={(d) => onChange({ returnDepartureTime: d })}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Hora Llegada Regreso</Label>
+              <TimePicker
+                value={item.returnArrivalTime}
+                onChange={(d) => onChange({ returnArrivalTime: d })}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Passengers + Price per person */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <Label>Pasajeros</Label>
+          <Input
+            type="number" min={1}
+            value={item.numPeople || ''}
+            onChange={(e) => onChange({ numPeople: Math.max(1, parseInt(e.target.value) || 1) })}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Precio por Pasajero ($)</Label>
+          <Input
+            type="number" min={0}
+            value={item.pricePerPerson || ''}
+            onChange={(e) => onChange({ pricePerPerson: parseFloat(e.target.value) || 0 })}
+            placeholder="0"
+          />
+        </div>
+      </div>
+
+      {/* Cost preview */}
+      <div className="flex items-center justify-between rounded-lg bg-muted/50 px-4 py-3">
+        <span className="text-sm text-muted-foreground">
+          {item.numPeople || 0} pasajero{(item.numPeople || 0) !== 1 ? 's' : ''} × {formatCurrency(item.pricePerPerson || 0)}
         </span>
         <span className="font-semibold text-lg">{formatCurrency(item.cost || 0)}</span>
       </div>

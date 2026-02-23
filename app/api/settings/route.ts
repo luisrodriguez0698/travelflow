@@ -18,6 +18,7 @@ export async function GET() {
         email: true,
         phone: true,
         address: true,
+        policies: true,
       },
     });
 
@@ -41,7 +42,7 @@ export async function PUT(request: NextRequest) {
     const tenantId = await requireTenantId();
     const body = await request.json();
 
-    const { name, logo, email, phone, address } = body;
+    const { name, logo, email, phone, address, policies } = body;
 
     if (!name || !name.trim()) {
       return NextResponse.json(
@@ -58,6 +59,7 @@ export async function PUT(request: NextRequest) {
         email: email?.trim() || '',
         phone: phone?.trim() || '',
         address: address?.trim() || null,
+        policies: policies?.trim() || null,
       },
       select: {
         id: true,
@@ -66,6 +68,7 @@ export async function PUT(request: NextRequest) {
         email: true,
         phone: true,
         address: true,
+        policies: true,
       },
     });
 

@@ -183,6 +183,11 @@ export async function POST(request: NextRequest) {
           destinationId: item.destinationId || null,
           supplierId: item.supplierId || null,
           supplierDeadline: item.supplierDeadline ? new Date(item.supplierDeadline) : null,
+          transportType: item.transportType || null,
+          isInternational: item.isInternational ?? false,
+          returnDepartureTime: item.returnDepartureTime ? new Date(item.returnDepartureTime) : null,
+          returnArrivalTime: item.returnArrivalTime ? new Date(item.returnArrivalTime) : null,
+          returnFlightNumber: item.returnFlightNumber || null,
         })),
       });
     }

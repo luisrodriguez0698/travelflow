@@ -19,6 +19,7 @@ model Tenant {
   email     String
   phone     String
   address   String?
+  policies  String?  @db.Text
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -56,6 +57,9 @@ model User {
   updatedBy String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  passwordResetToken   String?   @unique
+  passwordResetExpires DateTime?
 
   // Relations
   tenant  Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -329,6 +333,17 @@ model BookingItem {
   supplierId       String?
   supplierDeadline DateTime?
 
+  // ── Transport fields (type = TRANSFER) ──
+  transportType    String?   // SPRINTER, BUS, COMBI, AUTO, OTRO (free text)
+
+  // ── Return leg (for IDA_Y_VUELTA direction) ──
+  returnDepartureTime DateTime?
+  returnArrivalTime   DateTime?
+  returnFlightNumber  String?
+
+  // ── Shared flag ──
+  isInternational  Boolean  @default(false)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -421,6 +436,8 @@ model BankAccount {
   referenceName   String   // Nombre de referencia (ej: "Cuenta principal")
   initialBalance  Float    @default(0)
   currentBalance  Float    @default(0)
+  isActive        Boolean  @default(true)
+  deletedAt       DateTime?
   createdBy       String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -431,6 +448,7 @@ model BankAccount {
   supplierPayments SupplierPayment[]
 
   @@index([tenantId])
+  @@index([tenantId, isActive])
   @@map("bank_accounts")
 }
 
