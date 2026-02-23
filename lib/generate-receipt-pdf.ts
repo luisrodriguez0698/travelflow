@@ -31,6 +31,7 @@ interface HotelData {
 interface BookingItem {
   type: string;
   cost: number;
+  isInternational?: boolean;
   // Hotel
   hotelId?: string;
   hotel?: HotelData;
@@ -49,11 +50,17 @@ interface BookingItem {
   arrivalTime?: string;
   flightClass?: string;
   direction?: string;
+  // Return leg (IDA_Y_VUELTA)
+  returnDepartureTime?: string;
+  returnArrivalTime?: string;
+  returnFlightNumber?: string;
   // Tour
   tourName?: string;
   tourDate?: string;
   numPeople?: number;
   pricePerPerson?: number;
+  // Transport
+  transportType?: string;
 }
 
 interface SaleData {
@@ -84,6 +91,7 @@ interface SaleData {
     email?: string;
     address?: string;
     logo?: string;
+    policies?: string | null;
   };
 }
 
@@ -596,19 +604,32 @@ export async function generateReceiptPdf(sale: SaleData) {
       y += 4;
 
       const flightBody = flightItems.map((item) => {
+        const fmtHHMM = (d: string | undefined) => {
+          if (!d) return '';
+          const dt = new Date(d);
+          return `${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`;
+        };
+        const isRoundTrip = item.direction === 'IDA_Y_VUELTA';
         let timeStr = '';
-        if (item.departureTime) {
-          const dt = new Date(item.departureTime);
-          timeStr = `${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`;
+        const dep = fmtHHMM(item.departureTime);
+        const arr = fmtHHMM(item.arrivalTime);
+        if (dep || arr) timeStr = dep + (arr ? ` - ${arr}` : '');
+        if (isRoundTrip) {
+          const retDep = fmtHHMM(item.returnDepartureTime);
+          const retArr = fmtHHMM(item.returnArrivalTime);
+          if (retDep || retArr) {
+            timeStr += (timeStr ? '\n' : '') + 'Reg: ' + retDep + (retArr ? ` - ${retArr}` : '');
+          }
         }
-        if (item.arrivalTime) {
-          const at = new Date(item.arrivalTime);
-          timeStr += ` - ${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`;
-        }
+        const vueloStr = item.flightNumber || '-';
+        const vueloFull = isRoundTrip && item.returnFlightNumber
+          ? `${vueloStr}\n${item.returnFlightNumber}`
+          : vueloStr;
+        const dirLabel = isRoundTrip ? 'Ida y Vuelta' : item.direction === 'IDA' ? 'Ida' : 'Regreso';
         return [
-          item.direction === 'IDA' ? 'Ida' : 'Regreso',
+          dirLabel,
           item.airline || '-',
-          item.flightNumber || '-',
+          vueloFull,
           `${item.origin || '?'} → ${item.flightDestination || '?'}`,
           timeStr || '-',
           item.flightClass === 'ECONOMICA' ? 'Económica' : item.flightClass === 'BUSINESS' ? 'Business' : item.flightClass || '-',
@@ -655,6 +676,59 @@ export async function generateReceiptPdf(sale: SaleData) {
         headStyles: { fillColor: [255, 251, 235], textColor: [180, 83, 9], fontStyle: 'bold', lineWidth: 0.3, lineColor: [226, 232, 240] },
         bodyStyles: { lineWidth: 0.2, lineColor: [226, 232, 240] },
         columnStyles: { 2: { halign: 'center' }, 3: { halign: 'right' }, 4: { halign: 'right' } },
+      });
+      y = (doc as any).lastAutoTable.finalY + 6;
+    }
+
+    // Transport items table
+    const transferItems = bookingItems.filter(i => i.type === 'TRANSFER');
+    if (transferItems.length > 0) {
+      y = checkPageBreak(doc, y, 20, margin);
+      doc.setFontSize(10);
+      doc.setTextColor(...DARK);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Transporte Terrestre', margin, y);
+      y += 4;
+
+      const transferBody = transferItems.map((item) => {
+        const fmtHHMM = (d: string | undefined) => {
+          if (!d) return '';
+          const dt = new Date(d);
+          return `${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`;
+        };
+        const isRoundTrip = item.direction === 'IDA_Y_VUELTA';
+        let timeStr = '';
+        const dep = fmtHHMM(item.departureTime);
+        const arr = fmtHHMM(item.arrivalTime);
+        if (dep || arr) timeStr = dep + (arr ? ` - ${arr}` : '');
+        if (isRoundTrip) {
+          const retDep = fmtHHMM(item.returnDepartureTime);
+          const retArr = fmtHHMM(item.returnArrivalTime);
+          if (retDep || retArr) {
+            timeStr += (timeStr ? '\n' : '') + 'Reg: ' + retDep + (retArr ? ` - ${retArr}` : '');
+          }
+        }
+        const dirLabel = isRoundTrip ? 'Ida y Vuelta' : item.direction === 'IDA' ? 'Ida' : 'Regreso';
+        return [
+          item.transportType || 'Transporte',
+          dirLabel,
+          `${item.origin || '?'} → ${item.flightDestination || '?'}`,
+          timeStr || '-',
+          String(item.numPeople || 0),
+          item.isInternational ? 'Internacional' : 'Nacional',
+          formatCurrency(item.cost || 0),
+        ];
+      });
+
+      autoTable(doc, {
+        startY: y,
+        head: [['Unidad', 'Dirección', 'Ruta', 'Horario', 'Pasajeros', 'Modalidad', 'Costo']],
+        body: transferBody,
+        margin: { left: margin, right: margin },
+        styles: { fontSize: 8, cellPadding: 2.5, textColor: [30, 41, 59] },
+        headStyles: { fillColor: [236, 253, 245], textColor: [5, 150, 105], fontStyle: 'bold', lineWidth: 0.3, lineColor: [226, 232, 240] },
+        bodyStyles: { lineWidth: 0.2, lineColor: [226, 232, 240] },
+        columnStyles: { 4: { halign: 'center' }, 6: { halign: 'right' } },
       });
       y = (doc as any).lastAutoTable.finalY + 6;
     }
@@ -876,6 +950,29 @@ export async function generateReceiptPdf(sale: SaleData) {
     const lines = doc.splitTextToSize(sale.notes, pageWidth - margin * 2);
     doc.text(lines, margin, y);
     y += lines.length * 4 + 8;
+  }
+
+  // ─── POLÍTICAS ───
+  if (sale.tenant?.policies) {
+    const policiesLines = doc.splitTextToSize(sale.tenant.policies, pageWidth - margin * 2);
+    const policiesHeight = policiesLines.length * 4 + 20;
+    y = checkPageBreak(doc, y, policiesHeight, margin);
+
+    doc.setFontSize(12);
+    doc.setTextColor(...CYAN);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Políticas y Condiciones', margin, y);
+    y += 2;
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.3);
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 5;
+
+    doc.setFontSize(8);
+    doc.setTextColor(...GRAY);
+    doc.setFont('helvetica', 'normal');
+    doc.text(policiesLines, margin, y);
+    y += policiesLines.length * 4 + 8;
   }
 
   // ─── FOOTER ───

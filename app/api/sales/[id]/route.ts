@@ -168,6 +168,11 @@ export async function PUT(
             tourDate: item.tourDate ? new Date(item.tourDate) : null,
             numPeople: item.numPeople ?? null,
             pricePerPerson: item.pricePerPerson ?? null,
+            transportType: item.transportType || null,
+            isInternational: item.isInternational ?? false,
+            returnDepartureTime: item.returnDepartureTime ? new Date(item.returnDepartureTime) : null,
+            returnArrivalTime: item.returnArrivalTime ? new Date(item.returnArrivalTime) : null,
+            returnFlightNumber: item.returnFlightNumber || null,
           })),
         });
       }

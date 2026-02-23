@@ -21,19 +21,26 @@ export async function GET(
       return NextResponse.json({ error: 'Proveedor no encontrado' }, { status: 404 });
     }
 
+    // Fetch bookings from both sources: booking-level supplier and item-level supplier
     const bookings = await prisma.booking.findMany({
       where: {
         tenantId,
-        supplierId,
         type: 'SALE',
         status: { in: ['ACTIVE', 'COMPLETED'] },
-        netCost: { gt: 0 },
+        OR: [
+          { supplierId, netCost: { gt: 0 } },
+          { items: { some: { supplierId, cost: { gt: 0 } } } },
+        ],
       },
       include: {
         client: true,
         destination: { include: { season: true } },
+        items: {
+          where: { supplierId, cost: { gt: 0 } },
+          select: { supplierId: true, cost: true, supplierDeadline: true, type: true, description: true },
+        },
         supplierPayments: {
-          where: { status: 'ACTIVE' },
+          where: { status: 'ACTIVE', supplierId },
           orderBy: { date: 'desc' },
           include: {
             bankAccount: {
@@ -47,38 +54,65 @@ export async function GET(
 
     const now = new Date();
 
-    const sales = bookings.map((booking) => {
-      const totalPaid = booking.supplierPayments.reduce((sum, p) => sum + p.amount, 0);
-      const remaining = Math.max(0, booking.netCost - totalPaid);
+    // Deduplicate: a booking might match both conditions (has booking.supplierId AND items with supplierId)
+    // Prefer item-level if items exist for this supplier
+    const seen = new Set<string>();
+    const sales = bookings
+      .filter((b) => {
+        if (seen.has(b.id)) return false;
+        seen.add(b.id);
+        return true;
+      })
+      .map((booking) => {
+        const hasItemSuppliers = booking.items.length > 0;
 
-      let trafficLight: 'gray' | 'green' | 'yellow' | 'red' = 'gray';
-      if (remaining <= 0) {
-        trafficLight = 'green';
-      } else if (booking.supplierDeadline) {
-        const deadline = new Date(booking.supplierDeadline);
-        const daysRemaining = Math.ceil((deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-        if (daysRemaining < 0) trafficLight = 'red';
-        else if (daysRemaining <= 7) trafficLight = 'yellow';
-        else trafficLight = 'green';
-      }
+        // Determine netCost and deadline for this supplier
+        let netCost: number;
+        let supplierDeadline: Date | null;
 
-      return {
-        id: booking.id,
-        saleDate: booking.saleDate,
-        departureDate: booking.departureDate,
-        returnDate: booking.returnDate,
-        netCost: booking.netCost,
-        totalPrice: booking.totalPrice,
-        totalPaid,
-        remaining,
-        supplierDeadline: booking.supplierDeadline,
-        trafficLight,
-        status: booking.status,
-        client: booking.client,
-        destination: booking.destination,
-        payments: booking.supplierPayments,
-      };
-    });
+        if (hasItemSuppliers) {
+          // Item-level: sum costs of items belonging to this supplier
+          netCost = booking.items.reduce((sum, item) => sum + item.cost, 0);
+          // Use earliest deadline from items
+          const deadlines = booking.items.map((i) => i.supplierDeadline).filter(Boolean) as Date[];
+          supplierDeadline = deadlines.length > 0 ? deadlines.sort((a, b) => a.getTime() - b.getTime())[0] : null;
+        } else {
+          // Booking-level
+          netCost = booking.netCost;
+          supplierDeadline = booking.supplierDeadline;
+        }
+
+        const totalPaid = booking.supplierPayments.reduce((sum, p) => sum + p.amount, 0);
+        const remaining = Math.max(0, netCost - totalPaid);
+
+        let trafficLight: 'gray' | 'green' | 'yellow' | 'red' = 'gray';
+        if (remaining <= 0) {
+          trafficLight = 'green';
+        } else if (supplierDeadline) {
+          const deadline = new Date(supplierDeadline);
+          const daysRemaining = Math.ceil((deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+          if (daysRemaining < 0) trafficLight = 'red';
+          else if (daysRemaining <= 7) trafficLight = 'yellow';
+          else trafficLight = 'green';
+        }
+
+        return {
+          id: booking.id,
+          saleDate: booking.saleDate,
+          departureDate: booking.departureDate,
+          returnDate: booking.returnDate,
+          netCost,
+          totalPrice: booking.totalPrice,
+          totalPaid,
+          remaining,
+          supplierDeadline,
+          trafficLight,
+          status: booking.status,
+          client: booking.client,
+          destination: booking.destination,
+          payments: booking.supplierPayments,
+        };
+      });
 
     const summary = sales.reduce(
       (acc, sale) => ({
@@ -113,9 +147,23 @@ export async function POST(
       );
     }
 
+    // Accept bookings linked to supplier either at booking level OR via items
     const booking = await prisma.booking.findFirst({
-      where: { id: bookingId, tenantId, supplierId },
-      include: { supplier: true },
+      where: {
+        id: bookingId,
+        tenantId,
+        OR: [
+          { supplierId },
+          { items: { some: { supplierId, cost: { gt: 0 } } } },
+        ],
+      },
+      include: {
+        supplier: true,
+        items: {
+          where: { supplierId, cost: { gt: 0 } },
+          select: { cost: true },
+        },
+      },
     });
 
     if (!booking) {
@@ -125,11 +173,16 @@ export async function POST(
       );
     }
 
+    // Determine total debt: prefer item-level if items exist, otherwise booking-level
+    const netCost = booking.items.length > 0
+      ? booking.items.reduce((sum, i) => sum + i.cost, 0)
+      : booking.netCost;
+
     const existingPayments = await prisma.supplierPayment.findMany({
-      where: { bookingId, status: 'ACTIVE' },
+      where: { bookingId, supplierId, status: 'ACTIVE' },
     });
     const totalPaid = existingPayments.reduce((sum, p) => sum + p.amount, 0);
-    const remaining = booking.netCost - totalPaid;
+    const remaining = netCost - totalPaid;
 
     if (amount > remaining + 0.01) {
       return NextResponse.json(

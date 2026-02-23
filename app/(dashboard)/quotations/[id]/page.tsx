@@ -96,6 +96,11 @@ interface BookingItem {
   tourDate?: string;
   numPeople?: number;
   pricePerPerson?: number;
+  transportType?: string;
+  isInternational?: boolean;
+  returnDepartureTime?: string;
+  returnArrivalTime?: string;
+  returnFlightNumber?: string;
 }
 
 interface Quotation {
@@ -135,6 +140,7 @@ interface Quotation {
     email?: string;
     address?: string;
     logo?: string;
+    policies?: string | null;
   };
   supplierId?: string;
   supplierDeadline?: string;

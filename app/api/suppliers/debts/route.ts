@@ -8,32 +8,37 @@ export async function GET(request: NextRequest) {
   try {
     const tenantId = await requireTenantId();
 
-    // Get all suppliers that have at least one sale with netCost > 0
+    // Get all suppliers
     const suppliers = await prisma.supplier.findMany({
       where: { tenantId },
       orderBy: { name: 'asc' },
     });
 
-    // Get all bookings with supplier + their payments in bulk
+    // Get all bookings with their items and payments
     const bookings = await prisma.booking.findMany({
       where: {
         tenantId,
-        supplierId: { not: null },
         type: 'SALE',
         status: { in: ['ACTIVE', 'COMPLETED'] },
-        netCost: { gt: 0 },
+        OR: [
+          { supplierId: { not: null }, netCost: { gt: 0 } },
+          { items: { some: { supplierId: { not: null }, cost: { gt: 0 } } } },
+        ],
       },
       include: {
+        items: {
+          where: { supplierId: { not: null }, cost: { gt: 0 } },
+          select: { supplierId: true, cost: true, supplierDeadline: true },
+        },
         supplierPayments: {
           where: { status: 'ACTIVE' },
-          select: { amount: true },
+          select: { amount: true, supplierId: true },
         },
       },
     });
 
     const now = new Date();
 
-    // Group by supplier
     const supplierMap = new Map<string, {
       totalDebt: number;
       totalPaid: number;
@@ -42,29 +47,48 @@ export async function GET(request: NextRequest) {
       overdueCount: number;
     }>();
 
-    for (const booking of bookings) {
-      if (!booking.supplierId) continue;
-
-      const totalPaid = booking.supplierPayments.reduce((sum, p) => sum + p.amount, 0);
-      const remaining = Math.max(0, booking.netCost - totalPaid);
-
-      const existing = supplierMap.get(booking.supplierId) || {
+    const addToSupplier = (suppId: string, debt: number, paid: number, deadline: Date | null | undefined) => {
+      const remaining = Math.max(0, debt - paid);
+      const existing = supplierMap.get(suppId) || {
         totalDebt: 0, totalPaid: 0, totalRemaining: 0, salesCount: 0, overdueCount: 0,
       };
-
-      existing.totalDebt += booking.netCost;
-      existing.totalPaid += totalPaid;
+      existing.totalDebt += debt;
+      existing.totalPaid += paid;
       existing.totalRemaining += remaining;
       existing.salesCount += 1;
 
-      if (remaining > 0 && booking.supplierDeadline) {
+      if (remaining > 0 && deadline) {
         const daysRemaining = Math.ceil(
-          (new Date(booking.supplierDeadline).getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+          (new Date(deadline).getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
         );
         if (daysRemaining < 0) existing.overdueCount += 1;
       }
+      supplierMap.set(suppId, existing);
+    };
 
-      supplierMap.set(booking.supplierId, existing);
+    for (const booking of bookings) {
+      const hasItemSuppliers = booking.items.length > 0;
+
+      // Payments grouped by supplierId for this booking
+      const paymentsBySupplierId = new Map<string, number>();
+      for (const p of booking.supplierPayments) {
+        if (p.supplierId) {
+          paymentsBySupplierId.set(p.supplierId, (paymentsBySupplierId.get(p.supplierId) || 0) + p.amount);
+        }
+      }
+
+      if (hasItemSuppliers) {
+        // New way: each item has its own supplier — aggregate by item
+        for (const item of booking.items) {
+          if (!item.supplierId) continue;
+          const paid = paymentsBySupplierId.get(item.supplierId) || 0;
+          addToSupplier(item.supplierId, item.cost, paid, item.supplierDeadline);
+        }
+      } else if (booking.supplierId && booking.netCost > 0) {
+        // Old way: single supplier at booking level
+        const paid = paymentsBySupplierId.get(booking.supplierId) || 0;
+        addToSupplier(booking.supplierId, booking.netCost, paid, (booking as any).supplierDeadline);
+      }
     }
 
     // Merge supplier info with debt data

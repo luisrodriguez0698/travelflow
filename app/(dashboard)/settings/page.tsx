@@ -24,6 +24,7 @@ interface AgencySettings {
   email: string;
   phone: string;
   address: string | null;
+  policies: string | null;
 }
 
 export default function SettingsPage() {
@@ -41,6 +42,7 @@ export default function SettingsPage() {
     email: '',
     phone: '',
     address: '',
+    policies: '',
   });
 
   useEffect(() => {
@@ -60,6 +62,7 @@ export default function SettingsPage() {
           email: data.email || '',
           phone: data.phone || '',
           address: data.address || '',
+          policies: data.policies || '',
         });
       }
     } catch (error) {
@@ -343,10 +346,27 @@ export default function SettingsPage() {
             />
           </div>
 
+          {/* Policies */}
+          <div className="space-y-2">
+            <Label htmlFor="policies">Políticas y Condiciones</Label>
+            <Textarea
+              id="policies"
+              value={formData.policies}
+              onChange={(e) =>
+                setFormData((prev) => ({ ...prev, policies: e.target.value }))
+              }
+              placeholder="Escribe aquí las políticas de cancelación, condiciones de pago, términos del servicio, etc."
+              rows={6}
+            />
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Este texto aparecerá al final de los PDFs de ventas y cotizaciones.
+            </p>
+          </div>
+
           {/* Info */}
           <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
             <p className="text-sm text-blue-700 dark:text-blue-300">
-              <strong>Nota:</strong> Esta información aparecerá en los estados de cuenta (PDF) que generes para tus clientes.
+              <strong>Nota:</strong> Esta información aparecerá en los estados de cuenta y cotizaciones (PDF) que generes para tus clientes.
             </p>
           </div>
 

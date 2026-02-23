@@ -89,6 +89,7 @@ interface Sale {
   client: Client;
   destination?: Destination;
   supplier?: Supplier;
+  items?: { type: string }[];
 }
 
 const datePresets = [
@@ -203,11 +204,7 @@ export default function SalesPage() {
     to: endOfMonth(new Date()),
   });
   const [filterClientId, setFilterClientId] = useState('');
-  const [filterDestinationId, setFilterDestinationId] = useState('');
-  const [filterSupplierId, setFilterSupplierId] = useState('');
   const [filterClientOpen, setFilterClientOpen] = useState(false);
-  const [filterDestinationOpen, setFilterDestinationOpen] = useState(false);
-  const [filterSupplierOpen, setFilterSupplierOpen] = useState(false);
 
   const fetchSales = useCallback(async () => {
     try {
@@ -215,15 +212,13 @@ export default function SalesPage() {
       if (dateRange.from) params.set('dateFrom', format(dateRange.from, 'yyyy-MM-dd'));
       if (dateRange.to) params.set('dateTo', format(dateRange.to, 'yyyy-MM-dd'));
       if (filterClientId) params.set('clientId', filterClientId);
-      if (filterDestinationId) params.set('destinationId', filterDestinationId);
-      if (filterSupplierId) params.set('supplierId', filterSupplierId);
       if (folioSearch.trim()) params.set('folio', folioSearch.trim());
       const res = await fetch(`/api/sales?${params.toString()}`);
       if (res.ok) setSales(await res.json());
     } catch {
       toast({ title: 'Error', description: 'No se pudieron cargar las ventas', variant: 'destructive' });
     }
-  }, [dateRange, filterClientId, filterDestinationId, filterSupplierId, folioSearch, toast]);
+  }, [dateRange, filterClientId, folioSearch, toast]);
 
   const fetchCatalogs = useCallback(async () => {
     try {
@@ -254,7 +249,7 @@ export default function SalesPage() {
   useEffect(() => {
     fetchSales();
     setCurrentPage(1);
-  }, [dateRange, filterClientId, filterDestinationId, filterSupplierId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [dateRange, filterClientId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Debounced folio search
   useEffect(() => {
@@ -286,12 +281,10 @@ export default function SalesPage() {
   const totalPages = Math.ceil(sales.length / itemsPerPage);
   const paginatedSales = sales.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-  const hasActiveFilters = filterClientId || filterDestinationId || filterSupplierId || folioSearch.trim();
+  const hasActiveFilters = filterClientId || folioSearch.trim();
 
   const clearFilters = () => {
     setFilterClientId('');
-    setFilterDestinationId('');
-    setFilterSupplierId('');
     setFolioSearch('');
     setDateRange({ from: startOfMonth(new Date()), to: endOfMonth(new Date()) });
   };
@@ -722,68 +715,6 @@ export default function SalesPage() {
                 </Command>
               </PopoverContent>
             </Popover>
-            {/* Destination filter */}
-            <Popover open={filterDestinationOpen} onOpenChange={setFilterDestinationOpen}>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className={cn('justify-between gap-2 min-w-[160px]', filterDestinationId && 'border-blue-500 bg-blue-50 dark:bg-blue-950/20')}>
-                  <span className="truncate max-w-[120px]">
-                    {filterDestinationId ? destinations.find((d) => d.id === filterDestinationId)?.name || 'Destino' : 'Destino'}
-                  </span>
-                  {filterDestinationId ? (
-                    <X className="h-3 w-3 shrink-0 opacity-50 hover:opacity-100" onClick={(e) => { e.stopPropagation(); setFilterDestinationId(''); }} />
-                  ) : (
-                    <ChevronsUpDown className="h-3 w-3 shrink-0 opacity-50" />
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[250px] p-0" align="start">
-                <Command>
-                  <CommandInput placeholder="Buscar destino..." />
-                  <CommandList>
-                    <CommandEmpty>No se encontraron destinos.</CommandEmpty>
-                    <CommandGroup>
-                      {destinations.map((d) => (
-                        <CommandItem key={d.id} value={d.name} onSelect={() => { setFilterDestinationId(d.id); setFilterDestinationOpen(false); }}>
-                          <Check className={cn('mr-2 h-4 w-4', filterDestinationId === d.id ? 'opacity-100' : 'opacity-0')} />
-                          {d.name}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-            {/* Supplier filter */}
-            <Popover open={filterSupplierOpen} onOpenChange={setFilterSupplierOpen}>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className={cn('justify-between gap-2 min-w-[160px]', filterSupplierId && 'border-blue-500 bg-blue-50 dark:bg-blue-950/20')}>
-                  <span className="truncate max-w-[120px]">
-                    {filterSupplierId ? suppliers.find((s) => s.id === filterSupplierId)?.name || 'Proveedor' : 'Proveedor'}
-                  </span>
-                  {filterSupplierId ? (
-                    <X className="h-3 w-3 shrink-0 opacity-50 hover:opacity-100" onClick={(e) => { e.stopPropagation(); setFilterSupplierId(''); }} />
-                  ) : (
-                    <ChevronsUpDown className="h-3 w-3 shrink-0 opacity-50" />
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[250px] p-0" align="start">
-                <Command>
-                  <CommandInput placeholder="Buscar proveedor..." />
-                  <CommandList>
-                    <CommandEmpty>No se encontraron proveedores.</CommandEmpty>
-                    <CommandGroup>
-                      {suppliers.map((s) => (
-                        <CommandItem key={s.id} value={`${s.name} ${s.serviceType}`} onSelect={() => { setFilterSupplierId(s.id); setFilterSupplierOpen(false); }}>
-                          <Check className={cn('mr-2 h-4 w-4', filterSupplierId === s.id ? 'opacity-100' : 'opacity-0')} />
-                          {s.name}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
             {/* Clear filters */}
             {hasActiveFilters && (
               <Button variant="ghost" size="sm" onClick={clearFilters} className="text-muted-foreground">
@@ -804,9 +735,8 @@ export default function SalesPage() {
                 <TableHead>Folio</TableHead>
                 <TableHead>Fecha Creación</TableHead>
                 <TableHead>Cliente</TableHead>
-                <TableHead>Destino</TableHead>
+                <TableHead>Servicios</TableHead>
                 <TableHead>Salida</TableHead>
-                <TableHead>Proveedor</TableHead>
                 <TableHead>Tipo</TableHead>
                 <TableHead className="text-right">Total</TableHead>
                 <TableHead>Estado</TableHead>
@@ -827,22 +757,34 @@ export default function SalesPage() {
                   </TableCell>
                   <TableCell className="font-medium">{sale.client?.fullName}</TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-2">
-                      {sale.destination?.name || '—'}
-                      {sale.destination?.season && (
-                        <span
-                          className="inline-block w-2 h-2 rounded-full"
-                          style={{ backgroundColor: sale.destination.season.color }}
-                          title={sale.destination.season.name}
-                        />
-                      )}
-                    </div>
+                    {(() => {
+                      const types = [...new Set((sale.items || []).map((i) => i.type))];
+                      if (types.length === 0) return <span className="text-sm text-gray-400">—</span>;
+                      return (
+                        <div className="flex items-center gap-1">
+                          {types.map((t) => (
+                            <TooltipProvider key={t}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
+                                    {t === 'HOTEL' && <Hotel className="w-3.5 h-3.5" />}
+                                    {t === 'FLIGHT' && <Plane className="w-3.5 h-3.5" />}
+                                    {t === 'TOUR' && <MapPin className="w-3.5 h-3.5" />}
+                                    {(t === 'TRANSFER' || t === 'OTHER') && <span className="text-[10px] font-medium">{t === 'TRANSFER' ? 'TX' : '+'}</span>}
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>{t === 'HOTEL' ? 'Hotel' : t === 'FLIGHT' ? 'Vuelo' : t === 'TOUR' ? 'Tour' : t === 'TRANSFER' ? 'Traslado' : 'Otro'}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          ))}
+                        </div>
+                      );
+                    })()}
                   </TableCell>
                   <TableCell>
                     {sale.departureDate ? formatDateStr(sale.departureDate) : '—'}
-                  </TableCell>
-                  <TableCell>
-                    {sale.supplier ? <span className="text-sm">{sale.supplier.name}</span> : <span className="text-sm text-gray-400">—</span>}
                   </TableCell>
                   <TableCell>
                     <Badge variant={sale.paymentType === 'CASH' ? 'default' : 'secondary'}>

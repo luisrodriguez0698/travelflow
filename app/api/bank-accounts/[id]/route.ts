@@ -76,27 +76,89 @@ export async function DELETE(
     const tenantId = await requireTenantId();
     const { id } = await params;
 
-    const existing = await prisma.bankAccount.findFirst({
-      where: { id, tenantId },
-      include: { _count: { select: { transactions: true } } },
+    // transferToAccountId is optional — required only when balance > 0
+    let transferToAccountId: string | null = null;
+    try {
+      const body = await request.json();
+      transferToAccountId = body?.transferToAccountId || null;
+    } catch {
+      // No body provided
+    }
+
+    const account = await prisma.bankAccount.findFirst({
+      where: { id, tenantId, isActive: true },
     });
 
-    if (!existing) {
+    if (!account) {
       return NextResponse.json({ error: 'Cuenta no encontrada' }, { status: 404 });
     }
 
-    if (existing._count.transactions > 0) {
+    const balance = account.currentBalance;
+
+    // If balance > 0 and no transfer target provided, inform the client
+    if (balance > 0 && !transferToAccountId) {
       return NextResponse.json(
-        { error: 'No se puede eliminar una cuenta con movimientos registrados' },
+        { error: 'La cuenta tiene saldo pendiente', needsTransfer: true, balance },
         { status: 400 }
       );
     }
 
-    await prisma.bankAccount.delete({ where: { id } });
+    // If balance > 0, move it to the target account first
+    if (balance > 0 && transferToAccountId) {
+      if (transferToAccountId === id) {
+        return NextResponse.json({ error: 'La cuenta destino debe ser diferente' }, { status: 400 });
+      }
+
+      const destAccount = await prisma.bankAccount.findFirst({
+        where: { id: transferToAccountId, tenantId, isActive: true },
+      });
+
+      if (!destAccount) {
+        return NextResponse.json({ error: 'Cuenta destino no encontrada' }, { status: 404 });
+      }
+
+      await prisma.$transaction([
+        prisma.bankTransaction.create({
+          data: {
+            tenantId,
+            bankAccountId: id,
+            type: 'TRANSFER',
+            amount: balance,
+            description: `Transferencia al archivar cuenta: ${account.referenceName}`,
+            destinationAccountId: transferToAccountId,
+            date: new Date(),
+          },
+        }),
+        prisma.bankTransaction.create({
+          data: {
+            tenantId,
+            bankAccountId: transferToAccountId,
+            type: 'INCOME',
+            amount: balance,
+            description: `Saldo recibido de cuenta archivada: ${account.referenceName}`,
+            date: new Date(),
+          },
+        }),
+        prisma.bankAccount.update({
+          where: { id },
+          data: { currentBalance: 0 },
+        }),
+        prisma.bankAccount.update({
+          where: { id: transferToAccountId },
+          data: { currentBalance: { increment: balance } },
+        }),
+      ]);
+    }
+
+    // Soft delete: mark inactive and record deletion date, history is preserved
+    await prisma.bankAccount.update({
+      where: { id },
+      data: { isActive: false, deletedAt: new Date() },
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error deleting bank account:', error);
-    return NextResponse.json({ error: 'Error deleting bank account' }, { status: 500 });
+    console.error('Error archiving bank account:', error);
+    return NextResponse.json({ error: 'Error al archivar la cuenta' }, { status: 500 });
   }
 }
