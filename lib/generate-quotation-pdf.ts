@@ -744,7 +744,7 @@ export async function generateQuotationPdf(quotation: QuotationData) {
     doc.setFontSize(9);
     doc.setTextColor(...DARK);
     doc.setFont('helvetica', 'bold');
-    doc.text(`Costo Neto Total: ${formatCurrency(totalServicesCost)}`, pageWidth - margin, y, { align: 'right' });
+    // doc.text(`Costo Neto Total: ${formatCurrency(totalServicesCost)}`, pageWidth - margin, y, { align: 'right' });
     y += 10;
   }
 
