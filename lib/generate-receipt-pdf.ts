@@ -738,7 +738,7 @@ export async function generateReceiptPdf(sale: SaleData) {
     doc.setFontSize(9);
     doc.setTextColor(...DARK);
     doc.setFont('helvetica', 'bold');
-    doc.text(`Costo Neto Total: ${formatCurrency(totalServicesCost)}`, pageWidth - margin, y, { align: 'right' });
+    // doc.text(`Costo Neto Total: ${formatCurrency(totalServicesCost)}`, pageWidth - margin, y, { align: 'right' });
     y += 10;
   }
 
