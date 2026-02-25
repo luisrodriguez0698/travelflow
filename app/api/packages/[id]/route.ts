@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireTenantId } from '@/lib/get-tenant';
+import { requirePermission } from '@/lib/get-tenant';
 import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const tenantId = await requireTenantId();
+    const tenantId = await requirePermission('destinos');
     const pkg = await prisma.package.findFirst({
       where: { id: params?.id, tenantId },
       include: {
@@ -30,7 +30,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const tenantId = await requireTenantId();
+    const tenantId = await requirePermission('destinos');
     const body = await request.json();
 
     // Verify ownership
@@ -132,7 +132,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const tenantId = await requireTenantId();
+    const tenantId = await requirePermission('destinos');
     
     // Check if package has bookings
     const pkg = await prisma.package.findFirst({

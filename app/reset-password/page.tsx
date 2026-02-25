@@ -31,7 +31,7 @@ function ResetPasswordForm() {
     e.preventDefault();
     setError('');
 
-    if (password.length < 6) {
+    if (password.length < 12) {
       setError('La contraseña debe tener al menos 6 caracteres');
       return;
     }

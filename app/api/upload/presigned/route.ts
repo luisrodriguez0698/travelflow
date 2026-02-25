@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireTenantId } from '@/lib/get-tenant';
 import { generatePresignedUploadUrl } from '@/lib/s3';
 
+const ALLOWED_CONTENT_TYPES = new Set([
+  'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml',
+  'application/pdf',
+  'video/mp4', 'video/quicktime', 'video/webm',
+]);
+
 export async function POST(request: NextRequest) {
   try {
     await requireTenantId();
@@ -10,6 +16,13 @@ export async function POST(request: NextRequest) {
     if (!fileName || !contentType) {
       return NextResponse.json(
         { error: 'fileName and contentType are required' },
+        { status: 400 }
+      );
+    }
+
+    if (!ALLOWED_CONTENT_TYPES.has(contentType)) {
+      return NextResponse.json(
+        { error: 'Tipo de archivo no permitido. Formatos aceptados: imágenes, PDF y video.' },
         { status: 400 }
       );
     }

@@ -1,19 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
+import { z } from 'zod';
+import { rateLimit } from '@/lib/rate-limit';
+
+const resetPasswordSchema = z.object({
+  token: z.string().min(1, 'Token requerido'),
+  password: z.string().min(12, 'La contraseña debe tener al menos 12 caracteres'),
+});
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
-    const { token, password } = await request.json();
-
-    if (!token || !password) {
-      return NextResponse.json({ error: 'Token y contraseña son requeridos' }, { status: 400 });
+    const body = await request.json();
+    const parsed = resetPasswordSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.errors[0].message }, { status: 400 });
     }
+    const { token, password } = parsed.data;
 
-    if (password.length < 6) {
-      return NextResponse.json({ error: 'La contraseña debe tener al menos 6 caracteres' }, { status: 400 });
+    // Rate limit: 5 intentos por token cada 15 minutos
+    const rl = rateLimit(`reset-password:${token}`, 5, 15 * 60 * 1000);
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: 'Demasiados intentos. Solicita un nuevo enlace de restablecimiento.' },
+        { status: 429 }
+      );
     }
 
     const user = await prisma.user.findUnique({

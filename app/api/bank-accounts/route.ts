@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireTenantId, getSessionUser } from '@/lib/get-tenant';
+import { requirePermission, getSessionUser } from '@/lib/get-tenant';
 import { prisma } from '@/lib/prisma';
+import { encrypt, decrypt } from '@/lib/encryption';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
-    const tenantId = await requireTenantId();
+    const tenantId = await requirePermission('bancos');
     const { searchParams } = new URL(request.url);
     const all = searchParams.get('all');
 
@@ -27,6 +28,7 @@ export async function GET(request: NextRequest) {
 
       return NextResponse.json(allAccounts.map((a) => ({
         ...a,
+        accountNumber: decrypt(a.accountNumber),
         creatorName: a.createdBy ? allCreatorMap[a.createdBy] || null : null,
       })));
     }
@@ -38,10 +40,10 @@ export async function GET(request: NextRequest) {
 
     const where: any = { tenantId, isActive: true };
     if (search) {
+      // accountNumber is encrypted so cannot be searched with contains
       where.OR = [
         { referenceName: { contains: search, mode: 'insensitive' } },
         { bankName: { contains: search, mode: 'insensitive' } },
-        { accountNumber: { contains: search, mode: 'insensitive' } },
       ];
     }
 
@@ -68,6 +70,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       data: accounts.map((a) => ({
         ...a,
+        accountNumber: decrypt(a.accountNumber),
         creatorName: a.createdBy ? creatorMap[a.createdBy] || null : null,
       })),
       pagination: {
@@ -85,7 +88,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const tenantId = await requireTenantId();
+    const tenantId = await requirePermission('bancos');
     const body = await request.json();
 
     if (!body.bankName || !body.accountNumber || !body.accountType || !body.referenceName) {
@@ -100,7 +103,7 @@ export async function POST(request: NextRequest) {
       data: {
         tenantId,
         bankName: body.bankName,
-        accountNumber: body.accountNumber,
+        accountNumber: encrypt(body.accountNumber),
         accountType: body.accountType,
         referenceName: body.referenceName,
         initialBalance,
@@ -109,7 +112,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return NextResponse.json(account, { status: 201 });
+    return NextResponse.json({ ...account, accountNumber: decrypt(account.accountNumber) }, { status: 201 });
   } catch (error) {
     console.error('Error creating bank account:', error);
     return NextResponse.json({ error: 'Error creating bank account' }, { status: 500 });

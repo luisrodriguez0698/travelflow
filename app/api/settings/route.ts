@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireTenantId } from '@/lib/get-tenant';
+import { requirePermission } from '@/lib/get-tenant';
 import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 // Obtener configuración de la agencia
 export async function GET() {
   try {
-    const tenantId = await requireTenantId();
+    const tenantId = await requirePermission('configuracion');
 
     const tenant = await prisma.tenant.findUnique({
       where: { id: tenantId },
@@ -39,7 +39,7 @@ export async function GET() {
 // Actualizar configuración de la agencia
 export async function PUT(request: NextRequest) {
   try {
-    const tenantId = await requireTenantId();
+    const tenantId = await requirePermission('configuracion');
     const body = await request.json();
 
     const { name, logo, email, phone, address, policies } = body;

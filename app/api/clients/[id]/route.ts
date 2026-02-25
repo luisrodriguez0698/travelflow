@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireTenantId, getSessionUser } from '@/lib/get-tenant';
+import { requirePermission, getSessionUser } from '@/lib/get-tenant';
 import { prisma } from '@/lib/prisma';
 import { logAudit } from '@/lib/audit';
 
@@ -10,7 +10,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const tenantId = await requireTenantId();
+    const tenantId = await requirePermission('clientes');
     const clientId = params?.id;
 
     const client = await prisma.client.findFirst({
@@ -36,7 +36,7 @@ async function updateClient(
   { params }: { params: { id: string } }
 ) {
   try {
-    const tenantId = await requireTenantId();
+    const tenantId = await requirePermission('clientes');
     const clientId = params?.id;
     const body = await request.json();
 
@@ -109,7 +109,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const tenantId = await requireTenantId();
+    const tenantId = await requirePermission('clientes');
     const clientId = params?.id;
 
     // Check if client has bookings

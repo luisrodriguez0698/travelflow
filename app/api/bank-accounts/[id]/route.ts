@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireTenantId } from '@/lib/get-tenant';
+import { requirePermission } from '@/lib/get-tenant';
 import { prisma } from '@/lib/prisma';
+import { encrypt, decrypt } from '@/lib/encryption';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,7 +10,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const tenantId = await requireTenantId();
+    const tenantId = await requirePermission('bancos');
     const { id } = await params;
 
     const account = await prisma.bankAccount.findFirst({
@@ -27,7 +28,7 @@ export async function GET(
       return NextResponse.json({ error: 'Cuenta no encontrada' }, { status: 404 });
     }
 
-    return NextResponse.json(account);
+    return NextResponse.json({ ...account, accountNumber: decrypt(account.accountNumber) });
   } catch (error) {
     console.error('Error fetching bank account:', error);
     return NextResponse.json({ error: 'Error fetching bank account' }, { status: 500 });
@@ -39,7 +40,7 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    const tenantId = await requireTenantId();
+    const tenantId = await requirePermission('bancos');
     const { id } = await params;
     const body = await request.json();
 
@@ -55,13 +56,13 @@ export async function PUT(
       where: { id },
       data: {
         bankName: body.bankName,
-        accountNumber: body.accountNumber,
+        accountNumber: encrypt(body.accountNumber),
         accountType: body.accountType,
         referenceName: body.referenceName,
       },
     });
 
-    return NextResponse.json(account);
+    return NextResponse.json({ ...account, accountNumber: decrypt(account.accountNumber) });
   } catch (error) {
     console.error('Error updating bank account:', error);
     return NextResponse.json({ error: 'Error updating bank account' }, { status: 500 });
@@ -73,7 +74,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const tenantId = await requireTenantId();
+    const tenantId = await requirePermission('bancos');
     const { id } = await params;
 
     // transferToAccountId is optional — required only when balance > 0

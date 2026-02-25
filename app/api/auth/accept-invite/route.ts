@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
+import { z } from 'zod';
+
+const acceptInviteSchema = z.object({
+  token: z.string().min(1, 'Token requerido'),
+  name: z.string().min(1, 'El nombre es requerido'),
+  password: z.string().min(12, 'La contraseña debe tener al menos 12 caracteres'),
+  phone: z.string().optional(),
+});
 
 export const dynamic = 'force-dynamic';
 
@@ -59,21 +67,11 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { token, name, password, phone } = body;
-
-    if (!token || !name || !password) {
-      return NextResponse.json(
-        { error: 'Token, nombre y contraseña requeridos' },
-        { status: 400 }
-      );
+    const parsed = acceptInviteSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.errors[0].message }, { status: 400 });
     }
-
-    if (password.length < 6) {
-      return NextResponse.json(
-        { error: 'La contraseña debe tener al menos 6 caracteres' },
-        { status: 400 }
-      );
-    }
+    const { token, name, password, phone } = parsed.data;
 
     const invitation = await prisma.invitation.findUnique({
       where: { token },

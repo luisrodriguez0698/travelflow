@@ -5,6 +5,10 @@ import { getFileUrl } from '@/lib/s3';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
+/** Escapes HTML special characters to prevent XSS in generated HTML/PDF */
+const esc = (v: string | null | undefined): string =>
+  (v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
 export const dynamic = 'force-dynamic';
 
 export async function GET(
@@ -161,8 +165,8 @@ export async function GET(
             </tr>
           </thead>
           <tbody>
-            ${holder ? `<tr><td><strong>${holder.name}</strong></td><td>${holder.type === 'ADULT' ? 'Adulto' : 'Menor'}</td><td>${holder.age || '-'}</td><td><span style="background: #0891b2; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px;">Titular</span></td></tr>` : ''}
-            ${others.map((p: any) => `<tr><td>${p.name}</td><td>${p.type === 'ADULT' ? 'Adulto' : 'Menor'}</td><td>${p.age || '-'}</td><td>Acompañante</td></tr>`).join('')}
+            ${holder ? `<tr><td><strong>${esc(holder.name)}</strong></td><td>${holder.type === 'ADULT' ? 'Adulto' : 'Menor'}</td><td>${holder.age || '-'}</td><td><span style="background: #0891b2; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px;">Titular</span></td></tr>` : ''}
+            ${others.map((p: any) => `<tr><td>${esc(p.name)}</td><td>${p.type === 'ADULT' ? 'Adulto' : 'Menor'}</td><td>${p.age || '-'}</td><td>Acompañante</td></tr>`).join('')}
           </tbody>
         </table>
       </div>`;
@@ -557,15 +561,15 @@ export async function GET(
         <div class="info-grid">
           <div class="info-item">
             <div class="info-label">Nombre</div>
-            <div class="info-value">${booking.client?.fullName || '-'}</div>
+            <div class="info-value">${esc(booking.client?.fullName) || '-'}</div>
           </div>
           <div class="info-item">
             <div class="info-label">Teléfono</div>
-            <div class="info-value">${booking.client?.phone || '-'}</div>
+            <div class="info-value">${esc(booking.client?.phone) || '-'}</div>
           </div>
           <div class="info-item">
             <div class="info-label">Email</div>
-            <div class="info-value">${booking.client?.email || '-'}</div>
+            <div class="info-value">${esc(booking.client?.email) || '-'}</div>
           </div>
           <div class="info-item">
             <div class="info-label">Fecha de Venta</div>

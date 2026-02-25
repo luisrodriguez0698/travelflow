@@ -59,7 +59,7 @@ export async function sendInvite(email: string, roleId: string) {
       body: JSON.stringify({
         templateId: parseInt(process.env.BREVO_TEMPLATE_ID || '1'),
         to: [{ email }],
-        sender: { name: 'TravelFlow', email: 'luisrodriguez0698@gmail.com' },
+        sender: { name: 'TravelFlow', email: process.env.BREVO_SENDER_EMAIL || '' },
         params: { INVITE_LINK },
       }),
     });

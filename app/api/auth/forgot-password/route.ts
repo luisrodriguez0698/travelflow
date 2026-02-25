@@ -1,15 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import crypto from 'crypto';
+import { z } from 'zod';
+import { rateLimit } from '@/lib/rate-limit';
+
+const forgotPasswordSchema = z.object({
+  email: z.string().email('Correo inválido'),
+});
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
-    const { email } = await request.json();
+    const body = await request.json();
+    const parsed = forgotPasswordSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.errors[0].message }, { status: 400 });
+    }
+    const { email } = parsed.data;
 
-    if (!email) {
-      return NextResponse.json({ error: 'El correo es requerido' }, { status: 400 });
+    // Rate limit: 5 solicitudes por email cada 15 minutos (falla silenciosa para no revelar si el email existe)
+    const rl = rateLimit(`forgot-password:${email.toLowerCase()}`, 5, 15 * 60 * 1000);
+    if (!rl.allowed) {
+      return NextResponse.json({ success: true });
     }
 
     const user = await prisma.user.findUnique({ where: { email } });
@@ -74,7 +87,7 @@ export async function POST(request: NextRequest) {
           subject: 'Restablecer contraseña — TravelFlow',
           htmlContent,
           to: [{ email: user.email, name: user.name || user.email }],
-          sender: { name: 'TravelFlow', email: 'luisrodriguez0698@gmail.com' },
+          sender: { name: 'TravelFlow', email: process.env.BREVO_SENDER_EMAIL || '' },
         }),
       });
 

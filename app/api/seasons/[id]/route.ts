@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireTenantId } from '@/lib/get-tenant';
+import { requirePermission } from '@/lib/get-tenant';
 import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const tenantId = await requireTenantId();
+    const tenantId = await requirePermission('temporadas');
     const season = await prisma.season.findFirst({
       where: { id: params?.id, tenantId },
       include: {
@@ -30,7 +30,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const tenantId = await requireTenantId();
+    const tenantId = await requirePermission('temporadas');
     const body = await request.json();
 
     const existing = await prisma.season.findFirst({
@@ -58,7 +58,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const tenantId = await requireTenantId();
+    const tenantId = await requirePermission('temporadas');
 
     const existing = await prisma.season.findFirst({
       where: { id: params?.id, tenantId },

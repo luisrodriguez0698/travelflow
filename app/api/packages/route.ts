@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireTenantId } from '@/lib/get-tenant';
+import { requirePermission } from '@/lib/get-tenant';
 import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const tenantId = await requireTenantId();
+    const tenantId = await requirePermission('destinos');
     const packages = await prisma.package.findMany({
       where: { tenantId },
       include: {
@@ -30,7 +30,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const tenantId = await requireTenantId();
+    const tenantId = await requirePermission('destinos');
     const body = await request.json();
 
     const { departures, ...packageData } = body;

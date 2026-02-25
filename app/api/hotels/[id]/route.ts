@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireTenantId } from '@/lib/get-tenant';
+import { requirePermission } from '@/lib/get-tenant';
 import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
@@ -9,7 +9,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const tenantId = await requireTenantId();
+    const tenantId = await requirePermission('destinos');
     const { id } = await params;
 
     const hotel = await prisma.hotel.findFirst({
@@ -33,7 +33,7 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    const tenantId = await requireTenantId();
+    const tenantId = await requirePermission('destinos');
     const { id } = await params;
     const body = await request.json();
 
@@ -80,7 +80,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const tenantId = await requireTenantId();
+    const tenantId = await requirePermission('destinos');
     const { id } = await params;
 
     const hotel = await prisma.hotel.findFirst({ where: { id, tenantId } });

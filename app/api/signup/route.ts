@@ -2,17 +2,33 @@ import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
 import { DEFAULT_ROLES } from '@/lib/permissions';
+import { z } from 'zod';
+import { rateLimit } from '@/lib/rate-limit';
+
+const signupSchema = z.object({
+  email: z.string().email('Correo inválido'),
+  password: z.string().min(12, 'La contraseña debe tener al menos 12 caracteres'),
+  agencyName: z.string().min(1, 'El nombre de la agencia es requerido'),
+  phone: z.string().min(1, 'El teléfono es requerido'),
+  address: z.string().optional(),
+});
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { email, password, agencyName, phone, address } = body;
+    const parsed = signupSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.errors[0].message }, { status: 400 });
+    }
+    const { email, password, agencyName, phone, address } = parsed.data;
 
-    // Validate required fields
-    if (!email || !password || !agencyName || !phone) {
+    // Rate limit: 5 registros por IP por hora
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'unknown';
+    const rl = rateLimit(`signup:${ip}`, 5, 60 * 60 * 1000);
+    if (!rl.allowed) {
       return NextResponse.json(
-        { error: 'Todos los campos requeridos deben ser completados' },
-        { status: 400 }
+        { error: 'Demasiados registros desde esta dirección. Intenta de nuevo más tarde.' },
+        { status: 429 }
       );
     }
 
