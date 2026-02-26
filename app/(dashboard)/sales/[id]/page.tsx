@@ -400,11 +400,6 @@ export default function SaleDetailPage() {
             <div className="flex items-center gap-3 mt-1">
               <p className="text-gray-600 dark:text-gray-400">
                 Folio: {sale.id.slice(-8).toUpperCase()}
-                {sale.reservationNumber && (
-                  <span className="ml-3 text-blue-600 dark:text-blue-400 font-medium">
-                    Reservación: {sale.reservationNumber}
-                  </span>
-                )}
               </p>
               {sale.creatorName && (
                 <span className="inline-flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
