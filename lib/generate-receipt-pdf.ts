@@ -36,6 +36,7 @@ interface BookingItem {
   hotelId?: string;
   hotel?: HotelData;
   roomType?: string;
+  reservationNumber?: string;
   numAdults?: number;
   numChildren?: number;
   pricePerNight?: number;
@@ -390,6 +391,7 @@ export async function generateReceiptPdf(sale: SaleData) {
       const hotelBody = hotelItems.map((item, idx) => [
         `Hab. ${idx + 1}`,
         item.hotel?.name || '-',
+        item.reservationNumber || '-',
         item.roomType || '-',
         item.plan || '-',
         `${item.numAdults || 0} Ad. / ${item.numChildren || 0} Men.`,
@@ -399,13 +401,13 @@ export async function generateReceiptPdf(sale: SaleData) {
 
       autoTable(doc, {
         startY: y,
-        head: [['#', 'Hotel', 'Tipo Hab.', 'Plan', 'Ocupación', 'Noches', 'Costo']],
+        head: [['#', 'Hotel', '# Reservación', 'Tipo Hab.', 'Plan', 'Ocupación', 'Noches', 'Costo']],
         body: hotelBody,
         margin: { left: margin, right: margin },
         styles: { fontSize: 8, cellPadding: 2.5, textColor: [30, 41, 59] },
         headStyles: { fillColor: [239, 246, 255], textColor: [37, 99, 235], fontStyle: 'bold', lineWidth: 0.3, lineColor: [226, 232, 240] },
         bodyStyles: { lineWidth: 0.2, lineColor: [226, 232, 240] },
-        columnStyles: { 0: { cellWidth: 14 }, 6: { halign: 'right' } },
+        columnStyles: { 0: { cellWidth: 14 }, 2: { fontStyle: 'bold' }, 7: { halign: 'right' } },
       });
       y = (doc as any).lastAutoTable.finalY + 6;
 
