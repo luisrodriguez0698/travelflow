@@ -982,7 +982,7 @@ function AnnualView({
               tick={{ fontSize: 12 }}
               tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
             />
-            <Tooltip
+            <RechartsTooltip
               formatter={(value: number) => formatCurrency(value)}
               contentStyle={{
                 borderRadius: '8px',
