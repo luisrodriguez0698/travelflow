@@ -244,7 +244,7 @@ export async function POST(request: NextRequest) {
         return result;
       };
 
-      const startDate = new Date();
+      const startDate = body.paymentStartDate ? new Date(body.paymentStartDate) : new Date();
 
       for (let i = 0; i < body.numberOfPayments; i++) {
         const dueDate = frequency === 'MENSUAL'

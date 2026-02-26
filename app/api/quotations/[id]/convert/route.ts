@@ -96,7 +96,7 @@ export async function POST(
         return result;
       };
 
-      const startDate = new Date();
+      const startDate = body?.paymentStartDate ? new Date(body.paymentStartDate) : new Date();
       for (let i = 0; i < booking.numberOfPayments; i++) {
         const dueDate = frequency === 'MENSUAL'
           ? getNextMonthlyDate(startDate, i)

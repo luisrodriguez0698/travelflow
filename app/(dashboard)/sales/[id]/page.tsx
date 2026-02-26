@@ -91,6 +91,7 @@ interface BookingItem {
     images?: string[];
   };
   roomType?: string;
+  reservationNumber?: string;
   numAdults?: number;
   numChildren?: number;
   freeChildren?: number;
@@ -574,6 +575,7 @@ export default function SaleDetailPage() {
                       <TableHeader>
                         <TableRow className="bg-blue-50 dark:bg-blue-950/30">
                           <TableHead>Hotel</TableHead>
+                          <TableHead># Reservación</TableHead>
                           <TableHead>Tipo Hab.</TableHead>
                           <TableHead>Plan</TableHead>
                           <TableHead className="text-center">Ocupación</TableHead>
@@ -586,6 +588,11 @@ export default function SaleDetailPage() {
                         {hotelItems.map((item) => (
                           <TableRow key={item.id}>
                             <TableCell className="font-medium">{item.hotel?.name || item.description || '-'}</TableCell>
+                            <TableCell>
+                              {item.reservationNumber
+                                ? <span className="font-mono text-xs bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 px-2 py-0.5 rounded">{item.reservationNumber}</span>
+                                : <span className="text-muted-foreground text-xs">—</span>}
+                            </TableCell>
                             <TableCell>{item.roomType || '-'}</TableCell>
                             <TableCell>{item.plan ? (planLabels[item.plan] || item.plan) : '-'}</TableCell>
                             <TableCell className="text-center">

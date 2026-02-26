@@ -457,7 +457,8 @@ export default function QuotationDetailPage() {
         const hotelItems = quotation.items!.filter(i => i.type === 'HOTEL');
         const flightItems = quotation.items!.filter(i => i.type === 'FLIGHT');
         const tourItems = quotation.items!.filter(i => i.type === 'TOUR');
-        const otherItems = quotation.items!.filter(i => !['HOTEL', 'FLIGHT', 'TOUR'].includes(i.type));
+        const transferItems = quotation.items!.filter(i => i.type === 'TRANSFER');
+        const otherItems = quotation.items!.filter(i => !['HOTEL', 'FLIGHT', 'TOUR', 'TRANSFER'].includes(i.type));
         const totalItemsCost = quotation.items!.reduce((sum, i) => sum + (i.cost || 0), 0);
         const planLabels: Record<string, string> = { AI: 'All Inclusive', EP: 'Solo Hospedaje', MAP: 'Media Pensión', AP: 'Pensión Completa', BB: 'Bed & Breakfast' };
         const formatTime = (d?: string) => d ? format(new Date(d), "HH:mm") : '';
@@ -587,6 +588,56 @@ export default function QuotationDetailPage() {
                             <TableCell className="text-right font-medium">${item.cost.toLocaleString('es-MX')}</TableCell>
                           </TableRow>
                         ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              )}
+
+              {/* Transfer Items */}
+              {transferItems.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Truck className="w-4 h-4 text-green-500" />
+                    <h4 className="font-medium text-green-700 dark:text-green-400">Transporte Terrestre</h4>
+                  </div>
+                  <div className="rounded-lg border overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-green-50 dark:bg-green-950/30">
+                          <TableHead>Unidad</TableHead>
+                          <TableHead>Dirección</TableHead>
+                          <TableHead>Ruta</TableHead>
+                          <TableHead>Horario</TableHead>
+                          <TableHead className="text-center">Pasajeros</TableHead>
+                          <TableHead>Modalidad</TableHead>
+                          <TableHead className="text-right">Costo</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {transferItems.map((item) => {
+                          const isRoundTrip = item.direction === 'IDA_Y_VUELTA';
+                          const dirLabel = isRoundTrip ? 'Ida y Vuelta' : item.direction === 'IDA' ? 'Ida' : 'Regreso';
+                          const dep = item.departureTime ? formatTime(item.departureTime) : '';
+                          const arr = item.arrivalTime ? formatTime(item.arrivalTime) : '';
+                          let timeStr = dep + (arr ? ` - ${arr}` : '');
+                          if (isRoundTrip) {
+                            const retDep = item.returnDepartureTime ? formatTime(item.returnDepartureTime) : '';
+                            const retArr = item.returnArrivalTime ? formatTime(item.returnArrivalTime) : '';
+                            if (retDep || retArr) timeStr += (timeStr ? '\nReg: ' : 'Reg: ') + retDep + (retArr ? ` - ${retArr}` : '');
+                          }
+                          return (
+                            <TableRow key={item.id}>
+                              <TableCell className="font-medium">{item.transportType || '-'}</TableCell>
+                              <TableCell>{dirLabel}</TableCell>
+                              <TableCell>{item.origin || '?'} → {item.flightDestination || '?'}</TableCell>
+                              <TableCell className="whitespace-pre-line">{timeStr || '-'}</TableCell>
+                              <TableCell className="text-center">{item.numPeople || '-'}</TableCell>
+                              <TableCell>{item.isInternational ? 'Internacional' : 'Nacional'}</TableCell>
+                              <TableCell className="text-right font-medium">${item.cost.toLocaleString('es-MX')}</TableCell>
+                            </TableRow>
+                          );
+                        })}
                       </TableBody>
                     </Table>
                   </div>

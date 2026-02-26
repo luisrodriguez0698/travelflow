@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
         hotel: { include: { destination: true } },
         passengers: true,
         items: {
-          include: { hotel: true, destination: { include: { season: true } }, supplier: true },
+          include: { hotel: true, destination: true, supplier: true },
           orderBy: { sortOrder: 'asc' },
         },
       },
@@ -232,7 +232,7 @@ export async function POST(request: NextRequest) {
         return result;
       };
 
-      const startDate = new Date();
+      const startDate = body.paymentStartDate ? new Date(body.paymentStartDate) : new Date();
       for (let i = 0; i < body.numberOfPayments; i++) {
         const dueDate = frequency === 'MENSUAL'
           ? getNextMonthlyDate(startDate, i)
@@ -259,7 +259,7 @@ export async function POST(request: NextRequest) {
         hotel: true,
         passengers: true,
         items: {
-          include: { hotel: true, destination: { include: { season: true } }, supplier: true },
+          include: { hotel: true, destination: true, supplier: true },
           orderBy: { sortOrder: 'asc' },
         },
       },

@@ -33,13 +33,36 @@ interface FormData {
   downPayment: number;
   numberOfPayments: number;
   paymentFrequency: 'QUINCENAL' | 'MENSUAL';
+  paymentStartDate: Date | null;
   notes: string;
 }
 
 const initialFormData: FormData = {
   clientId: '', departureDate: null, returnDate: null,
   totalPrice: 0, paymentType: 'CASH', downPayment: 0, numberOfPayments: 1,
-  paymentFrequency: 'QUINCENAL', notes: '',
+  paymentFrequency: 'QUINCENAL', paymentStartDate: null, notes: '',
+};
+
+const getNextQuincenalDate = (fromDate: Date, count: number): Date => {
+  const result = new Date(fromDate);
+  for (let i = 0; i < count; i++) {
+    const currentDay = result.getDate();
+    const currentMonth = result.getMonth();
+    const currentYear = result.getFullYear();
+    const lastDayOfMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+    if (currentDay < 15) { result.setDate(15); }
+    else if (currentDay < lastDayOfMonth) { result.setDate(lastDayOfMonth); }
+    else { result.setMonth(currentMonth + 1); result.setDate(15); }
+  }
+  return result;
+};
+
+const getNextMonthlyDate = (fromDate: Date, count: number): Date => {
+  const result = new Date(fromDate);
+  result.setDate(1);
+  result.setMonth(result.getMonth() + count);
+  result.setDate(new Date(result.getFullYear(), result.getMonth() + 1, 0).getDate());
+  return result;
 };
 
 export default function EditSalePage() {
@@ -85,6 +108,7 @@ export default function EditSalePage() {
           downPayment: sale.downPayment || 0,
           numberOfPayments: sale.numberOfPayments || 1,
           paymentFrequency: sale.paymentFrequency || 'QUINCENAL',
+          paymentStartDate: null,
           notes: sale.notes || '',
         });
         if (Array.isArray(sale.items) && sale.items.length > 0) {
@@ -137,6 +161,7 @@ export default function EditSalePage() {
           numberOfPayments: formData.numberOfPayments,
           notes: formData.notes || null,
           paymentFrequency: formData.paymentFrequency,
+          paymentStartDate: formData.paymentStartDate?.toISOString() || null,
           items: bookingItems.map((item, idx) => ({
             ...item,
             sortOrder: idx,
@@ -332,6 +357,66 @@ export default function EditSalePage() {
                     <SelectContent><SelectItem value="QUINCENAL">Quincenal</SelectItem><SelectItem value="MENSUAL">Mensual</SelectItem></SelectContent>
                   </Select>
                 </div>
+                <div className="space-y-2">
+                  <Label>Fecha de primer pago</Label>
+                  <DatePicker
+                    value={formData.paymentStartDate || undefined}
+                    onChange={(date) => setFormData(p => ({ ...p, paymentStartDate: date || null }))}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {formData.paymentFrequency === 'QUINCENAL'
+                      ? 'Selecciona desde qué fecha inicia el plan quincenal (15 o fin de mes)'
+                      : 'Selecciona el mes a partir del cual inicia el plan mensual'}
+                  </p>
+                </div>
+                {/* Live payment preview */}
+                {formData.totalPrice > 0 && formData.numberOfPayments > 0 && (() => {
+                  const startDate = formData.paymentStartDate || new Date();
+                  const remaining = formData.totalPrice - (formData.downPayment || 0);
+                  const paymentAmount = Math.floor(remaining / formData.numberOfPayments);
+                  const lastPayment = remaining - (paymentAmount * (formData.numberOfPayments - 1));
+                  const payments = Array.from({ length: formData.numberOfPayments }, (_, i) => ({
+                    number: i + 1,
+                    dueDate: formData.paymentFrequency === 'MENSUAL'
+                      ? getNextMonthlyDate(startDate, i)
+                      : getNextQuincenalDate(startDate, i + 1),
+                    amount: i === formData.numberOfPayments - 1 ? lastPayment : paymentAmount,
+                  }));
+                  return (
+                    <div className="rounded-lg border overflow-hidden">
+                      <div className="px-3 py-2 bg-muted/50 border-b flex items-center gap-2">
+                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Vista previa del plan de pagos</span>
+                        <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded font-medium">
+                          {formData.paymentFrequency === 'QUINCENAL' ? 'Quincenal' : 'Mensual'}
+                        </span>
+                      </div>
+                      <div className="max-h-48 overflow-y-auto">
+                        <table className="w-full text-xs">
+                          <thead className="sticky top-0 bg-muted/30">
+                            <tr className="text-muted-foreground">
+                              <th className="text-left px-3 py-1.5 font-medium">#</th>
+                              <th className="text-left px-3 py-1.5 font-medium">Fecha</th>
+                              <th className="text-right px-3 py-1.5 font-medium">Monto</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {payments.map((p) => (
+                              <tr key={p.number} className="border-t border-border/50">
+                                <td className="px-3 py-1.5 text-muted-foreground">{p.number}</td>
+                                <td className="px-3 py-1.5 font-medium">
+                                  {p.dueDate.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                </td>
+                                <td className="px-3 py-1.5 text-right font-semibold text-emerald-600 dark:text-emerald-400">
+                                  ${p.amount.toLocaleString('es-MX')}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </Card>
