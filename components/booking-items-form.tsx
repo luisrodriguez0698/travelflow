@@ -10,10 +10,17 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Hotel, Plane, MapPin, Trash2, Pencil, Check, ChevronsUpDown, Truck, Bus, Globe, ArrowLeftRight } from 'lucide-react';
+import { Plus, Hotel, Plane, MapPin, Trash2, Pencil, Check, ChevronsUpDown, Truck, Bus, Globe, ArrowLeftRight, UserPlus, X, Hash } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // ─── Types ───────────────────────────────────────────
+
+export interface RoomPassenger {
+  name: string;
+  type: 'ADULT' | 'MINOR';
+  age?: number | null;
+  isHolder: boolean;
+}
 
 export interface BookingItemData {
   id?: string;
@@ -32,7 +39,10 @@ export interface BookingItemData {
   numNights?: number;
   priceAdult?: number;
   priceChild?: number;
+  pricePackage?: number;        // Precio por paquete (opcional)
+  reservationNumber?: string;   // Número de reservación por habitación (solo ventas)
   plan?: string;
+  passengers?: RoomPassenger[]; // Pasajeros por habitación
   // Destination (for HOTEL)
   destinationId?: string;
   // Flight
@@ -78,6 +88,7 @@ interface BookingItemsFormProps {
   onChange: (items: BookingItemData[]) => void;
   destinations: Destination[];
   suppliers: Supplier[];
+  isSale?: boolean;
 }
 
 const formatCurrency = (n: number) =>
@@ -161,7 +172,7 @@ function TimePicker({
 
 // ─── Main Component ──────────────────────────────────
 
-export function BookingItemsForm({ items, onChange, destinations, suppliers }: BookingItemsFormProps) {
+export function BookingItemsForm({ items, onChange, destinations, suppliers, isSale = false }: BookingItemsFormProps) {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [draftItem, setDraftItem] = useState<BookingItemData | null>(null);
@@ -169,7 +180,7 @@ export function BookingItemsForm({ items, onChange, destinations, suppliers }: B
   const openAddModal = (type: BookingItemData['type']) => {
     const newItem: BookingItemData = { type, cost: 0, sortOrder: items.length };
     if (type === 'HOTEL') {
-      Object.assign(newItem, { numAdults: 2, numChildren: 0, freeChildren: 0, pricePerNight: 0, numNights: 1, priceAdult: 0, priceChild: 0 });
+      Object.assign(newItem, { numAdults: 2, numChildren: 0, freeChildren: 0, pricePerNight: 0, numNights: 1, priceAdult: 0, priceChild: 0, pricePackage: 0, passengers: [] });
     } else if (type === 'FLIGHT') {
       Object.assign(newItem, { direction: 'IDA', flightClass: 'ECONOMICA', returnDepartureTime: null, returnArrivalTime: null, returnFlightNumber: '' });
     } else if (type === 'TOUR') {
@@ -200,6 +211,7 @@ export function BookingItemsForm({ items, onChange, destinations, suppliers }: B
     if (merged.type === 'HOTEL') {
       const paidChildren = Math.max(0, (merged.numChildren || 0) - (merged.freeChildren || 0));
       merged.cost =
+        (merged.pricePackage || 0) +
         (merged.pricePerNight || 0) * (merged.numNights || 0) +
         (merged.priceAdult || 0) * (merged.numAdults || 0) +
         (merged.priceChild || 0) * paidChildren;
@@ -310,7 +322,7 @@ export function BookingItemsForm({ items, onChange, destinations, suppliers }: B
           {draftItem && (
             <div className="space-y-4 py-1">
               {draftItem.type === 'HOTEL' && (
-                <HotelForm item={draftItem} destinations={destinations} suppliers={suppliers} onChange={updateDraft} />
+                <HotelForm item={draftItem} destinations={destinations} suppliers={suppliers} onChange={updateDraft} isSale={isSale} />
               )}
               {draftItem.type === 'FLIGHT' && (
                 <FlightForm item={draftItem} suppliers={suppliers} onChange={updateDraft} />
@@ -622,12 +634,39 @@ function HotelForm({
   destinations,
   suppliers,
   onChange,
+  isSale = false,
 }: {
   item: BookingItemData;
   destinations: Destination[];
   suppliers: Supplier[];
   onChange: (updates: Partial<BookingItemData>) => void;
+  isSale?: boolean;
 }) {
+  const [newPassengerName, setNewPassengerName] = useState('');
+  const [newPassengerType, setNewPassengerType] = useState<'ADULT' | 'MINOR'>('ADULT');
+  const [newPassengerAge, setNewPassengerAge] = useState('');
+
+  const passengers = item.passengers || [];
+
+  const addPassenger = () => {
+    if (!newPassengerName.trim()) return;
+    const newP: RoomPassenger = {
+      name: newPassengerName.trim(),
+      type: newPassengerType,
+      age: newPassengerType === 'MINOR' ? (parseInt(newPassengerAge) || null) : null,
+      isHolder: passengers.length === 0,
+    };
+    onChange({ passengers: [...passengers, newP] });
+    setNewPassengerName('');
+    setNewPassengerAge('');
+  };
+
+  const removePassenger = (idx: number) => {
+    const updated = passengers.filter((_, i) => i !== idx);
+    // Re-assign isHolder to first
+    if (updated.length > 0 && !updated.some(p => p.isHolder)) updated[0].isHolder = true;
+    onChange({ passengers: updated });
+  };
   const [destOpen, setDestOpen] = useState(false);
   const [hotelOpen, setHotelOpen] = useState(false);
   const [hotels, setHotels] = useState<HotelOption[]>([]);
@@ -872,8 +911,43 @@ function HotelForm({
         </div>
       )}
 
+      {/* Precio por Paquete */}
+      <div className="space-y-1.5">
+        <Label className="flex items-center gap-1.5">
+          Precio por Paquete ($)
+          <span className="text-xs font-normal text-muted-foreground">(opcional — se suma a los precios anteriores)</span>
+        </Label>
+        <Input
+          type="number" min={0}
+          value={item.pricePackage || ''}
+          onChange={(e) => onChange({ pricePackage: parseFloat(e.target.value) || 0 })}
+          placeholder="Ej: 6000"
+        />
+      </div>
+
+      {/* Número de Reservación (solo ventas) */}
+      {isSale && (
+        <div className="space-y-1.5">
+          <Label className="flex items-center gap-1.5">
+            <Hash className="w-3.5 h-3.5 text-muted-foreground" />
+            Número de Reservación
+          </Label>
+          <Input
+            value={item.reservationNumber || ''}
+            onChange={(e) => onChange({ reservationNumber: e.target.value })}
+            placeholder="Ej: RES-2026-001"
+          />
+        </div>
+      )}
+
       {/* Cost preview */}
       <div className="rounded-lg bg-muted/50 px-4 py-3 space-y-1">
+        {(item.pricePackage || 0) > 0 && (
+          <div className="flex justify-between text-xs text-muted-foreground">
+            <span>Precio paquete</span>
+            <span>{formatCurrency(item.pricePackage || 0)}</span>
+          </div>
+        )}
         {(item.pricePerNight || 0) > 0 && (
           <div className="flex justify-between text-xs text-muted-foreground">
             <span>{item.numNights || 0} noche{(item.numNights || 0) !== 1 ? 's' : ''} × {formatCurrency(item.pricePerNight || 0)}</span>
@@ -899,6 +973,72 @@ function HotelForm({
           <span className="text-sm font-medium">Total habitacion</span>
           <span className="font-semibold text-lg">{formatCurrency(item.cost || 0)}</span>
         </div>
+      </div>
+
+      {/* Pasajeros por habitación */}
+      <div className="space-y-3 pt-3 border-t">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+          <UserPlus className="w-3.5 h-3.5" /> Pasajeros
+          <span className="normal-case font-normal text-muted-foreground/70">
+            ({passengers.length} de {item.numAdults || 0} adultos
+            {(item.numChildren || 0) > 0 ? ` + ${item.numChildren} menores` : ''})
+          </span>
+        </p>
+
+        {/* Lista de pasajeros */}
+        {passengers.map((p, idx) => (
+          <div key={idx} className="flex items-center gap-2 bg-muted/30 rounded-lg px-3 py-2">
+            <span className="flex-1 text-sm font-medium">
+              {p.isHolder && (
+                <span className="inline-flex items-center rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400 text-xs px-1.5 py-0.5 mr-2">Titular</span>
+              )}
+              {p.name}
+            </span>
+            <span className={`text-xs px-2 py-0.5 rounded-full ${p.type === 'ADULT' ? 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300' : 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400'}`}>
+              {p.type === 'ADULT' ? 'Adulto' : `Menor${p.age ? ` (${p.age} años)` : ''}`}
+            </span>
+            <button
+              type="button"
+              onClick={() => removePassenger(idx)}
+              className="text-red-400 hover:text-red-600 p-0.5 rounded"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        ))}
+
+        {/* Agregar pasajero */}
+        <div className="flex flex-wrap gap-2">
+          <Input
+            value={newPassengerName}
+            onChange={(e) => setNewPassengerName(e.target.value)}
+            placeholder="Nombre del pasajero"
+            className="flex-1 min-w-[150px] h-9"
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addPassenger(); } }}
+          />
+          <Select value={newPassengerType} onValueChange={(v: 'ADULT' | 'MINOR') => setNewPassengerType(v)}>
+            <SelectTrigger className="w-[100px] h-9"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ADULT">Adulto</SelectItem>
+              <SelectItem value="MINOR">Menor</SelectItem>
+            </SelectContent>
+          </Select>
+          {newPassengerType === 'MINOR' && (
+            <Input
+              type="number" min={0} max={17}
+              value={newPassengerAge}
+              onChange={(e) => setNewPassengerAge(e.target.value)}
+              placeholder="Edad"
+              className="w-[70px] h-9"
+            />
+          )}
+          <Button type="button" variant="outline" size="sm" className="h-9" onClick={addPassenger}>
+            <Plus className="w-4 h-4" />
+          </Button>
+        </div>
+        {passengers.length === 0 && (
+          <p className="text-xs text-muted-foreground">El primer pasajero será marcado como titular</p>
+        )}
       </div>
 
       {/* Supplier */}

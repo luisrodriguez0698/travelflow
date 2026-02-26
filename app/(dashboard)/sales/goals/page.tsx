@@ -21,6 +21,12 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
   ArrowLeft,
   Target,
   Pencil,
@@ -44,7 +50,7 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
+  Tooltip as RechartsTooltip,
   ResponsiveContainer,
   LineChart,
   Line,
@@ -583,7 +589,7 @@ function MonthlyView({
                 tick={{ fontSize: 12 }}
                 tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
               />
-              <Tooltip
+              <RechartsTooltip
                 formatter={(value: number) => formatCurrency(value)}
                 contentStyle={{
                   borderRadius: '8px',
@@ -624,7 +630,7 @@ function MonthlyView({
                     <TableHead>Fecha</TableHead>
                     <TableHead>Cliente</TableHead>
                     <TableHead>Destino</TableHead>
-                    <TableHead>Agente</TableHead>
+                    <TableHead className="text-center">Agente</TableHead>
                     <TableHead className="text-right">Precio Venta</TableHead>
                     <TableHead className="text-right">Costo Neto</TableHead>
                     <TableHead>Estatus</TableHead>
@@ -668,8 +674,21 @@ function MonthlyView({
                         <TableCell className="text-sm">
                           {sale.destination?.name || '—'}
                         </TableCell>
-                        <TableCell className="text-sm">
-                          {sale.creatorName || '—'}
+                        <TableCell className="text-center">
+                          {sale.creatorName ? (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 text-white text-xs font-semibold cursor-default">
+                                    {sale.creatorName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent><p>{sale.creatorName}</p></TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          ) : (
+                            <span className="text-sm text-gray-400">—</span>
+                          )}
                         </TableCell>
                         <TableCell className="text-right text-sm font-medium">
                           {formatCurrency(sale.totalPrice)}

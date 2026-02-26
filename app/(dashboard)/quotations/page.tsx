@@ -796,7 +796,9 @@ export default function QuotationsPage() {
                       <Link href={`/quotations/${q.id}`}>
                         <Button size="sm" variant="outline" title="Ver detalle"><Eye className="w-4 h-4" /></Button>
                       </Link>
-                      <Button size="sm" variant="outline" onClick={() => openEditModal(q)} title="Editar"><Pencil className="w-4 h-4" /></Button>
+                      <Link href={`/quotations/${q.id}/edit`}>
+                        <Button size="sm" variant="outline" title="Editar"><Pencil className="w-4 h-4" /></Button>
+                      </Link>
                       <Button size="sm" variant="outline" className="text-green-600 hover:text-green-700" onClick={() => { setConvertingQuotation(q); setIsConvertModalOpen(true); }} title="Convertir a venta">
                         <ShoppingCart className="w-4 h-4" />
                       </Button>

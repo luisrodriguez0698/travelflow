@@ -151,10 +151,13 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Create booking items if provided
-    if (items.length > 0) {
-      await prisma.bookingItem.createMany({
-        data: items.map((item: any, idx: number) => ({
+    // Create booking items (with nested passengers per room)
+    for (let idx = 0; idx < items.length; idx++) {
+      const item = items[idx];
+      const itemPassengers: any[] = item.type === 'HOTEL' && Array.isArray(item.passengers) ? item.passengers : [];
+
+      const createdItem = await prisma.bookingItem.create({
+        data: {
           bookingId: booking.id,
           type: item.type || 'OTHER',
           description: item.description || null,
@@ -167,6 +170,10 @@ export async function POST(request: NextRequest) {
           freeChildren: item.freeChildren ?? null,
           pricePerNight: item.pricePerNight ?? null,
           numNights: item.numNights ?? null,
+          priceAdult: item.priceAdult ?? null,
+          priceChild: item.priceChild ?? null,
+          pricePackage: item.pricePackage ?? null,
+          reservationNumber: item.type === 'HOTEL' ? (item.reservationNumber || null) : null,
           plan: item.plan || null,
           airline: item.airline || null,
           flightNumber: item.flightNumber || null,
@@ -188,8 +195,20 @@ export async function POST(request: NextRequest) {
           returnDepartureTime: item.returnDepartureTime ? new Date(item.returnDepartureTime) : null,
           returnArrivalTime: item.returnArrivalTime ? new Date(item.returnArrivalTime) : null,
           returnFlightNumber: item.returnFlightNumber || null,
-        })),
+        },
       });
+
+      if (itemPassengers.length > 0) {
+        await prisma.bookingItemPassenger.createMany({
+          data: itemPassengers.map((p: any) => ({
+            bookingItemId: createdItem.id,
+            name: p.name,
+            type: p.type || 'ADULT',
+            age: p.age || null,
+            isHolder: p.isHolder || false,
+          })),
+        });
+      }
     }
 
     // Create payment plan for credit sales
@@ -255,7 +274,7 @@ export async function POST(request: NextRequest) {
         hotel: true,
         passengers: true,
         items: {
-          include: { hotel: true, destination: { include: { season: true } }, supplier: true },
+          include: { hotel: true, destination: { include: { season: true } }, supplier: true, passengers: true },
           orderBy: { sortOrder: 'asc' },
         },
       },

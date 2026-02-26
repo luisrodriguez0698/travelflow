@@ -25,7 +25,7 @@ export async function GET(
         hotel: true,
         passengers: true,
         items: {
-          include: { hotel: true },
+          include: { hotel: true, passengers: true },
           orderBy: { sortOrder: 'asc' },
         },
       },
@@ -141,40 +141,62 @@ export async function PUT(
     if (body.items !== undefined) {
       await prisma.bookingItem.deleteMany({ where: { bookingId: id } });
       if (Array.isArray(body.items) && body.items.length > 0) {
-        await prisma.bookingItem.createMany({
-          data: body.items.map((item: any, idx: number) => ({
-            bookingId: id,
-            type: item.type || 'OTHER',
-            description: item.description || null,
-            cost: item.cost || 0,
-            sortOrder: item.sortOrder ?? idx,
-            hotelId: item.hotelId || null,
-            roomType: item.roomType || null,
-            numAdults: item.numAdults ?? null,
-            numChildren: item.numChildren ?? null,
-            freeChildren: item.freeChildren ?? null,
-            pricePerNight: item.pricePerNight ?? null,
-            numNights: item.numNights ?? null,
-            plan: item.plan || null,
-            airline: item.airline || null,
-            flightNumber: item.flightNumber || null,
-            origin: item.origin || null,
-            flightDestination: item.flightDestination || null,
-            departureTime: item.departureTime ? new Date(item.departureTime) : null,
-            arrivalTime: item.arrivalTime ? new Date(item.arrivalTime) : null,
-            flightClass: item.flightClass || null,
-            direction: item.direction || null,
-            tourName: item.tourName || null,
-            tourDate: item.tourDate ? new Date(item.tourDate) : null,
-            numPeople: item.numPeople ?? null,
-            pricePerPerson: item.pricePerPerson ?? null,
-            transportType: item.transportType || null,
-            isInternational: item.isInternational ?? false,
-            returnDepartureTime: item.returnDepartureTime ? new Date(item.returnDepartureTime) : null,
-            returnArrivalTime: item.returnArrivalTime ? new Date(item.returnArrivalTime) : null,
-            returnFlightNumber: item.returnFlightNumber || null,
-          })),
-        });
+        for (let idx = 0; idx < body.items.length; idx++) {
+          const item = body.items[idx];
+          const itemPassengers: any[] = item.type === 'HOTEL' && Array.isArray(item.passengers) ? item.passengers : [];
+          const createdItem = await prisma.bookingItem.create({
+            data: {
+              bookingId: id,
+              type: item.type || 'OTHER',
+              description: item.description || null,
+              cost: item.cost || 0,
+              sortOrder: item.sortOrder ?? idx,
+              hotelId: item.hotelId || null,
+              roomType: item.roomType || null,
+              numAdults: item.numAdults ?? null,
+              numChildren: item.numChildren ?? null,
+              freeChildren: item.freeChildren ?? null,
+              pricePerNight: item.pricePerNight ?? null,
+              numNights: item.numNights ?? null,
+              priceAdult: item.priceAdult ?? null,
+              priceChild: item.priceChild ?? null,
+              pricePackage: item.pricePackage ?? null,
+              reservationNumber: item.type === 'HOTEL' ? (item.reservationNumber || null) : null,
+              plan: item.plan || null,
+              airline: item.airline || null,
+              flightNumber: item.flightNumber || null,
+              origin: item.origin || null,
+              flightDestination: item.flightDestination || null,
+              departureTime: item.departureTime ? new Date(item.departureTime) : null,
+              arrivalTime: item.arrivalTime ? new Date(item.arrivalTime) : null,
+              flightClass: item.flightClass || null,
+              direction: item.direction || null,
+              tourName: item.tourName || null,
+              tourDate: item.tourDate ? new Date(item.tourDate) : null,
+              numPeople: item.numPeople ?? null,
+              pricePerPerson: item.pricePerPerson ?? null,
+              destinationId: item.destinationId || null,
+              supplierId: item.supplierId || null,
+              supplierDeadline: item.supplierDeadline ? new Date(item.supplierDeadline) : null,
+              transportType: item.transportType || null,
+              isInternational: item.isInternational ?? false,
+              returnDepartureTime: item.returnDepartureTime ? new Date(item.returnDepartureTime) : null,
+              returnArrivalTime: item.returnArrivalTime ? new Date(item.returnArrivalTime) : null,
+              returnFlightNumber: item.returnFlightNumber || null,
+            },
+          });
+          if (itemPassengers.length > 0) {
+            await prisma.bookingItemPassenger.createMany({
+              data: itemPassengers.map((p: any) => ({
+                bookingItemId: createdItem.id,
+                name: p.name,
+                type: p.type || 'ADULT',
+                age: p.age || null,
+                isHolder: p.isHolder || false,
+              })),
+            });
+          }
+        }
       }
     }
 
@@ -240,7 +262,7 @@ export async function PUT(
         hotel: true,
         passengers: true,
         items: {
-          include: { hotel: true },
+          include: { hotel: true, passengers: true },
           orderBy: { sortOrder: 'asc' },
         },
       },

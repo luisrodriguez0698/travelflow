@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
       ];
     }
 
-    const [users, total] = await Promise.all([
+    const [users, total, totalCount] = await Promise.all([
       prisma.user.findMany({
         where,
         orderBy: { createdAt: 'desc' },
@@ -41,6 +41,7 @@ export async function GET(request: NextRequest) {
         },
       }),
       prisma.user.count({ where }),
+      prisma.user.count({ where: { tenantId } }),
     ]);
 
     return NextResponse.json({
@@ -50,6 +51,7 @@ export async function GET(request: NextRequest) {
         limit,
         total,
         totalPages: Math.ceil(total / limit),
+        totalCount,
       },
     });
   } catch (error: any) {

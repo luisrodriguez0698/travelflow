@@ -4,12 +4,20 @@ import { prisma } from '@/lib/prisma';
 import { requirePermission, getSessionUser } from '@/lib/get-tenant';
 import { logAudit } from '@/lib/audit';
 
+const MAX_USERS = 5;
+
 export async function sendInvite(email: string, roleId: string) {
   const tenantId = await requirePermission('usuarios');
   const sessionUser = await getSessionUser();
 
   if (!email || !roleId) {
     throw new Error('Email y rol requeridos');
+  }
+
+  // Check tenant user limit
+  const userCount = await prisma.user.count({ where: { tenantId } });
+  if (userCount >= MAX_USERS) {
+    throw new Error(`Tu agencia ha alcanzado el límite de ${MAX_USERS} usuarios`);
   }
 
   // Check email not already a user in this tenant

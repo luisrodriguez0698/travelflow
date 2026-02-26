@@ -50,9 +50,13 @@ import {
   Users,
   UserCog,
   Clock,
+  RefreshCw,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { sendInvite } from '@/lib/actions/send-invite';
+import { resendInvite } from '@/lib/actions/resend-invite';
+
+const MAX_USERS = 5;
 import { ALL_MODULES, MODULE_LABELS } from '@/lib/permissions';
 import type { ModulePermission } from '@/lib/permissions';
 
@@ -100,6 +104,7 @@ export default function UsersPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
 
   // Roles state
   const [roles, setRoles] = useState<Role[]>([]);
@@ -126,6 +131,7 @@ export default function UsersPage() {
   const [deleteRoleTarget, setDeleteRoleTarget] = useState<Role | null>(null);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [resendingId, setResendingId] = useState<string | null>(null);
 
   // Fetch users
   const fetchUsers = useCallback(async () => {
@@ -142,6 +148,7 @@ export default function UsersPage() {
         setUsers(data.data);
         setTotalPages(data.pagination.totalPages);
         setTotal(data.pagination.total);
+        setTotalCount(data.pagination.totalCount ?? data.pagination.total);
       }
     } catch {
       toast.error('Error al cargar usuarios');
@@ -222,6 +229,20 @@ export default function UsersPage() {
       toast.error(err.message || 'Error al enviar invitación');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  // Resend invitation
+  const handleResendInvite = async (invitationId: string) => {
+    setResendingId(invitationId);
+    try {
+      await resendInvite(invitationId);
+      toast.success('Invitación reenviada correctamente');
+      fetchInvitations();
+    } catch (err: any) {
+      toast.error(err.message || 'Error al reenviar invitación');
+    } finally {
+      setResendingId(null);
     }
   };
 
@@ -344,13 +365,20 @@ export default function UsersPage() {
             Gestiona los usuarios, roles y permisos de tu agencia
           </p>
         </div>
-        <Button
-          onClick={() => setIsInviteModalOpen(true)}
-          className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600"
-        >
-          <UserPlus className="w-4 h-4 mr-2" />
-          Invitar Usuario
-        </Button>
+        <div className="flex flex-col items-end gap-1">
+          <Button
+            onClick={() => setIsInviteModalOpen(true)}
+            disabled={totalCount >= MAX_USERS}
+            className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            <UserPlus className="w-4 h-4 mr-2" />
+            Invitar Usuario
+          </Button>
+          <span className={`text-xs font-medium ${totalCount >= MAX_USERS ? 'text-red-500' : 'text-muted-foreground'}`}>
+            {totalCount}/{MAX_USERS} usuarios
+            {totalCount >= MAX_USERS && ' · Límite alcanzado'}
+          </span>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -608,24 +636,31 @@ export default function UsersPage() {
                 <TableHead>Estado</TableHead>
                 <TableHead className="hidden md:table-cell">Enviada</TableHead>
                 <TableHead className="hidden md:table-cell">Expira</TableHead>
+                <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {invitationsLoading ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8">
+                  <TableCell colSpan={6} className="text-center py-8">
                     <Loader2 className="w-6 h-6 animate-spin mx-auto text-gray-400" />
                   </TableCell>
                 </TableRow>
               ) : invitations.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-gray-500">
+                  <TableCell colSpan={6} className="text-center py-8 text-gray-500">
                     <Mail className="w-8 h-8 mx-auto mb-2 text-gray-300" />
                     No hay invitaciones enviadas
                   </TableCell>
                 </TableRow>
               ) : (
-                invitations.map((inv) => (
+                invitations.map((inv) => {
+                  // expiresAt = lastSentAt + 7 days → lastSentAt = expiresAt - 7 days
+                  const lastSentAt = new Date(new Date(inv.expiresAt).getTime() - 7 * 24 * 60 * 60 * 1000);
+                  const hoursSinceSent = (Date.now() - lastSentAt.getTime()) / (1000 * 60 * 60);
+                  const canResend = inv.status === 'PENDING' && hoursSinceSent >= 24;
+
+                  return (
                   <TableRow key={inv.id}>
                     <TableCell className="font-medium">{inv.email}</TableCell>
                     <TableCell>
@@ -655,8 +690,27 @@ export default function UsersPage() {
                     <TableCell className="hidden md:table-cell text-gray-500">
                       {formatDate(inv.expiresAt)}
                     </TableCell>
+                    <TableCell className="text-right">
+                      {canResend && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/30"
+                          disabled={resendingId === inv.id}
+                          onClick={() => handleResendInvite(inv.id)}
+                        >
+                          {resendingId === inv.id ? (
+                            <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                          ) : (
+                            <RefreshCw className="w-3 h-3 mr-1" />
+                          )}
+                          Reenviar
+                        </Button>
+                      )}
+                    </TableCell>
                   </TableRow>
-                ))
+                  );
+                })
               )}
             </TableBody>
           </Table>

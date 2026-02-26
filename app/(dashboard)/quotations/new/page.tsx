@@ -9,13 +9,12 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Badge } from '@/components/ui/badge';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import {
   Plus, Pencil, Loader2, Save, ArrowLeft, Check, ChevronsUpDown,
-  X, UserPlus, FileText,
+  X, FileText,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
@@ -26,8 +25,6 @@ interface Client { id: string; fullName: string; phone: string; email?: string; 
 interface Season { id: string; name: string; color: string; }
 interface Destination { id: string; name: string; description: string; season?: Season | null; }
 interface Supplier { id: string; name: string; phone: string; serviceType: string; }
-interface Passenger { name: string; type: 'ADULT' | 'MINOR'; age: number | null; isHolder: boolean; }
-
 interface FormData {
   clientId: string;
   departureDate: Date | null;
@@ -56,12 +53,8 @@ export default function NewQuotationPage() {
   const [destinations, setDestinations] = useState<Destination[]>([]);
   const [seasons, setSeasons] = useState<Season[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [passengers, setPassengers] = useState<Passenger[]>([]);
   const [bookingItems, setBookingItems] = useState<BookingItemData[]>([]);
   const [formData, setFormData] = useState<FormData>(initialFormData);
-  const [newPassengerName, setNewPassengerName] = useState('');
-  const [newPassengerType, setNewPassengerType] = useState<'ADULT' | 'MINOR'>('ADULT');
-  const [newPassengerAge, setNewPassengerAge] = useState('');
 
   const [clientComboOpen, setClientComboOpen] = useState(false);
 
@@ -113,7 +106,6 @@ export default function NewQuotationPage() {
           notes: formData.notes || null,
           expirationDate: formData.expirationDate ? formData.expirationDate.toISOString() : null,
           paymentFrequency: formData.paymentFrequency,
-          passengers,
           items: bookingItems.map((item, idx) => ({
             ...item,
             sortOrder: idx,
@@ -312,69 +304,19 @@ export default function NewQuotationPage() {
             )}
           </Card>
 
-          {/* Card 3: Notes, Expiration, Passengers */}
+          {/* Card 3: Notes, Expiration */}
           <Card className="p-5 space-y-4">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Detalles Adicionales</p>
 
-            {/* Notes */}
             <div className="space-y-2">
               <Label>Notas</Label>
               <Textarea value={formData.notes} onChange={(e) => setFormData(p => ({ ...p, notes: e.target.value }))} placeholder="Notas adicionales..." rows={2} />
             </div>
 
-            {/* Expiration Date */}
             <div className="space-y-2">
               <Label>Fecha de Expiracion</Label>
               <DatePicker value={formData.expirationDate || undefined} onChange={(date) => setFormData(p => ({ ...p, expirationDate: date || null }))} />
               <p className="text-xs text-muted-foreground">Fecha hasta la cual esta cotizacion es valida</p>
-            </div>
-
-            {/* Passengers */}
-            <div className="space-y-3 pt-2 border-t">
-              <p className="text-sm font-semibold flex items-center gap-2"><UserPlus className="w-4 h-4" />Pasajeros</p>
-              {passengers.map((p, idx) => (
-                <div key={idx} className="flex items-center gap-2 bg-muted/30 rounded-lg px-3 py-2">
-                  <span className="flex-1 text-sm font-medium">
-                    {p.isHolder && <Badge variant="secondary" className="mr-2 text-xs">Titular</Badge>}
-                    {p.name}
-                  </span>
-                  <Badge variant={p.type === 'ADULT' ? 'default' : 'outline'} className="text-xs">
-                    {p.type === 'ADULT' ? 'Adulto' : `Menor${p.age ? ` (${p.age} anos)` : ''}`}
-                  </Badge>
-                  <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-red-500" onClick={() => setPassengers(prev => prev.filter((_, i) => i !== idx))}>
-                    <X className="w-3.5 h-3.5" />
-                  </Button>
-                </div>
-              ))}
-              <div className="flex flex-wrap gap-2">
-                <Input
-                  value={newPassengerName}
-                  onChange={(e) => setNewPassengerName(e.target.value)}
-                  placeholder="Nombre del pasajero"
-                  className="flex-1 min-w-[150px]"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      if (newPassengerName.trim()) {
-                        setPassengers(prev => [...prev, { name: newPassengerName.trim(), type: newPassengerType, age: newPassengerType === 'MINOR' ? (parseInt(newPassengerAge) || null) : null, isHolder: prev.length === 0 }]);
-                        setNewPassengerName(''); setNewPassengerAge('');
-                      }
-                    }
-                  }}
-                />
-                <Select value={newPassengerType} onValueChange={(v: 'ADULT' | 'MINOR') => setNewPassengerType(v)}>
-                  <SelectTrigger className="w-[110px]"><SelectValue /></SelectTrigger>
-                  <SelectContent><SelectItem value="ADULT">Adulto</SelectItem><SelectItem value="MINOR">Menor</SelectItem></SelectContent>
-                </Select>
-                {newPassengerType === 'MINOR' && <Input type="number" min={0} max={17} value={newPassengerAge} onChange={(e) => setNewPassengerAge(e.target.value)} placeholder="Edad" className="w-[70px]" />}
-                <Button type="button" variant="outline" size="sm" onClick={() => {
-                  if (newPassengerName.trim()) {
-                    setPassengers(prev => [...prev, { name: newPassengerName.trim(), type: newPassengerType, age: newPassengerType === 'MINOR' ? (parseInt(newPassengerAge) || null) : null, isHolder: prev.length === 0 }]);
-                    setNewPassengerName(''); setNewPassengerAge('');
-                  }
-                }}><Plus className="w-4 h-4" /></Button>
-              </div>
-              {passengers.length === 0 && <p className="text-xs text-muted-foreground">El primer pasajero sera marcado como titular</p>}
             </div>
           </Card>
         </div>
@@ -423,6 +365,7 @@ export default function NewQuotationPage() {
                 }}
                 destinations={destinations}
                 suppliers={suppliers}
+                isSale={false}
               />
             </div>
           </Card>

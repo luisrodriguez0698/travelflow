@@ -136,23 +136,13 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Create passengers if provided
-    if (body.passengers && Array.isArray(body.passengers) && body.passengers.length > 0) {
-      await prisma.bookingPassenger.createMany({
-        data: body.passengers.map((p: any) => ({
-          bookingId: booking.id,
-          name: p.name,
-          type: p.type || 'ADULT',
-          age: p.age || null,
-          isHolder: p.isHolder || false,
-        })),
-      });
-    }
+    // Create booking items (with nested passengers per room)
+    for (let idx = 0; idx < items.length; idx++) {
+      const item = items[idx];
+      const itemPassengers: any[] = item.type === 'HOTEL' && Array.isArray(item.passengers) ? item.passengers : [];
 
-    // Create booking items if provided
-    if (items.length > 0) {
-      await prisma.bookingItem.createMany({
-        data: items.map((item: any, idx: number) => ({
+      const createdItem = await prisma.bookingItem.create({
+        data: {
           bookingId: booking.id,
           type: item.type || 'OTHER',
           description: item.description || null,
@@ -165,6 +155,10 @@ export async function POST(request: NextRequest) {
           freeChildren: item.freeChildren ?? null,
           pricePerNight: item.pricePerNight ?? null,
           numNights: item.numNights ?? null,
+          priceAdult: item.priceAdult ?? null,
+          priceChild: item.priceChild ?? null,
+          pricePackage: item.pricePackage ?? null,
+          reservationNumber: item.type === 'HOTEL' ? (item.reservationNumber || null) : null,
           plan: item.plan || null,
           airline: item.airline || null,
           flightNumber: item.flightNumber || null,
@@ -186,8 +180,20 @@ export async function POST(request: NextRequest) {
           returnDepartureTime: item.returnDepartureTime ? new Date(item.returnDepartureTime) : null,
           returnArrivalTime: item.returnArrivalTime ? new Date(item.returnArrivalTime) : null,
           returnFlightNumber: item.returnFlightNumber || null,
-        })),
+        },
       });
+
+      if (itemPassengers.length > 0) {
+        await prisma.bookingItemPassenger.createMany({
+          data: itemPassengers.map((p: any) => ({
+            bookingItemId: createdItem.id,
+            name: p.name,
+            type: p.type || 'ADULT',
+            age: p.age || null,
+            isHolder: p.isHolder || false,
+          })),
+        });
+      }
     }
 
     // Create preview payment plan for credit quotations

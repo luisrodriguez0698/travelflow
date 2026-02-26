@@ -301,14 +301,18 @@ model BookingItem {
   sortOrder   Int      @default(0)
 
   // ── Hotel fields (type = HOTEL) ──
-  hotelId       String?
-  roomType      String?
-  numAdults     Int?
-  numChildren   Int?
-  freeChildren  Int?
-  pricePerNight Float?
-  numNights     Int?
-  plan          String?
+  hotelId           String?
+  roomType          String?
+  numAdults         Int?
+  numChildren       Int?
+  freeChildren      Int?
+  pricePerNight     Float?
+  numNights         Int?
+  plan              String?
+  pricePackage      Float?    // Precio por paquete (opcional, se suma a los demás precios)
+  priceAdult        Float?    // Precio por adulto
+  priceChild        Float?    // Precio por menor
+  reservationNumber String?   // Número de reservación por habitación (solo ventas)
 
   // ── Flight fields (type = FLIGHT) ──
   airline       String?
@@ -348,15 +352,31 @@ model BookingItem {
   updatedAt DateTime @updatedAt
 
   // Relations
-  booking     Booking      @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  hotel       Hotel?       @relation(fields: [hotelId], references: [id], onDelete: SetNull)
-  destination Destination? @relation(fields: [destinationId], references: [id], onDelete: SetNull)
-  supplier    Supplier?    @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  booking     Booking                @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  hotel       Hotel?                 @relation(fields: [hotelId], references: [id], onDelete: SetNull)
+  destination Destination?           @relation(fields: [destinationId], references: [id], onDelete: SetNull)
+  supplier    Supplier?              @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  passengers  BookingItemPassenger[]
 
   @@index([bookingId])
   @@index([destinationId])
   @@index([supplierId])
   @@map("booking_items")
+}
+
+// Pasajeros por habitación (movidos desde BookingPassenger global)
+model BookingItemPassenger {
+  id            String      @id @default(cuid())
+  bookingItemId String
+  name          String
+  type          String      // ADULT, MINOR
+  age           Int?
+  isHolder      Boolean     @default(false)
+
+  bookingItem   BookingItem @relation(fields: [bookingItemId], references: [id], onDelete: Cascade)
+
+  @@index([bookingItemId])
+  @@map("booking_item_passengers")
 }
 
 model BookingPassenger {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -13,8 +13,7 @@ import { DatePicker } from '@/components/ui/date-picker';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import {
-  Plus, Pencil, Loader2, Save, ArrowLeft, Check, ChevronsUpDown,
-  X, Plane,
+  Plus, Pencil, Loader2, Save, ArrowLeft, Check, ChevronsUpDown, FileText,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
@@ -35,16 +34,19 @@ interface FormData {
   numberOfPayments: number;
   paymentFrequency: 'QUINCENAL' | 'MENSUAL';
   notes: string;
+  expirationDate: Date | null;
 }
 
 const initialFormData: FormData = {
   clientId: '', departureDate: null, returnDate: null,
   totalPrice: 0, paymentType: 'CASH', downPayment: 0, numberOfPayments: 1,
-  paymentFrequency: 'QUINCENAL', notes: '',
+  paymentFrequency: 'QUINCENAL', notes: '', expirationDate: null,
 };
 
-export default function NewSalePage() {
+export default function EditQuotationPage() {
   const router = useRouter();
+  const params = useParams();
+  const quotationId = params.id as string;
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -64,17 +66,46 @@ export default function NewSalePage() {
 
   useEffect(() => {
     Promise.all([
+      fetch(`/api/quotations/${quotationId}`).then(r => r.ok ? r.json() : null),
       fetch('/api/clients?all=true').then(r => r.ok ? r.json() : []),
       fetch('/api/destinations').then(r => r.ok ? r.json() : []),
       fetch('/api/seasons').then(r => r.ok ? r.json() : []),
       fetch('/api/suppliers?all=true').then(r => r.ok ? r.json() : []),
-    ]).then(([c, d, s, sup]) => {
+    ]).then(([quotation, c, d, s, sup]) => {
       setClients(c);
       setDestinations(d);
       setSeasons(s);
       setSuppliers(sup);
-    }).catch(() => {}).finally(() => setLoading(false));
-  }, []);
+      if (quotation) {
+        setFormData({
+          clientId: quotation.clientId || '',
+          departureDate: quotation.departureDate ? new Date(quotation.departureDate) : null,
+          returnDate: quotation.returnDate ? new Date(quotation.returnDate) : null,
+          totalPrice: quotation.totalPrice || 0,
+          paymentType: quotation.paymentType || 'CASH',
+          downPayment: quotation.downPayment || 0,
+          numberOfPayments: quotation.numberOfPayments || 1,
+          paymentFrequency: quotation.paymentFrequency || 'QUINCENAL',
+          notes: quotation.notes || '',
+          expirationDate: quotation.expirationDate ? new Date(quotation.expirationDate) : null,
+        });
+        if (Array.isArray(quotation.items) && quotation.items.length > 0) {
+          setBookingItems(quotation.items.map((item: any) => ({
+            ...item,
+            departureTime: item.departureTime ? new Date(item.departureTime) : null,
+            arrivalTime: item.arrivalTime ? new Date(item.arrivalTime) : null,
+            returnDepartureTime: item.returnDepartureTime ? new Date(item.returnDepartureTime) : null,
+            returnArrivalTime: item.returnArrivalTime ? new Date(item.returnArrivalTime) : null,
+            tourDate: item.tourDate ? new Date(item.tourDate) : null,
+            supplierDeadline: item.supplierDeadline ? new Date(item.supplierDeadline) : null,
+            passengers: item.passengers || [],
+          })));
+        }
+      }
+    }).catch(() => {
+      toast({ title: 'Error', description: 'No se pudo cargar la cotizacion', variant: 'destructive' });
+    }).finally(() => setLoading(false));
+  }, [quotationId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const netCost = bookingItems.reduce((sum, item) => sum + (item.cost || 0), 0);
   const profit = formData.totalPrice - netCost;
@@ -89,14 +120,10 @@ export default function NewSalePage() {
       toast({ title: 'Error', description: 'El precio total debe ser mayor a 0', variant: 'destructive' });
       return;
     }
-    if (formData.paymentType === 'CREDIT' && formData.downPayment >= formData.totalPrice) {
-      toast({ title: 'Error', description: 'El anticipo debe ser menor al precio total', variant: 'destructive' });
-      return;
-    }
     setSaving(true);
     try {
-      const res = await fetch('/api/sales', {
-        method: 'POST',
+      const res = await fetch(`/api/quotations/${quotationId}`, {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           clientId: formData.clientId,
@@ -107,23 +134,25 @@ export default function NewSalePage() {
           downPayment: formData.downPayment,
           numberOfPayments: formData.numberOfPayments,
           notes: formData.notes || null,
+          expirationDate: formData.expirationDate ? formData.expirationDate.toISOString() : null,
           paymentFrequency: formData.paymentFrequency,
           items: bookingItems.map((item, idx) => ({
             ...item,
             sortOrder: idx,
-            departureTime: item.departureTime?.toISOString() || null,
-            arrivalTime: item.arrivalTime?.toISOString() || null,
+            departureTime: item.departureTime instanceof Date ? item.departureTime.toISOString() : item.departureTime || null,
+            arrivalTime: item.arrivalTime instanceof Date ? item.arrivalTime.toISOString() : item.arrivalTime || null,
+            returnDepartureTime: item.returnDepartureTime instanceof Date ? item.returnDepartureTime.toISOString() : item.returnDepartureTime || null,
+            returnArrivalTime: item.returnArrivalTime instanceof Date ? item.returnArrivalTime.toISOString() : item.returnArrivalTime || null,
             tourDate: item.tourDate instanceof Date ? item.tourDate.toISOString() : item.tourDate || null,
             supplierDeadline: item.supplierDeadline instanceof Date ? item.supplierDeadline.toISOString() : item.supplierDeadline || null,
           })),
         }),
       });
       if (!res.ok) throw new Error();
-      const created = await res.json();
-      toast({ title: 'Exito', description: 'Venta creada exitosamente' });
-      router.push(`/sales/${created.id}`);
+      toast({ title: 'Exito', description: 'Cotizacion actualizada exitosamente' });
+      router.push('/quotations');
     } catch {
-      toast({ title: 'Error', description: 'No se pudo crear la venta', variant: 'destructive' });
+      toast({ title: 'Error', description: 'No se pudo actualizar la cotizacion', variant: 'destructive' });
     } finally {
       setSaving(false);
     }
@@ -163,7 +192,7 @@ export default function NewSalePage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+        <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
       </div>
     );
   }
@@ -173,17 +202,17 @@ export default function NewSalePage() {
       {/* Page header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Link href="/sales">
+          <Link href="/quotations">
             <Button variant="ghost" size="icon"><ArrowLeft className="w-5 h-5" /></Button>
           </Link>
           <div>
-            <h1 className="text-xl font-bold">Nueva Venta</h1>
-            <p className="text-xs text-muted-foreground">Completa la informacion y los servicios del paquete</p>
+            <h1 className="text-xl font-bold">Editar Cotizacion</h1>
+            <p className="text-xs text-muted-foreground">Modifica la informacion y los servicios del paquete</p>
           </div>
         </div>
-        <Button onClick={handleSave} disabled={saving} className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600">
+        <Button onClick={handleSave} disabled={saving} className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600">
           {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-          Crear Venta
+          Guardar Cambios
         </Button>
       </div>
 
@@ -256,7 +285,7 @@ export default function NewSalePage() {
             {/* Sale Price + Profit */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Precio de Venta ($) *</Label>
+                <Label>Precio Cotizado ($) *</Label>
                 <Input
                   type="number"
                   value={formData.totalPrice || ''}
@@ -304,25 +333,31 @@ export default function NewSalePage() {
                 </div>
               </div>
             )}
-
           </Card>
 
-          {/* Card 3: Notes */}
+          {/* Card 3: Notes, Expiration */}
           <Card className="p-5 space-y-4">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Detalles Adicionales</p>
+
             <div className="space-y-2">
               <Label>Notas</Label>
               <Textarea value={formData.notes} onChange={(e) => setFormData(p => ({ ...p, notes: e.target.value }))} placeholder="Notas adicionales..." rows={2} />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Fecha de Expiracion</Label>
+              <DatePicker value={formData.expirationDate || undefined} onChange={(date) => setFormData(p => ({ ...p, expirationDate: date || null }))} />
+              <p className="text-xs text-muted-foreground">Fecha hasta la cual esta cotizacion es valida</p>
             </div>
           </Card>
         </div>
 
         {/* ── RIGHT COLUMN: Services ── */}
         <div className="lg:sticky lg:top-4">
-          <Card className="overflow-hidden border-2 border-blue-100 dark:border-blue-900/50">
-            <div className="p-4 border-b bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950/30 dark:to-cyan-950/30">
+          <Card className="overflow-hidden border-2 border-amber-100 dark:border-amber-900/50">
+            <div className="p-4 border-b bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30">
               <div className="flex items-center gap-2 mb-1">
-                <Plane className="w-5 h-5 text-blue-500" />
+                <FileText className="w-5 h-5 text-amber-500" />
                 <h2 className="font-semibold text-sm">Servicios del Paquete</h2>
               </div>
               <p className="text-[11px] text-muted-foreground">Agrega hospedaje, vuelos, tours y otros servicios</p>
@@ -336,7 +371,7 @@ export default function NewSalePage() {
                   )}
                   {formData.totalPrice > 0 && (
                     <div>
-                      <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-medium">Precio venta</p>
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-medium">Precio cotizado</p>
                       <p className="font-semibold text-sm text-emerald-600 dark:text-emerald-400">${formData.totalPrice.toLocaleString('es-MX')}</p>
                     </div>
                   )}
@@ -361,7 +396,7 @@ export default function NewSalePage() {
                 }}
                 destinations={destinations}
                 suppliers={suppliers}
-                isSale={true}
+                isSale={false}
               />
             </div>
           </Card>

@@ -818,7 +818,9 @@ export default function SalesPage() {
                       <Link href={`/sales/${sale.id}`}>
                         <Button size="sm" variant="outline" title="Ver detalle"><Eye className="w-4 h-4" /></Button>
                       </Link>
-                      <Button size="sm" variant="outline" onClick={() => openEditModal(sale)} title="Editar"><Pencil className="w-4 h-4" /></Button>
+                      <Link href={`/sales/${sale.id}/edit`}>
+                        <Button size="sm" variant="outline" title="Editar"><Pencil className="w-4 h-4" /></Button>
+                      </Link>
                       <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700" onClick={() => { setDeletingSale(sale); setIsDeleteModalOpen(true); }} title="Eliminar">
                         <Trash2 className="w-4 h-4" />
                       </Button>

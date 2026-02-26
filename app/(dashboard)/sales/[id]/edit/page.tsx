@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -13,8 +13,7 @@ import { DatePicker } from '@/components/ui/date-picker';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import {
-  Plus, Pencil, Loader2, Save, ArrowLeft, Check, ChevronsUpDown,
-  X, Plane,
+  Plus, Pencil, Loader2, Save, ArrowLeft, Check, ChevronsUpDown, Plane,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
@@ -43,8 +42,10 @@ const initialFormData: FormData = {
   paymentFrequency: 'QUINCENAL', notes: '',
 };
 
-export default function NewSalePage() {
+export default function EditSalePage() {
   const router = useRouter();
+  const params = useParams();
+  const saleId = params.id as string;
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -64,17 +65,45 @@ export default function NewSalePage() {
 
   useEffect(() => {
     Promise.all([
+      fetch(`/api/sales/${saleId}`).then(r => r.ok ? r.json() : null),
       fetch('/api/clients?all=true').then(r => r.ok ? r.json() : []),
       fetch('/api/destinations').then(r => r.ok ? r.json() : []),
       fetch('/api/seasons').then(r => r.ok ? r.json() : []),
       fetch('/api/suppliers?all=true').then(r => r.ok ? r.json() : []),
-    ]).then(([c, d, s, sup]) => {
+    ]).then(([sale, c, d, s, sup]) => {
       setClients(c);
       setDestinations(d);
       setSeasons(s);
       setSuppliers(sup);
-    }).catch(() => {}).finally(() => setLoading(false));
-  }, []);
+      if (sale) {
+        setFormData({
+          clientId: sale.clientId || '',
+          departureDate: sale.departureDate ? new Date(sale.departureDate) : null,
+          returnDate: sale.returnDate ? new Date(sale.returnDate) : null,
+          totalPrice: sale.totalPrice || 0,
+          paymentType: sale.paymentType || 'CASH',
+          downPayment: sale.downPayment || 0,
+          numberOfPayments: sale.numberOfPayments || 1,
+          paymentFrequency: sale.paymentFrequency || 'QUINCENAL',
+          notes: sale.notes || '',
+        });
+        if (Array.isArray(sale.items) && sale.items.length > 0) {
+          setBookingItems(sale.items.map((item: any) => ({
+            ...item,
+            departureTime: item.departureTime ? new Date(item.departureTime) : null,
+            arrivalTime: item.arrivalTime ? new Date(item.arrivalTime) : null,
+            returnDepartureTime: item.returnDepartureTime ? new Date(item.returnDepartureTime) : null,
+            returnArrivalTime: item.returnArrivalTime ? new Date(item.returnArrivalTime) : null,
+            tourDate: item.tourDate ? new Date(item.tourDate) : null,
+            supplierDeadline: item.supplierDeadline ? new Date(item.supplierDeadline) : null,
+            passengers: item.passengers || [],
+          })));
+        }
+      }
+    }).catch(() => {
+      toast({ title: 'Error', description: 'No se pudo cargar la venta', variant: 'destructive' });
+    }).finally(() => setLoading(false));
+  }, [saleId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const netCost = bookingItems.reduce((sum, item) => sum + (item.cost || 0), 0);
   const profit = formData.totalPrice - netCost;
@@ -95,8 +124,8 @@ export default function NewSalePage() {
     }
     setSaving(true);
     try {
-      const res = await fetch('/api/sales', {
-        method: 'POST',
+      const res = await fetch(`/api/sales/${saleId}`, {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           clientId: formData.clientId,
@@ -111,19 +140,20 @@ export default function NewSalePage() {
           items: bookingItems.map((item, idx) => ({
             ...item,
             sortOrder: idx,
-            departureTime: item.departureTime?.toISOString() || null,
-            arrivalTime: item.arrivalTime?.toISOString() || null,
+            departureTime: item.departureTime instanceof Date ? item.departureTime.toISOString() : item.departureTime || null,
+            arrivalTime: item.arrivalTime instanceof Date ? item.arrivalTime.toISOString() : item.arrivalTime || null,
+            returnDepartureTime: item.returnDepartureTime instanceof Date ? item.returnDepartureTime.toISOString() : item.returnDepartureTime || null,
+            returnArrivalTime: item.returnArrivalTime instanceof Date ? item.returnArrivalTime.toISOString() : item.returnArrivalTime || null,
             tourDate: item.tourDate instanceof Date ? item.tourDate.toISOString() : item.tourDate || null,
             supplierDeadline: item.supplierDeadline instanceof Date ? item.supplierDeadline.toISOString() : item.supplierDeadline || null,
           })),
         }),
       });
       if (!res.ok) throw new Error();
-      const created = await res.json();
-      toast({ title: 'Exito', description: 'Venta creada exitosamente' });
-      router.push(`/sales/${created.id}`);
+      toast({ title: 'Exito', description: 'Venta actualizada exitosamente' });
+      router.push('/sales');
     } catch {
-      toast({ title: 'Error', description: 'No se pudo crear la venta', variant: 'destructive' });
+      toast({ title: 'Error', description: 'No se pudo actualizar la venta', variant: 'destructive' });
     } finally {
       setSaving(false);
     }
@@ -177,13 +207,13 @@ export default function NewSalePage() {
             <Button variant="ghost" size="icon"><ArrowLeft className="w-5 h-5" /></Button>
           </Link>
           <div>
-            <h1 className="text-xl font-bold">Nueva Venta</h1>
-            <p className="text-xs text-muted-foreground">Completa la informacion y los servicios del paquete</p>
+            <h1 className="text-xl font-bold">Editar Venta</h1>
+            <p className="text-xs text-muted-foreground">Modifica la informacion y los servicios del paquete</p>
           </div>
         </div>
         <Button onClick={handleSave} disabled={saving} className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600">
           {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-          Crear Venta
+          Guardar Cambios
         </Button>
       </div>
 
@@ -304,7 +334,6 @@ export default function NewSalePage() {
                 </div>
               </div>
             )}
-
           </Card>
 
           {/* Card 3: Notes */}
