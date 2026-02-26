@@ -144,7 +144,7 @@ export function Sidebar() {
       <Link
         href={item.href}
         className={cn(
-          'flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all duration-200',
+          'flex items-center space-x-3 px-3 py-2.5 rounded-lg',
           isActive
             ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-md'
             : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800',
@@ -237,21 +237,21 @@ export function Sidebar() {
                 <div key={group.label} className="mt-3 first:mt-0">
                   <button
                     onClick={() => toggleGroup(group.label!)}
-                    className="w-full flex items-center justify-between px-3 py-1.5 mb-0.5 rounded-md group/header hover:bg-gray-100 dark:hover:bg-gray-800/60 transition-colors duration-150"
+                    className="w-full flex items-center justify-between px-3 py-1.5 mb-0.5 rounded-md group/header hover:bg-gray-100 dark:hover:bg-gray-800/60"
                   >
-                    <span className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 group-hover/header:text-gray-700 dark:group-hover/header:text-gray-300 transition-colors duration-150">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 group-hover/header:text-gray-700 dark:group-hover/header:text-gray-300">
                       {group.label}
                     </span>
                     <ChevronDown
                       className={cn(
-                        'w-3.5 h-3.5 text-gray-400 dark:text-gray-500 group-hover/header:text-gray-600 dark:group-hover/header:text-gray-400 transition-all duration-200',
+                        'w-3.5 h-3.5 text-gray-400 dark:text-gray-500 group-hover/header:text-gray-600 dark:group-hover/header:text-gray-400',
                         !isOpen && '-rotate-90',
                       )}
                     />
                   </button>
 
                   {isOpen && (
-                    <div className="space-y-0.5 animate-in slide-in-from-top-1 fade-in-0 duration-150">
+                    <div className="space-y-0.5">
                       {group.items.map((item) => (
                         <NavItem key={item.href} item={item} isMobile={isMobile} />
                       ))}
@@ -281,7 +281,7 @@ export function Sidebar() {
       {/* Mobile Sidebar */}
       <aside
         className={cn(
-          'fixed left-0 top-0 z-40 h-screen bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 transition-transform duration-300 md:hidden w-64',
+          'fixed left-0 top-0 z-40 h-screen bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 md:hidden w-64',
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >
@@ -291,7 +291,7 @@ export function Sidebar() {
       {/* Desktop Sidebar */}
       <aside
         className={cn(
-          'hidden md:block fixed left-0 top-0 z-40 h-screen bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 transition-all duration-300',
+          'hidden md:block fixed left-0 top-0 z-40 h-screen bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800',
           collapsed ? 'w-16' : 'w-64',
         )}
       >
