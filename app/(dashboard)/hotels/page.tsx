@@ -48,6 +48,9 @@ interface Hotel {
   includes: string[];
   notIncludes: string[];
   images: string[];
+  webDescription: string | null;
+  packagePrice: number | null;
+  packageCurrency: string | null;
   creatorName?: string | null;
 }
 
@@ -66,6 +69,9 @@ const defaultForm = {
   includes: [] as string[],
   notIncludes: [] as string[],
   images: [] as string[],
+  webDescription: '',
+  packagePrice: '' as string | number,
+  packageCurrency: 'MXN',
 };
 
 export default function HotelsPage() {
@@ -143,6 +149,9 @@ export default function HotelsPage() {
       includes: [...hotel.includes],
       notIncludes: [...hotel.notIncludes],
       images: [...hotel.images],
+      webDescription: hotel.webDescription || '',
+      packagePrice: hotel.packagePrice ?? '',
+      packageCurrency: hotel.packageCurrency || 'MXN',
     });
     setNewInclude('');
     setNewNotInclude('');
@@ -202,6 +211,9 @@ export default function HotelsPage() {
           includes: formData.includes,
           notIncludes: formData.notIncludes,
           images: formData.images,
+          webDescription: formData.webDescription || null,
+          packagePrice: formData.packagePrice !== '' ? Number(formData.packagePrice) : null,
+          packageCurrency: formData.packageCurrency,
         }),
       });
       if (res.ok) {
@@ -525,6 +537,50 @@ export default function HotelsPage() {
               />
             </div>
 
+            {/* Web Description */}
+            <div>
+              <Label>Descripción Web</Label>
+              <Textarea
+                value={formData.webDescription}
+                onChange={(e) => setFormData({ ...formData, webDescription: e.target.value })}
+                placeholder="Descripción que se mostrará en la landing page o cotización web..."
+                rows={3}
+              />
+            </div>
+
+            {/* Package Price */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <Label>Precio del Paquete</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={formData.packagePrice}
+                  onChange={(e) => setFormData({ ...formData, packagePrice: e.target.value })}
+                  placeholder="Ej: 15000"
+                />
+              </div>
+              <div>
+                <Label>Moneda</Label>
+                <Select
+                  value={formData.packageCurrency}
+                  onValueChange={(v) => setFormData({ ...formData, packageCurrency: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="MXN">MXN — Peso Mexicano</SelectItem>
+                    <SelectItem value="USD">USD — Dólar Americano</SelectItem>
+                    <SelectItem value="EUR">EUR — Euro</SelectItem>
+                    <SelectItem value="CAD">CAD — Dólar Canadiense</SelectItem>
+                    <SelectItem value="GBP">GBP — Libra Esterlina</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
             {/* Includes - Dynamic List */}
             <div>
               <Label>Incluye</Label>
@@ -589,6 +645,7 @@ export default function HotelsPage() {
               <div className="mt-1">
                 <PackageImageUpload
                   images={formData.images}
+                  folder="hotels"
                   onImagesChange={(imgs) =>
                     setFormData({ ...formData, images: imgs.slice(0, 6) })
                   }

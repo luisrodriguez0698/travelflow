@@ -23,6 +23,13 @@ model Tenant {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // ── Landing page & custom domains ──
+  customDomain      String? @unique
+  subdomain         String? @unique
+  landingTemplate   String  @default("default")
+  facebookReviewUrl String?
+  googleReviewUrl   String?
+
   // Relations
   users       User[]
   clients     Client[]
@@ -40,6 +47,7 @@ model Tenant {
   supplierPayments SupplierPayment[]
   hotels           Hotel[]
   salesGoals       SalesGoal[]
+  testimonials     Testimonial[]
 
   @@map("tenants")
 }
@@ -199,10 +207,13 @@ model Hotel {
   checkInNote   String?  @db.Text
   checkOutNote  String?  @db.Text
   idRequirement String?  @db.Text
-  includes      String[]
-  notIncludes   String[]
-  images        String[]
-  createdBy     String?
+  includes        String[]
+  notIncludes     String[]
+  images          String[]
+  webDescription  String?  @db.Text
+  packagePrice    Float?
+  packageCurrency String?  @default("MXN")
+  createdBy       String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -604,6 +615,25 @@ model Notification {
   @@index([bookingId])
   @@index([dueDate])
   @@map("notifications")
+}
+
+// ========== TESTIMONIALS ==========
+
+model Testimonial {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  text      String   @db.Text
+  rating    Int      @default(5)        // 1–5 estrellas
+  source    String   @default("google") // "google" | "facebook"
+  avatarUrl String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("testimonials")
 }
 
 // ========== SALES GOALS ==========

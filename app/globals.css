@@ -1,6 +1,18 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Swiper — layout mínimo (evita el warning de CSS nesting de swiper/swiper.css) */
+.swiper         { overflow: hidden; }
+.swiper-wrapper { display: flex; align-items: stretch; box-sizing: content-box; }
+.swiper-slide   { flex-shrink: 0; height: auto; position: relative; }
+
+/* Marquee infinito */
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+.marquee-track { animation: marquee 28s linear infinite; }
  
 @layer base {
   :root {

@@ -8,10 +8,13 @@ const ALLOWED_CONTENT_TYPES = new Set([
   'video/mp4', 'video/quicktime', 'video/webm',
 ]);
 
+// Carpetas válidas por contexto — evita path traversal
+const VALID_FOLDERS = new Set(['hotels', 'packages', 'logos', 'uploads', 'general']);
+
 export async function POST(request: NextRequest) {
   try {
-    await requireTenantId();
-    const { fileName, contentType, isPublic } = await request.json();
+    const tenantId = await requireTenantId();
+    const { fileName, contentType, folder } = await request.json();
 
     if (!fileName || !contentType) {
       return NextResponse.json(
@@ -27,13 +30,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { uploadUrl, cloud_storage_path } = await generatePresignedUploadUrl(
+    const safeFolder = VALID_FOLDERS.has(folder) ? folder : 'uploads';
+    const timestamp = Date.now();
+    // Sanitizar nombre: solo letras, números, guiones, puntos
+    const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const cloudPath = `tenants/${tenantId}/${safeFolder}/${timestamp}-${safeName}`;
+
+    const { uploadUrl, cloud_storage_path, publicUrl } = await generatePresignedUploadUrl(
       fileName,
       contentType,
-      isPublic ?? true
+      cloudPath
     );
 
-    return NextResponse.json({ uploadUrl, cloud_storage_path });
+    return NextResponse.json({ uploadUrl, cloud_storage_path, publicUrl });
   } catch (error) {
     console.error('Error generating presigned URL:', error);
     return NextResponse.json(

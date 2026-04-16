@@ -64,6 +64,9 @@ export async function PUT(
         ...(body.includes !== undefined && { includes: body.includes }),
         ...(body.notIncludes !== undefined && { notIncludes: body.notIncludes }),
         ...(body.images !== undefined && { images: body.images }),
+        ...(body.webDescription !== undefined && { webDescription: body.webDescription?.trim() || null }),
+        ...(body.packagePrice !== undefined && { packagePrice: body.packagePrice != null ? Number(body.packagePrice) : null }),
+        ...(body.packageCurrency !== undefined && { packageCurrency: body.packageCurrency || 'MXN' }),
       },
       include: { destination: { select: { id: true, name: true } } },
     });

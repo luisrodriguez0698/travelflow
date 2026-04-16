@@ -1,12 +1,17 @@
 import { S3Client } from "@aws-sdk/client-s3";
 
-// Variable names match Railway's "AWS SDK (Generic)" preset:
-// AWS_S3_BUCKET_NAME, AWS_ENDPOINT_URL, AWS_ACCESS_KEY_ID,
-// AWS_SECRET_ACCESS_KEY, AWS_DEFAULT_REGION
+// Cloudflare R2 — S3-compatible storage
+// Env vars required:
+//   AWS_ENDPOINT_URL     → https://{ACCOUNT_ID}.r2.cloudflarestorage.com
+//   AWS_S3_BUCKET_NAME   → nombre del bucket (ej: travelflow-files)
+//   AWS_ACCESS_KEY_ID    → R2 API Token Access Key ID
+//   AWS_SECRET_ACCESS_KEY→ R2 API Token Secret Access Key
+//   AWS_DEFAULT_REGION   → auto
+//   R2_PUBLIC_URL        → URL pública del bucket (ej: https://pub-xxx.r2.dev)
+
 export function getBucketConfig() {
   return {
     bucketName: process.env.AWS_S3_BUCKET_NAME ?? "",
-    folderPrefix: process.env.BUCKET_FOLDER_PREFIX ?? ""
   };
 }
 
@@ -17,17 +22,14 @@ export function createS3Client() {
   const region = process.env.AWS_DEFAULT_REGION ?? "auto";
 
   if (!endpoint || !accessKeyId || !secretAccessKey) {
-    console.warn("Railway Bucket credentials not configured. File uploads will fail.");
+    console.warn("R2 credentials not configured. File uploads will fail.");
     return new S3Client({ region });
   }
 
   return new S3Client({
     endpoint,
     region,
-    credentials: {
-      accessKeyId,
-      secretAccessKey,
-    },
-    forcePathStyle: true,
+    credentials: { accessKeyId, secretAccessKey },
+    forcePathStyle: true, // requerido para R2
   });
 }

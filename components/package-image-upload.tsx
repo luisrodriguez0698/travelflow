@@ -75,9 +75,11 @@ function compressImage(file: File): Promise<{ blob: Blob; contentType: string }>
 interface PackageImageUploadProps {
   images: string[];
   onImagesChange: (images: string[]) => void;
+  /** Carpeta dentro del tenant: 'hotels' | 'packages' | 'logos' | 'uploads' */
+  folder?: string;
 }
 
-export function PackageImageUpload({ images, onImagesChange }: PackageImageUploadProps) {
+export function PackageImageUpload({ images, onImagesChange, folder = 'uploads' }: PackageImageUploadProps) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
 
@@ -125,7 +127,7 @@ export function PackageImageUpload({ images, onImagesChange }: PackageImageUploa
           body: JSON.stringify({
             fileName: compressedFile.name,
             contentType: compressedFile.type,
-            isPublic: true,
+            folder,
           }),
         });
 
@@ -133,7 +135,7 @@ export function PackageImageUpload({ images, onImagesChange }: PackageImageUploa
           throw new Error('Error getting upload URL');
         }
 
-        const { uploadUrl, cloud_storage_path } = await response.json();
+        const { uploadUrl, publicUrl } = await response.json();
 
         // Check if content-disposition is in signed headers
         const url = new URL(uploadUrl);
@@ -154,7 +156,8 @@ export function PackageImageUpload({ images, onImagesChange }: PackageImageUploa
           throw new Error('Error uploading file');
         }
 
-        uploadedPaths.push(cloud_storage_path);
+        // Guardamos la URL pública directa (no el path de S3)
+        uploadedPaths.push(publicUrl);
       }
 
       onImagesChange([...images, ...uploadedPaths]);
@@ -240,8 +243,10 @@ function ImageDisplay({ cloudPath, alt }: { cloudPath: string; alt: string }) {
 
   useEffect(() => {
     if (cloudPath) {
-      // Use the API route to get a presigned URL (getFileUrl is server-only)
-      setImageUrl(`/api/files/${cloudPath}`);
+      // URL completa (R2 público) → usar directo
+      // Path de S3 (datos previos) → proxy a través de /api/files/
+      const isFullUrl = cloudPath.startsWith('http://') || cloudPath.startsWith('https://');
+      setImageUrl(isFullUrl ? cloudPath : `/api/files/${cloudPath}`);
       setLoading(false);
     }
   }, [cloudPath]);
