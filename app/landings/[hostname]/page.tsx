@@ -56,6 +56,13 @@ async function getTenant(hostname: string) {
   });
 }
 
+function toAbsoluteUrl(path: string | null): string | undefined {
+  if (!path) return undefined;
+  if (path.startsWith('http://') || path.startsWith('https://')) return path;
+  const appHost = process.env.NEXT_PUBLIC_APP_HOSTNAME ?? 'localhost:3000';
+  return `https://${appHost}/api/files/${path}`;
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { hostname } = await params;
   const tenant = await getTenant(hostname);
@@ -63,6 +70,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title: tenant.name,
     description: `Bienvenido a ${tenant.name}`,
+    icons: {
+      icon: toAbsoluteUrl(tenant.logo),
+      apple: toAbsoluteUrl(tenant.logo),
+    },
   };
 }
 

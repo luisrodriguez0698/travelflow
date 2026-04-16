@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -86,6 +86,9 @@ export default function HotelsPage() {
   const [saving, setSaving] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
+  // Imágenes originales al abrir el modal (para detectar huérfanas al cancelar)
+  const originalImagesRef = useRef<string[]>([]);
+
   // Dynamic list temp inputs
   const [newInclude, setNewInclude] = useState('');
   const [newNotInclude, setNewNotInclude] = useState('');
@@ -127,6 +130,7 @@ export default function HotelsPage() {
   const openCreate = () => {
     setEditing(null);
     setFormData({ ...defaultForm });
+    originalImagesRef.current = [];
     setNewInclude('');
     setNewNotInclude('');
     setIsModalOpen(true);
@@ -134,6 +138,7 @@ export default function HotelsPage() {
 
   const openEdit = (hotel: Hotel) => {
     setEditing(hotel);
+    originalImagesRef.current = [...hotel.images];
     setFormData({
       name: hotel.name,
       destinationId: hotel.destinationId,
@@ -156,6 +161,31 @@ export default function HotelsPage() {
     setNewInclude('');
     setNewNotInclude('');
     setIsModalOpen(true);
+  };
+
+  /** Cierra el modal limpiando imágenes huérfanas de Cloudflare */
+  const handleCloseModal = async (currentImages: string[]) => {
+    const orphaned = currentImages.filter(
+      (img) => !originalImagesRef.current.includes(img)
+    );
+
+    setIsModalOpen(false);
+    setFormData({ ...defaultForm });
+
+    if (orphaned.length === 0) return;
+
+    // Eliminar huérfanas en background sin bloquear el UI
+    toast.info(`Limpiando ${orphaned.length} imagen(es) no guardada(s)...`);
+    await Promise.allSettled(
+      orphaned.map((url) =>
+        fetch('/api/upload/delete', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url }),
+        })
+      )
+    );
+    toast.success('Imágenes eliminadas de Cloudflare');
   };
 
   const addInclude = () => {
@@ -389,7 +419,7 @@ export default function HotelsPage() {
       </Card>
 
       {/* Create/Edit Modal */}
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+      <Dialog open={isModalOpen} onOpenChange={(open) => { if (!open) handleCloseModal(formData.images); }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editing ? 'Editar Hotel' : 'Nuevo Hotel'}</DialogTitle>
@@ -658,7 +688,7 @@ export default function HotelsPage() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsModalOpen(false)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => handleCloseModal(formData.images)}>Cancelar</Button>
             <Button onClick={handleSave} disabled={saving}>
               {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               {editing ? 'Guardar Cambios' : 'Crear Hotel'}

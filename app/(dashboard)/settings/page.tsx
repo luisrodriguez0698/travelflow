@@ -7,12 +7,22 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import {
   Building2,
   Save,
   Loader2,
   Upload,
   X,
   Image as ImageIcon,
+  Trash2,
+  AlertTriangle,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
@@ -153,7 +163,7 @@ export default function SettingsPage() {
 
       if (!presignedRes.ok) throw new Error('Error getting upload URL');
 
-      const { uploadUrl, cloud_storage_path } = await presignedRes.json();
+      const { uploadUrl, publicUrl } = await presignedRes.json();
 
       // Check if content-disposition is in signed headers
       const urlParams = new URLSearchParams(uploadUrl.split('?')[1]);
@@ -176,8 +186,8 @@ export default function SettingsPage() {
 
       if (!uploadRes.ok) throw new Error('Error uploading file');
 
-      // Update form with cloud storage path
-      setFormData((prev) => ({ ...prev, logo: cloud_storage_path }));
+      // Guardar URL pública completa (igual que imágenes de hoteles)
+      setFormData((prev) => ({ ...prev, logo: publicUrl }));
 
       toast({
         title: 'Éxito',
@@ -198,8 +208,45 @@ export default function SettingsPage() {
     }
   };
 
-  const removeLogo = () => {
-    setFormData((prev) => ({ ...prev, logo: '' }));
+  const [removingLogo, setRemovingLogo]     = useState(false);
+  const [showRemoveDialog, setShowRemoveDialog] = useState(false);
+
+  const confirmRemoveLogo = async () => {
+    setRemovingLogo(true);
+    try {
+      const path = formData.logo;
+
+      // Borrar de Cloudflare R2 (acepta URL completa o path relativo)
+      if (path) {
+        const deleteRes = await fetch('/api/upload/delete', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: path }),
+        });
+        if (!deleteRes.ok) {
+          const err = await deleteRes.json().catch(() => ({}));
+          throw new Error(err.error ?? `HTTP ${deleteRes.status}`);
+        }
+      }
+
+      // Actualizar DB
+      const newForm = { ...formData, logo: '' };
+      const saveRes = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newForm),
+      });
+      if (!saveRes.ok) throw new Error('Error al guardar en base de datos');
+
+      setFormData(newForm);
+      toast({ title: 'Logo eliminado correctamente' });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error desconocido';
+      toast({ title: 'Error al eliminar', description: msg, variant: 'destructive' });
+    } finally {
+      setRemovingLogo(false);
+      setShowRemoveDialog(false);
+    }
   };
 
   if (loading) {
@@ -237,7 +284,11 @@ export default function SettingsPage() {
                 {formData.logo ? (
                   <div className="relative w-full h-full">
                     <Image
-                      src={`/api/files/${encodeURIComponent(formData.logo)}`}
+                      src={
+                        formData.logo.startsWith('http')
+                          ? formData.logo
+                          : `/api/files/${formData.logo}`
+                      }
                       alt="Logo"
                       fill
                       className="object-contain"
@@ -260,34 +311,37 @@ export default function SettingsPage() {
                   onChange={handleFileChange}
                   className="hidden"
                 />
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading}
-                >
-                  {uploading ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  ) : (
-                    <Upload className="w-4 h-4 mr-2" />
-                  )}
-                  Subir Logo
-                </Button>
+                {!formData.logo && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                  >
+                    {uploading ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Upload className="w-4 h-4 mr-2" />
+                    )}
+                    Subir Logo
+                  </Button>
+                )}
                 {formData.logo && (
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
-                    onClick={removeLogo}
-                    className="text-red-600 hover:text-red-700"
+                    onClick={() => setShowRemoveDialog(true)}
+                    disabled={removingLogo}
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
                   >
-                    <X className="w-4 h-4 mr-1" />
-                    Quitar
+                    <Trash2 className="w-4 h-4 mr-1" />
+                    Quitar logo
                   </Button>
                 )}
-                <p className="text-xs text-gray-500">
-                  PNG, JPG o SVG. Máximo 2MB.
-                </p>
+                {!formData.logo && (
+                  <p className="text-xs text-gray-500">PNG, JPG o SVG. Máximo 2MB.</p>
+                )}
               </div>
             </div>
           </div>
@@ -387,6 +441,65 @@ export default function SettingsPage() {
           </div>
         </div>
       </Card>
+
+      {/* ── Dialog confirmación eliminar logo ─────────────────────────── */}
+      <Dialog open={showRemoveDialog} onOpenChange={setShowRemoveDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <div className="flex items-center gap-3 mb-1">
+              <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-950/40 flex items-center justify-center flex-shrink-0">
+                <AlertTriangle className="w-5 h-5 text-red-600" />
+              </div>
+              <DialogTitle className="text-lg">Eliminar logo</DialogTitle>
+            </div>
+            <DialogDescription className="text-sm leading-relaxed">
+              Esta acción eliminará el logo de forma permanente desde Cloudflare.
+              <br />
+              <span className="font-medium text-foreground">No se puede deshacer.</span>
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Preview del logo actual */}
+          {formData.logo && (
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 border">
+              <div className="relative w-14 h-14 rounded-md overflow-hidden bg-white flex-shrink-0">
+                <Image
+                  src={formData.logo.startsWith('http') ? formData.logo : `/api/files/${formData.logo}`}
+                  alt="Logo actual"
+                  fill
+                  className="object-contain p-1"
+                />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-0.5">Logo actual</p>
+                <p className="text-sm truncate">{formData.logo.split('/').pop()}</p>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setShowRemoveDialog(false)}
+              disabled={removingLogo}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmRemoveLogo}
+              disabled={removingLogo}
+            >
+              {removingLogo ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Trash2 className="w-4 h-4 mr-2" />
+              )}
+              Eliminar logo
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

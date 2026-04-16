@@ -2,7 +2,15 @@
 
 import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
-import { Upload, X, Loader2, ImageIcon } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from './ui/dialog';
+import { Upload, X, Loader2, ImageIcon, Trash2, AlertTriangle } from 'lucide-react';
 
 const ACCEPTED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
 const ACCEPTED_EXTENSIONS = '.jpg, .jpeg, .png, .webp, .gif';
@@ -13,7 +21,6 @@ const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
 function compressImage(file: File): Promise<{ blob: Blob; contentType: string }> {
   return new Promise((resolve, reject) => {
-    // GIF: skip compression (canvas breaks animation)
     if (file.type === 'image/gif') {
       resolve({ blob: file, contentType: file.type });
       return;
@@ -27,7 +34,6 @@ function compressImage(file: File): Promise<{ blob: Blob; contentType: string }>
 
       let { width, height } = img;
 
-      // Scale down if exceeds max dimension
       if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
         const ratio = Math.min(MAX_DIMENSION / width, MAX_DIMENSION / height);
         width = Math.round(width * ratio);
@@ -46,7 +52,6 @@ function compressImage(file: File): Promise<{ blob: Blob; contentType: string }>
 
       ctx.drawImage(img, 0, 0, width, height);
 
-      // PNG with transparency stays as PNG; otherwise convert to JPEG
       const outputType = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
       const quality = outputType === 'image/jpeg' ? COMPRESS_QUALITY : undefined;
 
@@ -80,14 +85,15 @@ interface PackageImageUploadProps {
 }
 
 export function PackageImageUpload({ images, onImagesChange, folder = 'uploads' }: PackageImageUploadProps) {
-  const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState('');
+  const [uploading, setUploading]           = useState(false);
+  const [error, setError]                   = useState('');
+  const [confirmIndex, setConfirmIndex]     = useState<number | null>(null);
+  const [removingImage, setRemovingImage]   = useState(false);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    // Validate file types before doing anything
     const invalidFiles = Array.from(files).filter((f) => !ACCEPTED_TYPES.includes(f.type));
     if (invalidFiles.length > 0) {
       setError(`Tipo de archivo no permitido: ${invalidFiles.map((f) => f.name).join(', ')}. Solo se aceptan: ${ACCEPTED_EXTENSIONS}`);
@@ -95,7 +101,6 @@ export function PackageImageUpload({ images, onImagesChange, folder = 'uploads' 
       return;
     }
 
-    // Validate file size (max 5 MB per image)
     const oversizedFiles = Array.from(files).filter((f) => f.size > MAX_FILE_SIZE_BYTES);
     if (oversizedFiles.length > 0) {
       setError(`Las siguientes imágenes superan el límite de ${MAX_FILE_SIZE_MB} MB: ${oversizedFiles.map((f) => f.name).join(', ')}`);
@@ -112,15 +117,12 @@ export function PackageImageUpload({ images, onImagesChange, folder = 'uploads' 
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
 
-        // Compress image on the client before uploading
         const { blob: compressedBlob, contentType } = await compressImage(file);
 
-        // Build a File from the compressed blob to keep the original name
         const ext = contentType === 'image/jpeg' ? 'jpg' : contentType === 'image/png' ? 'png' : file.name.split('.').pop() ?? 'jpg';
         const baseName = file.name.replace(/\.[^.]+$/, '');
         const compressedFile = new File([compressedBlob], `${baseName}.${ext}`, { type: contentType });
 
-        // Get presigned URL
         const response = await fetch('/api/upload/presigned', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -131,18 +133,14 @@ export function PackageImageUpload({ images, onImagesChange, folder = 'uploads' 
           }),
         });
 
-        if (!response.ok) {
-          throw new Error('Error getting upload URL');
-        }
+        if (!response.ok) throw new Error('Error getting upload URL');
 
         const { uploadUrl, publicUrl } = await response.json();
 
-        // Check if content-disposition is in signed headers
         const url = new URL(uploadUrl);
         const signedHeaders = url.searchParams.get('X-Amz-SignedHeaders');
         const hasContentDisposition = signedHeaders?.includes('content-disposition');
 
-        // Upload compressed file to S3
         const uploadResponse = await fetch(uploadUrl, {
           method: 'PUT',
           body: compressedFile,
@@ -152,11 +150,8 @@ export function PackageImageUpload({ images, onImagesChange, folder = 'uploads' 
           },
         });
 
-        if (!uploadResponse.ok) {
-          throw new Error('Error uploading file');
-        }
+        if (!uploadResponse.ok) throw new Error('Error uploading file');
 
-        // Guardamos la URL pública directa (no el path de S3)
         uploadedPaths.push(publicUrl);
       }
 
@@ -169,11 +164,35 @@ export function PackageImageUpload({ images, onImagesChange, folder = 'uploads' 
     }
   };
 
-  const removeImage = (index: number) => {
-    const newImages = [...images];
-    newImages.splice(index, 1);
-    onImagesChange(newImages);
+  const confirmRemoveImage = async () => {
+    if (confirmIndex === null) return;
+    const imageUrl = images[confirmIndex];
+    setRemovingImage(true);
+
+    try {
+      const res = await fetch('/api/upload/delete', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: imageUrl }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? `HTTP ${res.status}`);
+      }
+
+      const newImages = [...images];
+      newImages.splice(confirmIndex, 1);
+      onImagesChange(newImages);
+    } catch (err: any) {
+      setError(err?.message || 'No se pudo eliminar la imagen');
+    } finally {
+      setRemovingImage(false);
+      setConfirmIndex(null);
+    }
   };
+
+  const imageToConfirm = confirmIndex !== null ? images[confirmIndex] : null;
 
   return (
     <div className="space-y-3">
@@ -223,7 +242,7 @@ export function PackageImageUpload({ images, onImagesChange, folder = 'uploads' 
               <ImageDisplay cloudPath={imagePath} alt={`Package image ${index + 1}`} />
               <button
                 type="button"
-                onClick={() => removeImage(index)}
+                onClick={() => setConfirmIndex(index)}
                 className="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
               >
                 <X className="w-4 h-4" />
@@ -232,6 +251,58 @@ export function PackageImageUpload({ images, onImagesChange, folder = 'uploads' 
           ))}
         </div>
       )}
+
+      {/* Dialog confirmación eliminar imagen */}
+      <Dialog open={confirmIndex !== null} onOpenChange={(open) => { if (!open && !removingImage) setConfirmIndex(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <div className="flex items-center gap-3 mb-1">
+              <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-950/40 flex items-center justify-center flex-shrink-0">
+                <AlertTriangle className="w-5 h-5 text-red-600" />
+              </div>
+              <DialogTitle className="text-lg">Eliminar imagen</DialogTitle>
+            </div>
+            <DialogDescription className="text-sm leading-relaxed">
+              Esta acción eliminará la imagen de forma permanente desde Cloudflare.
+              <br />
+              <span className="font-medium text-foreground">No se puede deshacer.</span>
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Preview de la imagen a eliminar */}
+          {imageToConfirm && (
+            <div className="rounded-lg overflow-hidden aspect-video bg-gray-100 dark:bg-gray-800 w-full">
+              <img
+                src={imageToConfirm}
+                alt="Imagen a eliminar"
+                className="w-full h-full object-cover"
+              />
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setConfirmIndex(null)}
+              disabled={removingImage}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmRemoveImage}
+              disabled={removingImage}
+            >
+              {removingImage ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Trash2 className="w-4 h-4 mr-2" />
+              )}
+              Eliminar imagen
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -243,8 +314,6 @@ function ImageDisplay({ cloudPath, alt }: { cloudPath: string; alt: string }) {
 
   useEffect(() => {
     if (cloudPath) {
-      // URL completa (R2 público) → usar directo
-      // Path de S3 (datos previos) → proxy a través de /api/files/
       const isFullUrl = cloudPath.startsWith('http://') || cloudPath.startsWith('https://');
       setImageUrl(isFullUrl ? cloudPath : `/api/files/${cloudPath}`);
       setLoading(false);
