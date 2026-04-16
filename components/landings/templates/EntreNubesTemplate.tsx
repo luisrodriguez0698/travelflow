@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import { ScrollToPlugin } from 'gsap/ScrollToPlugin';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Autoplay, Navigation } from 'swiper/modules';
 import type { TenantLandingData, LandingHotel, LandingTestimonial } from '../LandingRenderer';
@@ -61,7 +62,45 @@ const ASSETS = {
   logo: 'https://gsxw2i31kz.ufs.sh/f/ad7xoTb5AU8sF1v08mDjHKQGs82Ok0694EcuvzTiLYUCPMqy'
 };
 
-const NAV_LINKS = ['INICIO', 'DESTINOS', 'NOSOTROS', 'OPINIONES', 'VIDEOBLOG', 'CONTACTO'];
+const NAV_LINKS: { label: string; id: string }[] = [
+  { label: 'INICIO',    id: 'inicio'    },
+  { label: 'DESTINOS',  id: 'destinos'  },
+  { label: 'NOSOTROS',  id: 'nosotros'  },
+  { label: 'OPINIONES', id: 'opiniones' },
+  { label: 'VIDEOBLOG', id: 'videoblog' },
+  { label: 'CONTACTO',  id: 'contacto'  },
+];
+
+// ── Calendar helpers ─────────────────────────────────────────────────────────
+const MONTHS_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const DAYS_ES   = ['Do','Lu','Ma','Mi','Ju','Vi','Sá'];
+
+/** Devuelve array de strings YYYY-MM-DD (o null para celdas vacías) para un mes */
+function getCalDays(year: number, month: number): (string | null)[] {
+  const firstDay = new Date(year, month, 1).getDay();
+  const total    = new Date(year, month + 1, 0).getDate();
+  const days: (string | null)[] = Array(firstDay).fill(null);
+  for (let d = 1; d <= total; d++) {
+    days.push(`${year}-${String(month + 1).padStart(2,'0')}-${String(d).padStart(2,'0')}`);
+  }
+  return days;
+}
+
+const fmtDisp = (iso: string) => {
+  if (!iso) return '';
+  const [y, m, d] = iso.split('-');
+  return `${d}/${m}/${y}`;
+};
+
+// ── ScrollTrigger thresholds (ajusta aquí para cambiar cuando disparan las animaciones) ──
+const ST = {
+  servicios:  'top 65%',  // Sección servicios
+  destinos:   'top 65%',  // Título destinos
+  nosotros:   'top 65%',  // Nosotros imagen + líneas de texto
+  redes:      'top 65%',  // Redes: título + cards
+  visitanos:  'top 65%',  // Visítanos: título
+  visitanosD: 'top 65%',  // Visítanos: filas de info + mapa
+};
 
 const SERVICE_ITEMS = [
   { key: 'viajesNacionales',      label: 'VIAJES\nNACIONALES'      },
@@ -110,7 +149,7 @@ function cardScale(dist: number)   { return dist === 0 ? 1.1 : dist === 1 ? 0.88
 function cardOpacity(dist: number) { return dist === 0 ? 1   : dist === 1 ? 0.75 : 0.35; }
 
 // ── HotelCard — flip 3D ───────────────────────────────────────────────────────
-function HotelCard({ hotel, waPhone }: { hotel: LandingHotel; waPhone: string }) {
+function HotelCard({ hotel, waPhone, isCenter }: { hotel: LandingHotel; waPhone: string; isCenter: boolean }) {
   const innerRef   = useRef<HTMLDivElement>(null);
   const imgWrapRef = useRef<HTMLDivElement>(null);
   const dragStartX = useRef(0);
@@ -131,6 +170,12 @@ function HotelCard({ hotel, waPhone }: { hotel: LandingHotel; waPhone: string })
     gsap.to(innerRef.current, { rotateY: deg, duration: 0.55, ease: 'power2.inOut', transformPerspective: 1000 });
 
   const isTouch = () => window.matchMedia('(hover: none)').matches;
+
+  // Cuando la card deja de ser la central → resetea el flip
+  useEffect(() => {
+    if (!isCenter) flipTo(0);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCenter]);
 
   const slideImage = (newIdx: number, dir: 1 | -1) => {
     const wrap = imgWrapRef.current;
@@ -167,7 +212,7 @@ function HotelCard({ hotel, waPhone }: { hotel: LandingHotel; waPhone: string })
     <div
       className="flex-shrink-0"
       style={{ width: CARD_W, height: CARD_H, perspective: '1000px' }}
-      onMouseLeave={() => { if (!isTouch()) flipTo(0); }}
+      onMouseLeave={() => { if (isCenter && !isTouch()) flipTo(0); }}
     >
       <div ref={innerRef} style={{ width: '100%', height: '100%', transformStyle: 'preserve-3d', position: 'relative' }}>
 
@@ -189,8 +234,8 @@ function HotelCard({ hotel, waPhone }: { hotel: LandingHotel; waPhone: string })
             </div>
             {images.length > 1 && (
               <>
-                <button onClick={prevImg} className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/65 text-white w-7 h-7 rounded-full flex items-center justify-center text-lg leading-none transition z-10">‹</button>
-                <button onClick={nextImg} className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/65 text-white w-7 h-7 rounded-full flex items-center justify-center text-lg leading-none transition z-10">›</button>
+                {/* <button onClick={prevImg} className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/65 text-white w-7 h-7 rounded-full flex items-center justify-center text-lg leading-none transition z-10">‹</button>
+                <button onClick={nextImg} className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/65 text-white w-7 h-7 rounded-full flex items-center justify-center text-lg leading-none transition z-10">›w</button> */}
                 <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
                   {images.map((_, i) => (
                     <button key={i} onClick={(e) => { e.stopPropagation(); slideImage(i, i > imgIdx ? 1 : -1); }}
@@ -201,12 +246,12 @@ function HotelCard({ hotel, waPhone }: { hotel: LandingHotel; waPhone: string })
             )}
           </div>
 
-          {/* Contenido — onMouseEnter dispara flip */}
+          {/* Contenido — onMouseEnter dispara flip (solo card central) */}
           <div
-            className="flex flex-col gap-2 p-4 flex-1 min-h-0 cursor-pointer select-none"
-            onMouseEnter={() => { if (!isTouch()) flipTo(180); }}
+            className={`flex flex-col gap-2 p-4 flex-1 min-h-0 select-none ${isCenter ? 'cursor-pointer' : ''}`}
+            onMouseEnter={() => { if (isCenter && !isTouch()) flipTo(180); }}
             onClick={() => {
-              if (isTouch()) {
+              if (isCenter && isTouch()) {
                 const cur = (gsap.getProperty(innerRef.current, 'rotateY') as number) || 0;
                 flipTo(Math.abs(cur) < 90 ? 180 : 0);
               }
@@ -233,7 +278,10 @@ function HotelCard({ hotel, waPhone }: { hotel: LandingHotel; waPhone: string })
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={toImgSrc(images[imgIdx])} alt={hotel.name} className="absolute inset-0 w-full h-full object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-black/10" />
+          {/* Capa base oscura uniforme en todo el reverso */}
+          <div className="absolute inset-0 bg-black/50" />
+          {/* Gradiente extra en la zona del texto (abajo) */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
           <div className="absolute bottom-0 left-0 right-0 p-5 flex flex-col gap-3">
             <p className="text-white font-black text-base uppercase tracking-widest text-center drop-shadow-lg">{hotel.name}</p>
             {hotel.packagePrice != null && (
@@ -312,11 +360,14 @@ function TestimonialCard({ t }: { t: LandingTestimonial }) {
 
 export function EntreNubesTemplate({ tenant }: { tenant: TenantLandingData }) {
   const heroRef      = useRef<HTMLElement>(null);
-  const marcoWrapRef = useRef<HTMLDivElement>(null);
-  const marcoRef     = useRef<HTMLImageElement>(null);
+  const marcoWrapRef    = useRef<HTMLDivElement>(null);
+  const marcoRef        = useRef<HTMLImageElement>(null);
+  const persianaWrapRef = useRef<HTMLDivElement>(null);
+  const persianaRef     = useRef<HTMLImageElement>(null);
   const airplaneRef  = useRef<HTMLImageElement>(null);
   const cloudsRef    = useRef<HTMLDivElement>(null);
   const textRef      = useRef<HTMLDivElement>(null);
+  const heroCharsRef = useRef<HTMLSpanElement[]>([]);
   const searchRef    = useRef<HTMLDivElement>(null);
   const overlayRef   = useRef<HTMLDivElement>(null);
   const servicesRef  = useRef<HTMLElement>(null);
@@ -336,10 +387,147 @@ export function EntreNubesTemplate({ tenant }: { tenant: TenantLandingData }) {
   const destTrackRef          = useRef<HTMLDivElement>(null);
   const cardSlotRefs          = useRef<(HTMLDivElement | null)[]>([]);
   const [carouselIdx, setCarouselIdx] = useState(0);
+  const [activeNav, setActiveNav]     = useState(0);
+  const [menuOpen, setMenuOpen]       = useState(false);
 
+  // ── Datos del tenant (necesarios antes de callbacks) ────────────────────
   const hotels       = tenant.hotels ?? [];
   const testimonials = tenant.testimonials ?? [];
   const waPhone      = tenant.phone.replace(/\D/g, '');
+
+  // ── Formulario de cotización ─────────────────────────────────────────────
+  const [quoteDestino,  setQuoteDestino]  = useState('');
+  const [quoteFechaIn,  setQuoteFechaIn]  = useState('');
+  const [quoteFechaOut, setQuoteFechaOut] = useState('');
+  const [quoteAdultos,  setQuoteAdultos]  = useState(1);
+  const [quoteNinos,    setQuoteNinos]    = useState(0);
+
+  // ── Dropdowns custom ─────────────────────────────────────────────────────
+  const [destinoOpen,  setDestinoOpen]  = useState(false);
+  const [destinoQuery, setDestinoQuery] = useState('');
+  const [fechasOpen,   setFechasOpen]   = useState(false);
+  const [hoverDate,   setHoverDate]   = useState('');
+  const [calYear,     setCalYear]     = useState(() => new Date().getFullYear());
+  const [calMonth,    setCalMonth]    = useState(() => new Date().getMonth());
+  const destinoDropRef = useRef<HTMLDivElement>(null);
+  const fechasDropRef  = useRef<HTMLDivElement>(null);
+
+  // ── Modal cotización (mobile/tablet) ─────────────────────────────────────
+  const [cotizaModal,      setCotizaModal]      = useState(false);
+  const [mDestinoOpen,     setMDestinoOpen]     = useState(false);
+  const [mDestinoQuery,    setMDestinoQuery]    = useState('');
+  const [mFechasOpen,      setMFechasOpen]      = useState(false);
+  const [mHoverDate,       setMHoverDate]       = useState('');
+  const [mCalYear,         setMCalYear]         = useState(() => new Date().getFullYear());
+  const [mCalMonth,        setMCalMonth]        = useState(() => new Date().getMonth());
+  const mDestinoRef = useRef<HTMLDivElement>(null);
+  const mFechasRef  = useRef<HTMLDivElement>(null);
+
+  // ── Refs para el menú móvil ──────────────────────────────────────────────
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
+  const bar1Ref       = useRef<HTMLSpanElement>(null);
+  const bar2Ref       = useRef<HTMLSpanElement>(null);
+  const bar3Ref       = useRef<HTMLSpanElement>(null);
+  const menuItemsRef  = useRef<HTMLUListElement>(null);
+
+  // ── Click fuera → cerrar dropdowns ──────────────────────────────────────
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (destinoDropRef.current && !destinoDropRef.current.contains(e.target as Node)) {
+        setDestinoOpen(false); setDestinoQuery('');
+      }
+      if (fechasDropRef.current && !fechasDropRef.current.contains(e.target as Node))
+        setFechasOpen(false);
+      if (mDestinoRef.current && !mDestinoRef.current.contains(e.target as Node)) {
+        setMDestinoOpen(false); setMDestinoQuery('');
+      }
+      if (mFechasRef.current && !mFechasRef.current.contains(e.target as Node))
+        setMFechasOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const prevMonth = useCallback(() => {
+    setCalMonth(m => { if (m === 0) { setCalYear(y => y - 1); return 11; } return m - 1; });
+  }, []);
+  const nextMonth = useCallback(() => {
+    setCalMonth(m => { if (m === 11) { setCalYear(y => y + 1); return 0; } return m + 1; });
+  }, []);
+
+  const handleDayClick = useCallback((iso: string) => {
+    const today = new Date(); today.setHours(0,0,0,0);
+    if (new Date(iso + 'T00:00:00') < today) return;
+    if (!quoteFechaIn || (quoteFechaIn && quoteFechaOut)) {
+      setQuoteFechaIn(iso); setQuoteFechaOut('');
+    } else if (iso > quoteFechaIn) {
+      setQuoteFechaOut(iso); setFechasOpen(false);
+    } else {
+      setQuoteFechaOut(quoteFechaIn); setQuoteFechaIn(iso); setFechasOpen(false);
+    }
+  }, [quoteFechaIn, quoteFechaOut]);
+
+  const handleCotizar = useCallback(() => {
+    const fmt = (d: string) => {
+      if (!d) return '';
+      const [y, m, day] = d.split('-');
+      return `${day}/${m}/${y}`;
+    };
+    const lines = ['Hola! Me interesa cotizar un viaje ✈️'];
+    if (quoteDestino)  lines.push(`*Destino:* ${quoteDestino}`);
+    if (quoteFechaIn)  lines.push(`*Llegada:* ${fmt(quoteFechaIn)}`);
+    if (quoteFechaOut) lines.push(`*Salida:*  ${fmt(quoteFechaOut)}`);
+    lines.push(`*Adultos:* ${quoteAdultos}`);
+    lines.push(`*Niños:*   ${quoteNinos}`);
+    const msg = encodeURIComponent(lines.join('\n'));
+    window.open(`https://wa.me/${waPhone}?text=${msg}`, '_blank');
+  }, [quoteDestino, quoteFechaIn, quoteFechaOut, quoteAdultos, quoteNinos, waPhone]);
+
+  const toggleMenu = useCallback(() => {
+    const opening = !menuOpen;
+    setMenuOpen(opening);
+
+    const menu  = mobileMenuRef.current;
+    const items = menuItemsRef.current?.children;
+
+    if (opening) {
+      // Abre: panel baja desde arriba
+      gsap.fromTo(menu, { y: '-100%', opacity: 0 }, { y: '0%', opacity: 1, duration: 0.45, ease: 'power3.out' });
+      // Items aparecen con stagger
+      if (items) {
+        gsap.fromTo(items,
+          { y: -20, opacity: 0 },
+          { y: 0, opacity: 1, duration: 0.35, stagger: 0.07, ease: 'power3.out', delay: 0.15 }
+        );
+      }
+      // Hamburger → X
+      gsap.to(bar1Ref.current, { rotate: 45,  y: 8,  duration: 0.3, ease: 'power2.inOut' });
+      gsap.to(bar2Ref.current, { opacity: 0,  x: 10, duration: 0.2 });
+      gsap.to(bar3Ref.current, { rotate: -45, y: -8, duration: 0.3, ease: 'power2.inOut' });
+    } else {
+      // Cierra: panel sube
+      gsap.to(menu, { y: '-100%', opacity: 0, duration: 0.35, ease: 'power3.in' });
+      // X → Hamburger
+      gsap.to(bar1Ref.current, { rotate: 0, y: 0, duration: 0.3, ease: 'power2.inOut' });
+      gsap.to(bar2Ref.current, { opacity: 1, x: 0, duration: 0.2, delay: 0.1 });
+      gsap.to(bar3Ref.current, { rotate: 0, y: 0, duration: 0.3, ease: 'power2.inOut' });
+    }
+  }, [menuOpen]);
+
+  const scrollToSection = useCallback((id: string, idx: number) => {
+    setActiveNav(idx);
+    if (id === 'inicio') {
+      gsap.to(window, { scrollTo: 0, duration: 1.1, ease: 'power3.inOut' });
+      return;
+    }
+    const el = document.getElementById(id);
+    if (!el) return;
+    gsap.to(window, {
+      scrollTo: { y: el, offsetY: 64 },   // 64px = altura del navbar fijo
+      duration: 1.1,
+      ease: 'power3.inOut',
+    });
+  }, []);
 
   const SLOT = CARD_W + CARD_GAP;
 
@@ -371,12 +559,34 @@ export function EntreNubesTemplate({ tenant }: { tenant: TenantLandingData }) {
   }, [carouselIdx, goToSlide]);
 
   useEffect(() => {
-    gsap.registerPlugin(ScrollTrigger);
+    gsap.registerPlugin(ScrollTrigger, ScrollToPlugin);
 
     let isScrolling = false;
     const hero = heroRef.current!;
 
     const ctx = gsap.context(() => {
+
+      // ── A0. Animación de entrada al cargar ───────────────────────────────
+      // Solo animamos elementos que el scroll-tl NO controla (nav + letras).
+      // El resto (clouds, airplane, marco, search) los deja el scroll-tl intactos.
+      const intro = gsap.timeline({ defaults: { ease: 'power3.out' } });
+
+      // Navbar baja desde arriba
+      intro.fromTo('nav',
+        { y: -70, opacity: 0 },
+        { y: 0, opacity: 1, duration: 0.6 },
+        0
+      );
+
+      // Letras del título: suben con stagger elegante
+      if (heroCharsRef.current.length > 0) {
+        intro.fromTo(
+          heroCharsRef.current,
+          { y: 60, opacity: 0 },
+          { y: 0, opacity: 1, duration: 0.55, stagger: 0.04 },
+          0.25
+        );
+      }
 
       // ── A. Idle: avión flota ─────────────────────────────────────────────
       const planeIdle = gsap.to(airplaneRef.current, {
@@ -419,7 +629,7 @@ export function EntreNubesTemplate({ tenant }: { tenant: TenantLandingData }) {
         scrollTrigger: {
           trigger: heroRef.current,
           start: 'top top',
-          end: '+=50%',
+          end: '+=90%',
           scrub: 1.4,
           pin: true,
           onEnter:     () => { planeIdle.pause(); isScrolling = true;  },
@@ -427,7 +637,16 @@ export function EntreNubesTemplate({ tenant }: { tenant: TenantLandingData }) {
         },
       });
 
+      // ── Persiana sube primero (primera mitad del scroll) ─────────────
+      tl.to(persianaRef.current, {
+        y: '-101%', ease: 'power2.inOut', duration: 0.45,
+      }, 0);
+
+      // ── Marco + persiana wrapper escalan juntos (zoom-through) ──────
       tl.to(marcoRef.current, {
+        scale: 28, ease: 'power2.inOut', duration: 1, transformOrigin: '50% 50%',
+      }, 0);
+      tl.to(persianaWrapRef.current, {
         scale: 28, ease: 'power2.inOut', duration: 1, transformOrigin: '50% 50%',
       }, 0);
 
@@ -464,7 +683,8 @@ export function EntreNubesTemplate({ tenant }: { tenant: TenantLandingData }) {
           ease: 'power3.out',
           scrollTrigger: {
             trigger: servicesRef.current,
-            start: 'top 80%',
+            start: ST.servicios,
+            toggleActions: 'play none none reverse',
           },
         }
       );
@@ -476,7 +696,7 @@ export function EntreNubesTemplate({ tenant }: { tenant: TenantLandingData }) {
           { y: 40, opacity: 0 },
           {
             y: 0, opacity: 1, duration: 0.8, ease: 'power3.out',
-            scrollTrigger: { trigger: destMasRef.current, start: 'top 82%' },
+            scrollTrigger: { trigger: destMasRef.current, start: ST.destinos, toggleActions: 'play none none reverse' },
           }
         );
       }
@@ -488,7 +708,7 @@ export function EntreNubesTemplate({ tenant }: { tenant: TenantLandingData }) {
           { x: -70, opacity: 0 },
           {
             x: 0, opacity: 1, duration: 0.9, ease: 'power3.out',
-            scrollTrigger: { trigger: nosotrosRef.current, start: 'top 78%' },
+            scrollTrigger: { trigger: nosotrosRef.current, start: ST.nosotros, toggleActions: 'play none none reverse' },
           }
         );
         gsap.fromTo(
@@ -496,7 +716,7 @@ export function EntreNubesTemplate({ tenant }: { tenant: TenantLandingData }) {
           { x: 50, opacity: 0 },
           {
             x: 0, opacity: 1, duration: 0.7, ease: 'power3.out', stagger: 0.1,
-            scrollTrigger: { trigger: nosotrosRef.current, start: 'top 78%' },
+            scrollTrigger: { trigger: nosotrosRef.current, start: ST.nosotros, toggleActions: 'play none none reverse' },
           }
         );
       }
@@ -508,7 +728,7 @@ export function EntreNubesTemplate({ tenant }: { tenant: TenantLandingData }) {
           { y: 30, opacity: 0 },
           {
             y: 0, opacity: 1, duration: 0.7, ease: 'power3.out',
-            scrollTrigger: { trigger: redesRef.current, start: 'top 80%' },
+            scrollTrigger: { trigger: redesRef.current, start: ST.redes, toggleActions: 'play none none reverse' },
           }
         );
         gsap.fromTo(
@@ -517,7 +737,7 @@ export function EntreNubesTemplate({ tenant }: { tenant: TenantLandingData }) {
           {
             y: 0, opacity: 1, scale: 1,
             duration: 0.6, ease: 'back.out(1.5)', stagger: 0.15,
-            scrollTrigger: { trigger: redesRef.current, start: 'top 80%' },
+            scrollTrigger: { trigger: redesRef.current, start: ST.redes, toggleActions: 'play none none reverse' },
           }
         );
       }
@@ -528,21 +748,34 @@ export function EntreNubesTemplate({ tenant }: { tenant: TenantLandingData }) {
           visitanosRef.current.querySelector('.visita-title'),
           { y: -30, opacity: 0 },
           { y: 0, opacity: 1, duration: 0.7, ease: 'power3.out',
-            scrollTrigger: { trigger: visitanosRef.current, start: 'top 80%' } }
+            scrollTrigger: { trigger: visitanosRef.current, start: ST.visitanos, toggleActions: 'play none none reverse' } }
         );
         gsap.fromTo(
           visitanosRef.current.querySelectorAll('.visita-row'),
           { x: -50, opacity: 0 },
           { x: 0, opacity: 1, duration: 0.6, ease: 'power3.out', stagger: 0.12,
-            scrollTrigger: { trigger: visitanosRef.current, start: 'top 75%' } }
+            scrollTrigger: { trigger: visitanosRef.current, start: ST.visitanosD, toggleActions: 'play none none reverse' } }
         );
         gsap.fromTo(
           visitanosRef.current.querySelector('.visita-map'),
           { x: 60, opacity: 0 },
           { x: 0, opacity: 1, duration: 0.8, ease: 'power3.out',
-            scrollTrigger: { trigger: visitanosRef.current, start: 'top 75%' } }
+            scrollTrigger: { trigger: visitanosRef.current, start: ST.visitanosD, toggleActions: 'play none none reverse' } }
         );
       }
+
+      // ── J. Nav activo al hacer scroll ───────────────────────────────────
+      NAV_LINKS.forEach(({ id }, i) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        ScrollTrigger.create({
+          trigger: el,
+          start: 'top 55%',
+          end: 'bottom 55%',
+          onEnter:     () => setActiveNav(i),
+          onEnterBack: () => setActiveNav(i),
+        });
+      });
 
     }, heroRef);
 
@@ -569,27 +802,97 @@ export function EntreNubesTemplate({ tenant }: { tenant: TenantLandingData }) {
   return (
     <div className="font-sans bg-white">
 
-      {/* ── Navbar (intacto) ─────────────────────────────────────────────── */}
-      <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-8 py-3 bg-white shadow-sm">
+      {/* ── Navbar ───────────────────────────────────────────────────────── */}
+      <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 md:px-8 py-3 bg-white shadow-lg">
+
+        {/* Logo / nombre */}
         {tenant.logo ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={tenant.logo} alt={tenant.name} className="h-14 object-contain" />
+          <img src={tenant.logo} alt={tenant.name} className="h-12 md:h-14 object-contain" />
         ) : (
           <span className="text-xl font-bold text-blue-700">{tenant.name}</span>
         )}
+
+        {/* Links desktop */}
         <ul className="hidden md:flex gap-8 text-xs font-bold tracking-widest">
-          {NAV_LINKS.map((link, i) => (
-            <li key={link}>
-              <a
-                href={`#${link.toLowerCase()}`}
-                className={`transition-colors hover:text-yellow-500 ${i === 0 ? 'text-yellow-500' : 'text-gray-700'}`}
+          {NAV_LINKS.map(({ label, id }, i) => (
+            <li key={id}>
+              <button
+                type="button"
+                onClick={() => scrollToSection(id, i)}
+                className={`relative transition-colors hover:text-yellow-500 ${
+                  activeNav === i ? 'text-yellow-500' : 'text-gray-700'
+                }`}
               >
-                {link}
-              </a>
+                {label}
+                {activeNav === i && (
+                  <span className="absolute -bottom-1 left-0 right-0 h-0.5 bg-yellow-500 rounded-full" />
+                )}
+              </button>
             </li>
           ))}
         </ul>
+
+        {/* Botón hamburger — solo visible en móvil/tablet */}
+        <button
+          type="button"
+          onClick={toggleMenu}
+          aria-label="Abrir menú"
+          className="md:hidden flex flex-col justify-center items-center w-9 h-9 gap-0 focus:outline-none"
+        >
+          <span ref={bar1Ref} className="block w-6 h-0.5 bg-[#0f1e3d] rounded-full origin-center" style={{ marginBottom: '5px' }} />
+          <span ref={bar2Ref} className="block w-6 h-0.5 bg-[#0f1e3d] rounded-full" />
+          <span ref={bar3Ref} className="block w-6 h-0.5 bg-[#0f1e3d] rounded-full origin-center" style={{ marginTop: '5px' }} />
+        </button>
       </nav>
+
+      {/* ── Panel menú móvil ─────────────────────────────────────────────── */}
+      <div
+        ref={mobileMenuRef}
+        className="fixed top-0 left-0 right-0 z-40 md:hidden bg-[#0f1e3d] pt-20 pb-10 px-8 shadow-2xl"
+        style={{ transform: 'translateY(-100%)', opacity: 0 }}
+      >
+        <ul ref={menuItemsRef} className="flex flex-col gap-1">
+          {NAV_LINKS.map(({ label, id }, i) => (
+            <li key={id}>
+              <button
+                type="button"
+                onClick={() => {
+                  scrollToSection(id, i);
+                  // Cerrar menú tras elegir sección
+                  setTimeout(() => {
+                    setMenuOpen(false);
+                    gsap.to(mobileMenuRef.current, { y: '-100%', opacity: 0, duration: 0.35, ease: 'power3.in' });
+                    gsap.to(bar1Ref.current, { rotate: 0, y: 0, duration: 0.3, ease: 'power2.inOut' });
+                    gsap.to(bar2Ref.current, { opacity: 1, x: 0, duration: 0.2, delay: 0.1 });
+                    gsap.to(bar3Ref.current, { rotate: 0, y: 0, duration: 0.3, ease: 'power2.inOut' });
+                  }, 200);
+                }}
+                className={`w-full text-left py-4 text-lg font-bold tracking-widest border-b border-white/10 transition-colors hover:text-yellow-400 ${
+                  activeNav === i ? 'text-yellow-400' : 'text-white'
+                }`}
+              >
+                {label}
+                {activeNav === i && (
+                  <span className="ml-3 inline-block w-1.5 h-1.5 rounded-full bg-yellow-400 align-middle" />
+                )}
+              </button>
+            </li>
+          ))}
+        </ul>
+
+        {/* Info de contacto rápido en el menú */}
+        {(tenant.phone || tenant.email) && (
+          <div className="mt-8 pt-6 border-t border-white/20 space-y-2">
+            {tenant.phone && (
+              <p className="text-white/60 text-sm">{tenant.phone}</p>
+            )}
+            {tenant.email && (
+              <p className="text-white/60 text-sm">{tenant.email}</p>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* ── HERO ───────────────────────────────────────────────────────────── */}
       <section
@@ -640,87 +943,364 @@ export function EntreNubesTemplate({ tenant }: { tenant: TenantLandingData }) {
           ))}
         </div>
 
-        {/* ── Texto hero ─────────────────────────────────────────────────── */}
-        <div
-          ref={textRef}
-          className="absolute left-10 top-1/2 -translate-y-1/2 text-white select-none"
-          style={{ zIndex: 30 }}
-        >
-          <h1 className="text-[clamp(2.5rem,6vw,5rem)] font-black leading-none uppercase drop-shadow-[0_4px_24px_rgba(0,0,0,0.55)]">
-            TU<br />
-            <span className="text-yellow-400">AVENTURA</span><br />
-            COMIENZA<br />
-            AQUÍ.
-          </h1>
-        </div>
+        {/* ── Elementos GSAP (wrapper original — no modificar) ──────────── */}
+        <div className="h-full">
+          {/* Texto hero */}
+          <div
+            ref={textRef}
+            className="absolute left-10 top-[25%] md:top-1/2 -translate-y-1/2 text-white select-none"
+            style={{ zIndex: 30 }}
+          >
+            <h1 className="text-[clamp(2.5rem,6vw,5rem)] font-black leading-none uppercase drop-shadow-[0_4px_24px_rgba(0,0,0,0.55)]">
+              {/* Cada línea divide caracteres en spans para la animación de entrada */}
+              {(() => {
+                heroCharsRef.current = [];
+                const lines: { text: string; yellow?: boolean }[] = [
+                  { text: 'TU' },
+                  { text: 'AVENTURA', yellow: true },
+                  { text: 'COMIENZA' },
+                  { text: 'AQUÍ.' },
+                ];
+                return lines.map((line, li) => (
+                  <div key={li} className="overflow-hidden leading-[1.05]">
+                    <span className={line.yellow ? 'text-yellow-400' : ''}>
+                      {line.text.split('').map((ch, ci) => (
+                        <span
+                          key={ci}
+                          ref={el => { if (el) heroCharsRef.current.push(el); }}
+                          className="inline-block"
+                          style={{ opacity: 0, transform: 'translateY(60px)' }}
+                        >
+                          {ch === ' ' ? '\u00A0' : ch}
+                        </span>
+                      ))}
+                    </span>
+                  </div>
+                ));
+              })()}
+            </h1>
+          </div>
 
-        {/* ── Marco (ventana de avión) — GSAP lo escala x28 en scroll ─────── */}
-        <div
-          ref={marcoWrapRef}
-          className="absolute pointer-events-none"
-          style={{
-            zIndex: 25,
-            width: '42%',
-            maxWidth: '540px',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-          }}
-        >
+          {/* ── Persiana — clip-path elipse = sólo visible dentro del marco ── */}
+          <div
+            ref={persianaWrapRef}
+            className="absolute pointer-events-none"
+            style={{
+              zIndex: 24,          // debajo del marco (25) pero encima de nubes (20)
+              width: '42%',
+              maxWidth: '540px',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              /*
+               * clip-path: ellipse(rx ry at cx cy)
+               * Ajusta estos valores para que el elipse coincida con la
+               * abertura interior del marco. Los % son relativos al elemento.
+               * 44% horizontal, 46% vertical, centrado ligeramente abajo (53%).
+               */
+              clipPath: 'ellipse(45% 45% at 50% 50%)',
+            }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              ref={persianaRef}
+              src={ASSETS.persiana}
+              alt=""
+              aria-hidden
+              className="w-full h-auto block"
+            />
+          </div>
+
+          {/* Marco (ventana de avión) — GSAP lo escala x28 en scroll */}
+          <div
+            ref={marcoWrapRef}
+            className="absolute pointer-events-none"
+            style={{
+              zIndex: 25,
+              width: '42%',
+              maxWidth: '540px',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+            }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              ref={marcoRef}
+              src={ASSETS.marco}
+              alt="ventana de avión"
+              className="w-full h-auto block"
+              style={{ transformOrigin: '50% 50%' }}
+            />
+          </div>
+
+          {/* Avión */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            ref={marcoRef}
-            src={ASSETS.marco}
-            alt="ventana de avión"
-            className="w-full h-auto block"
-            style={{ transformOrigin: '50% 50%' }}
+            ref={airplaneRef}
+            src={ASSETS.avion}
+            alt="avión"
+            className="absolute pointer-events-none bottom-[30%] md:bottom-[10%]"
+            style={{
+              zIndex: 30,
+              width: '62%',
+              maxWidth: '760px',
+              left: '30%',
+              transform: 'translateX(-10%)',
+              filter: 'drop-shadow(0 12px 40px rgba(0,0,0,0.5))',
+            }}
           />
         </div>
 
-        {/* ── Avión ─────────────────────────────────────────────────────── */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          ref={airplaneRef}
-          src={ASSETS.avion}
-          alt="avión"
-          className="absolute pointer-events-none"
-          style={{
-            zIndex: 30,
-            width: '62%',
-            maxWidth: '760px',
-            bottom: '10%',
-            left: '30%',
-            transform: 'translateX(-10%)',
-            filter: 'drop-shadow(0 12px 40px rgba(0,0,0,0.5))',
-          }}
-        />
+        {/* ── Logo — grid overlay (sibling del wrapper GSAP, no adentro) ──
+             Usar col-start / row-start para reposicionar en responsive.
+             pl-X / pr-X funcionan normal aquí (no absolute). ────────────── */}
+        <div
+          className="absolute inset-0 pointer-events-none grid grid-cols-2 grid-rows-3"
+          style={{ zIndex: 31 }}
+        >
+          {/*
+            Mobile  : col 1 / row 3 → esquina inferior-izquierda
+            Desktop : col 2 / row 3 → esquina inferior-derecha
+          */}
+          <div className="col-span-2 col-start-1 row-start-3 flex items-center justify-center sm:col-span-1 sm:col-start-2 sm:justify-end sm:pr-16">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={ASSETS.logo}
+              alt={tenant.name}
+              className="h-20 sm:h-28 w-auto object-contain"
+              draggable={false}
+            />
+          </div>
+        </div>
 
-        {/* ── Barra de cotización ────────────────────────────────────────── */}
+
+        {/* ── Barra de cotización — solo desktop ─────────────────────── */}
         <div
           ref={searchRef}
-          className="absolute bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-4xl bg-white rounded-2xl shadow-2xl flex flex-wrap items-center gap-0 overflow-hidden"
+          className="hidden md:block absolute bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-4xl bg-white rounded-2xl shadow-2xl overflow-visible"
           style={{ zIndex: 30 }}
         >
-          {[
-            { placeholder: 'DESTINO',  icon: '📍' },
-            { placeholder: 'FECHAS',   icon: '📅' },
-            { placeholder: 'ADULTOS',  icon: '👥' },
-            { placeholder: 'NIÑOS',    icon: '🧒' },
-          ].map(({ placeholder, icon }, i, arr) => (
-            <div
-              key={placeholder}
-              className={`flex items-center gap-2 flex-1 min-w-[100px] px-4 py-3 ${i < arr.length - 1 ? 'border-r border-gray-200' : ''}`}
-            >
-              <span className="text-gray-400 text-sm">{icon}</span>
-              <input
-                placeholder={placeholder}
-                className="w-full text-xs font-semibold uppercase tracking-widest text-gray-600 placeholder-gray-400 outline-none bg-transparent"
-              />
+          <div className="flex flex-wrap items-stretch divide-x divide-gray-100 divide-y sm:divide-y-0">
+
+            {/* ── DESTINO custom dropdown ── */}
+            <div ref={destinoDropRef} className="relative flex items-center gap-2 flex-1 min-w-[130px] px-4 py-3">
+              <span className="text-base flex-shrink-0">📍</span>
+              <button
+                type="button"
+                onClick={() => { setDestinoOpen(o => !o); setFechasOpen(false); }}
+                className="w-full flex items-center justify-between gap-1 outline-none"
+              >
+                <span className={`text-[11px] font-bold uppercase tracking-widest truncate ${quoteDestino ? 'text-[#0f2d5e]' : 'text-gray-400'}`}>
+                  {quoteDestino || 'DESTINO'}
+                </span>
+                <svg className={`w-3 h-3 text-gray-400 flex-shrink-0 transition-transform ${destinoOpen ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd"/></svg>
+              </button>
+
+              {destinoOpen && (() => {
+                const filtered = hotels.filter(h =>
+                  h.name.toLowerCase().includes(destinoQuery.toLowerCase())
+                );
+                return (
+                  <div className="absolute bottom-full left-0 mb-2 w-64 bg-white rounded-xl shadow-2xl border border-gray-100 z-50 overflow-hidden flex flex-col">
+                    {/* Buscador */}
+                    <div className="px-3 pt-3 pb-2">
+                      <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                        <svg className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 105 11a6 6 0 0012 0z"/>
+                        </svg>
+                        <input
+                          autoFocus
+                          type="text"
+                          value={destinoQuery}
+                          onChange={e => setDestinoQuery(e.target.value)}
+                          placeholder="Buscar destino..."
+                          className="flex-1 text-[11px] font-medium text-gray-700 placeholder-gray-400 bg-transparent outline-none"
+                        />
+                        {destinoQuery && (
+                          <button type="button" onClick={() => setDestinoQuery('')}
+                            className="text-gray-400 hover:text-gray-600 transition">
+                            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd"/></svg>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Lista scrolleable */}
+                    <div className="overflow-y-auto max-h-52 pb-1">
+                      {!destinoQuery && (
+                        <>
+                          <button type="button"
+                            onClick={() => { setQuoteDestino(''); setDestinoQuery(''); setDestinoOpen(false); }}
+                            className="w-full text-left px-4 py-2.5 text-[11px] text-gray-400 hover:bg-gray-50 transition">
+                            Todos los destinos
+                          </button>
+                          <div className="h-px bg-gray-100 mx-3 mb-1" />
+                        </>
+                      )}
+
+                      {filtered.length === 0 ? (
+                        <p className="px-4 py-3 text-[11px] text-gray-400 text-center">Sin resultados</p>
+                      ) : (
+                        filtered.map(h => (
+                          <button key={h.id} type="button"
+                            onClick={() => { setQuoteDestino(h.name); setDestinoQuery(''); setDestinoOpen(false); }}
+                            className={`w-full text-left px-4 py-2.5 text-[11px] font-bold uppercase tracking-wide transition flex items-center gap-2
+                              ${quoteDestino === h.name ? 'bg-[#0f2d5e] text-white' : 'text-[#0f2d5e] hover:bg-blue-50'}`}>
+                            {quoteDestino === h.name && <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 flex-shrink-0" />}
+                            {h.name}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
-          ))}
-          <button className="bg-[#0f2d5e] hover:bg-blue-900 transition text-white text-xs font-black tracking-widest px-8 py-5 uppercase">
-            COTIZAR
-          </button>
+
+            {/* ── FECHAS custom calendar ── */}
+            <div ref={fechasDropRef} className="relative flex items-center gap-2 flex-1 min-w-[160px] px-4 py-3">
+              <span className="text-base flex-shrink-0">📅</span>
+              <button
+                type="button"
+                onClick={() => { setFechasOpen(o => !o); setDestinoOpen(false); }}
+                className="w-full flex items-center justify-between gap-1 outline-none"
+              >
+                <span className={`text-[11px] font-bold tracking-widest ${quoteFechaIn ? 'text-[#0f2d5e]' : 'text-gray-400 uppercase'}`}>
+                  {quoteFechaIn
+                    ? `${fmtDisp(quoteFechaIn)}${quoteFechaOut ? ` → ${fmtDisp(quoteFechaOut)}` : ' → ...'}`
+                    : 'FECHAS'}
+                </span>
+                <svg className={`w-3 h-3 text-gray-400 flex-shrink-0 transition-transform ${fechasOpen ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd"/></svg>
+              </button>
+
+              {fechasOpen && (() => {
+                const todayIso = new Date().toISOString().split('T')[0];
+                const days = getCalDays(calYear, calMonth);
+                const rangeEnd = quoteFechaOut || (quoteFechaIn ? hoverDate : '');
+                const [rangeA, rangeB] = quoteFechaIn && rangeEnd
+                  ? [quoteFechaIn < rangeEnd ? quoteFechaIn : rangeEnd, quoteFechaIn < rangeEnd ? rangeEnd : quoteFechaIn]
+                  : ['',''];
+
+                return (
+                  <div className="absolute bottom-full left-0 sm:left-1/2 sm:-translate-x-1/2 mb-2 bg-white rounded-2xl shadow-2xl border border-gray-100 p-4 z-50 w-[calc(100vw-3rem)] max-w-xs sm:w-72">
+                    {/* Header mes */}
+                    <div className="flex items-center justify-between mb-3">
+                      <button type="button" onClick={prevMonth}
+                        className="w-7 h-7 rounded-lg hover:bg-gray-100 flex items-center justify-center transition text-gray-500">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7"/></svg>
+                      </button>
+                      <span className="text-sm font-black text-[#0f2d5e] uppercase tracking-wide">
+                        {MONTHS_ES[calMonth]} {calYear}
+                      </span>
+                      <button type="button" onClick={nextMonth}
+                        className="w-7 h-7 rounded-lg hover:bg-gray-100 flex items-center justify-center transition text-gray-500">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"/></svg>
+                      </button>
+                    </div>
+
+                    {/* Días de la semana */}
+                    <div className="grid grid-cols-7 mb-1">
+                      {DAYS_ES.map(d => (
+                        <div key={d} className="text-center text-[10px] font-bold text-gray-400 py-1">{d}</div>
+                      ))}
+                    </div>
+
+                    {/* Celdas */}
+                    <div className="grid grid-cols-7">
+                      {days.map((iso, idx) => {
+                        if (!iso) return <div key={`e${idx}`} />;
+                        const isPast   = iso < todayIso;
+                        const isStart  = iso === quoteFechaIn;
+                        const isEnd    = iso === quoteFechaOut;
+                        const inRange  = rangeA && rangeB && iso > rangeA && iso < rangeB;
+                        const isToday  = iso === todayIso;
+                        return (
+                          <button
+                            key={iso}
+                            type="button"
+                            disabled={isPast}
+                            onClick={() => handleDayClick(iso)}
+                            onMouseEnter={() => setHoverDate(iso)}
+                            onMouseLeave={() => setHoverDate('')}
+                            className={[
+                              'h-8 w-full text-xs font-semibold flex items-center justify-center transition',
+                              isPast ? 'text-gray-300 cursor-not-allowed' : 'cursor-pointer',
+                              isStart || isEnd
+                                ? 'bg-[#0f2d5e] text-white rounded-full z-10 relative'
+                                : inRange
+                                  ? 'bg-blue-100 text-blue-800 rounded-none'
+                                  : !isPast ? 'hover:bg-blue-50 rounded-full text-gray-700' : '',
+                              isToday && !isStart && !isEnd ? 'font-black text-yellow-500' : '',
+                            ].join(' ')}
+                          >
+                            {Number(iso.split('-')[2])}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Footer acciones */}
+                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
+                      <button type="button"
+                        onClick={() => { setQuoteFechaIn(''); setQuoteFechaOut(''); }}
+                        className="text-[11px] text-gray-400 hover:text-gray-600 transition font-medium">
+                        Borrar fechas
+                      </button>
+                      {quoteFechaIn && !quoteFechaOut && (
+                        <span className="text-[11px] text-blue-500 font-medium">Elige fecha de salida</span>
+                      )}
+                      {quoteFechaIn && quoteFechaOut && (
+                        <button type="button" onClick={() => setFechasOpen(false)}
+                          className="text-[11px] font-black text-[#0f2d5e] hover:text-blue-700 transition">
+                          Confirmar ✓
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* ── ADULTOS stepper ── */}
+            <div className="flex items-center gap-2 px-4 py-3">
+              <span className="text-base flex-shrink-0">👥</span>
+              <div className="flex flex-col leading-none">
+                <span className="text-[9px] font-bold uppercase tracking-widest text-gray-400">ADT</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button type="button" onClick={() => setQuoteAdultos(v => Math.max(1, v - 1))}
+                  className="w-6 h-6 rounded-full border border-gray-200 hover:border-blue-300 text-gray-500 hover:text-[#0f2d5e] flex items-center justify-center text-sm font-bold transition">−</button>
+                <span className="w-5 text-center text-sm font-black text-[#0f2d5e]">{quoteAdultos}</span>
+                <button type="button" onClick={() => setQuoteAdultos(v => v + 1)}
+                  className="w-6 h-6 rounded-full border border-gray-200 hover:border-blue-300 text-gray-500 hover:text-[#0f2d5e] flex items-center justify-center text-sm font-bold transition">+</button>
+              </div>
+            </div>
+
+            {/* ── NIÑOS stepper ── */}
+            <div className="flex items-center gap-2 px-4 py-3">
+              <span className="text-base flex-shrink-0">🧒</span>
+              <div className="flex flex-col leading-none">
+                <span className="text-[9px] font-bold uppercase tracking-widest text-gray-400">NIÑ</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button type="button" onClick={() => setQuoteNinos(v => Math.max(0, v - 1))}
+                  className="w-6 h-6 rounded-full border border-gray-200 hover:border-blue-300 text-gray-500 hover:text-[#0f2d5e] flex items-center justify-center text-sm font-bold transition">−</button>
+                <span className="w-5 text-center text-sm font-black text-[#0f2d5e]">{quoteNinos}</span>
+                <button type="button" onClick={() => setQuoteNinos(v => v + 1)}
+                  className="w-6 h-6 rounded-full border border-gray-200 hover:border-blue-300 text-gray-500 hover:text-[#0f2d5e] flex items-center justify-center text-sm font-bold transition">+</button>
+              </div>
+            </div>
+
+            {/* ── COTIZAR ── */}
+            <button
+              type="button"
+              onClick={handleCotizar}
+              className="bg-[#0f2d5e] hover:bg-blue-900 active:bg-blue-950 transition text-white text-xs font-black tracking-widest px-7 py-4 uppercase flex-shrink-0 w-full sm:w-auto rounded-b-2xl sm:rounded-b-none sm:rounded-r-2xl"
+            >
+              COTIZAR
+            </button>
+          </div>
         </div>
 
       </section>
@@ -752,7 +1332,7 @@ export function EntreNubesTemplate({ tenant }: { tenant: TenantLandingData }) {
 
       {/* ── Destinos + Buscados ──────────────────────────────────────────── */}
       {hotels.length > 0 && (
-        <section ref={destMasRef} className="py-16 px-6">
+        <section ref={destMasRef} id="destinos" className="py-16 px-6">
           <div className="max-w-6xl mx-auto">
 
             {/* Title */}
@@ -773,7 +1353,7 @@ export function EntreNubesTemplate({ tenant }: { tenant: TenantLandingData }) {
                 >
                   {hotels.map((hotel, i) => (
                     <div key={hotel.id} ref={(el) => { cardSlotRefs.current[i] = el; }}>
-                      <HotelCard hotel={hotel} waPhone={waPhone} />
+                      <HotelCard hotel={hotel} waPhone={waPhone} isCenter={i === carouselIdx} />
                     </div>
                   ))}
                 </div>
@@ -843,8 +1423,8 @@ export function EntreNubesTemplate({ tenant }: { tenant: TenantLandingData }) {
           {/* Fila inferior: imagen + texto */}
           <div className="flex flex-col md:flex-row flex-1">
 
-          {/* Columna izquierda — foto de las chicas */}
-          <div className="nosotros-img flex-shrink-0 w-full md:w-[42%] flex items-end justify-center pt-6 md:pt-0">
+          {/* Imagen chicas — izquierda en desktop, ABAJO en mobile */}
+          <div className="nosotros-img order-2 md:order-1 flex-shrink-0 w-full md:w-[42%] flex items-end justify-center pt-6 md:pt-0">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={ASSETS.chicas}
@@ -855,8 +1435,8 @@ export function EntreNubesTemplate({ tenant }: { tenant: TenantLandingData }) {
             />
           </div>
 
-          {/* Columna derecha — texto */}
-          <div className="flex-1 flex flex-col justify-center gap-5 px-8 md:px-12 py-10 md:py-16">
+          {/* Texto — derecha en desktop, ARRIBA en mobile */}
+          <div className="order-1 md:order-2 flex-1 flex flex-col justify-center gap-5 px-8 md:px-12 py-10 md:py-16">
 
             <p className="nosotros-line text-white/80 text-xs sm:text-sm leading-relaxed uppercase tracking-wide max-w-lg">
               ENTRE NUBES NACIÓ DEL SUEÑO DE DOS CHICAS APASIONADAS POR VIAJAR,
@@ -929,7 +1509,7 @@ export function EntreNubesTemplate({ tenant }: { tenant: TenantLandingData }) {
 
       {/* ── Lo que Opinan ───────────────────────────────────────────────── */}
       {testimonials.length > 0 && (
-        <section className="py-16 px-4" style={{ background: 'linear-gradient(135deg, #1565c0 0%, #1976d2 50%, #42a5f5 100%)' }}>
+        <section id="opiniones" className="py-16 px-4" style={{ background: 'linear-gradient(135deg, #1565c0 0%, #1976d2 50%, #42a5f5 100%)' }}>
           {/* Título */}
           <div className="text-center mb-10">
             <p className="text-white/80 text-sm font-bold tracking-[0.25em] uppercase mb-1">LO QUE OPINAN</p>
@@ -1121,7 +1701,7 @@ export function EntreNubesTemplate({ tenant }: { tenant: TenantLandingData }) {
       <section
         ref={visitanosRef}
         id="contacto"
-        className="py-16 px-4 sm:px-8"
+        className="py-16 px-4 sm:px-8 overflow-hidden"
         style={{ background: '#0f2d5e' }}
       >
         {/* Título */}
@@ -1192,7 +1772,7 @@ export function EntreNubesTemplate({ tenant }: { tenant: TenantLandingData }) {
             {/* Botón Google Maps */}
             <div className="visita-row mt-2">
               <a
-                href="https://maps.app.goo.gl/aJPZNPF6H7j4Zbyp9"
+                href="https://maps.app.goo.gl/7c3Kvh5rAZUuBWDE8"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 bg-yellow-400 hover:bg-yellow-300 active:bg-yellow-500 text-[#0f2d5e] font-black text-xs uppercase tracking-widest px-6 py-3 rounded-xl shadow-lg transition"
@@ -1291,12 +1871,222 @@ export function EntreNubesTemplate({ tenant }: { tenant: TenantLandingData }) {
         </div>
 
         {/* Barra inferior */}
-        <div className="border-t border-white/10 py-3 text-center bg-white">
+        <div className="border-t border-white/10 py-8 text-center bg-white">
           <p className="text-[#0a1d3a] text-[10px] sm:text-xs uppercase">
             {tenant.name.toUpperCase()} AGENCIA DE VIAJES&nbsp;&nbsp;|&nbsp;&nbsp;TODOS LOS DERECHOS RESERVADOS
           </p>
         </div>
       </footer>
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          BOTÓN FLOTANTE + MODAL COTIZACIÓN — solo mobile / tablet (md:hidden)
+          ══════════════════════════════════════════════════════════════════ */}
+
+      {/* Botón flotante */}
+      <button
+        type="button"
+        onClick={() => setCotizaModal(true)}
+        className="md:hidden fixed bottom-5 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 bg-[#0f2d5e] hover:bg-blue-900 active:bg-blue-950 text-white font-black text-xs uppercase tracking-widest px-6 py-3.5 rounded-full shadow-2xl transition"
+      >
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+        </svg>
+        Cotizar viaje
+      </button>
+
+      {/* Modal backdrop */}
+      {cotizaModal && (
+        <div
+          className="md:hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          onClick={e => { if (e.target === e.currentTarget) setCotizaModal(false); }}
+        >
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+
+            {/* Header modal */}
+            <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-gray-100">
+              <div className="flex items-center gap-2">
+                <svg className="w-5 h-5 text-[#0f2d5e]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+                </svg>
+                <h2 className="text-base font-black text-[#0f2d5e] uppercase tracking-wide">Cotizar viaje</h2>
+              </div>
+              <button type="button" onClick={() => setCotizaModal(false)}
+                className="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-600 transition">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+
+              {/* ── DESTINO ── */}
+              <div ref={mDestinoRef} className="relative">
+                <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1.5">Destino</label>
+                <button type="button"
+                  onClick={() => { setMDestinoOpen(o => !o); setMFechasOpen(false); }}
+                  className="w-full flex items-center justify-between gap-2 bg-gray-50 border border-gray-200 hover:border-blue-300 rounded-xl px-4 py-3 transition"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span>📍</span>
+                    <span className={`text-sm font-bold uppercase tracking-wide truncate ${quoteDestino ? 'text-[#0f2d5e]' : 'text-gray-400'}`}>
+                      {quoteDestino || 'Selecciona un destino'}
+                    </span>
+                  </div>
+                  <svg className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${mDestinoOpen ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd"/></svg>
+                </button>
+
+                {mDestinoOpen && (() => {
+                  const filtered = hotels.filter(h => h.name.toLowerCase().includes(mDestinoQuery.toLowerCase()));
+                  return (
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-xl border border-gray-100 z-20 overflow-hidden">
+                      {/* Buscador */}
+                      <div className="px-3 pt-3 pb-2">
+                        <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                          <svg className="w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 105 11a6 6 0 0012 0z"/></svg>
+                          <input autoFocus type="text" value={mDestinoQuery}
+                            onChange={e => setMDestinoQuery(e.target.value)}
+                            placeholder="Buscar destino..."
+                            className="flex-1 text-[11px] font-medium text-gray-700 placeholder-gray-400 bg-transparent outline-none"/>
+                          {mDestinoQuery && (
+                            <button type="button" onClick={() => setMDestinoQuery('')} className="text-gray-400">
+                              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd"/></svg>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <div className="overflow-y-auto max-h-44 pb-1">
+                        {!mDestinoQuery && (
+                          <button type="button" onClick={() => { setQuoteDestino(''); setMDestinoQuery(''); setMDestinoOpen(false); }}
+                            className="w-full text-left px-4 py-2.5 text-[11px] text-gray-400 hover:bg-gray-50 transition">Todos los destinos</button>
+                        )}
+                        {filtered.length === 0
+                          ? <p className="px-4 py-3 text-[11px] text-gray-400 text-center">Sin resultados</p>
+                          : filtered.map(h => (
+                            <button key={h.id} type="button"
+                              onClick={() => { setQuoteDestino(h.name); setMDestinoQuery(''); setMDestinoOpen(false); }}
+                              className={`w-full text-left px-4 py-2.5 text-[11px] font-bold uppercase tracking-wide transition flex items-center gap-2 ${quoteDestino === h.name ? 'bg-[#0f2d5e] text-white' : 'text-[#0f2d5e] hover:bg-blue-50'}`}>
+                              {quoteDestino === h.name && <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 flex-shrink-0"/>}
+                              {h.name}
+                            </button>
+                          ))
+                        }
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* ── FECHAS ── */}
+              <div ref={mFechasRef} className="relative">
+                <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1.5">Fechas</label>
+                <button type="button"
+                  onClick={() => { setMFechasOpen(o => !o); setMDestinoOpen(false); }}
+                  className="w-full flex items-center justify-between gap-2 bg-gray-50 border border-gray-200 hover:border-blue-300 rounded-xl px-4 py-3 transition"
+                >
+                  <div className="flex items-center gap-2">
+                    <span>📅</span>
+                    <span className={`text-sm font-bold ${quoteFechaIn ? 'text-[#0f2d5e]' : 'text-gray-400'}`}>
+                      {quoteFechaIn ? `${fmtDisp(quoteFechaIn)}${quoteFechaOut ? ` → ${fmtDisp(quoteFechaOut)}` : ' → ...'}` : 'Selecciona fechas'}
+                    </span>
+                  </div>
+                  <svg className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${mFechasOpen ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd"/></svg>
+                </button>
+
+                {mFechasOpen && (() => {
+                  const todayIso = new Date().toISOString().split('T')[0];
+                  const days     = getCalDays(mCalYear, mCalMonth);
+                  const rangeEnd = quoteFechaOut || (quoteFechaIn ? mHoverDate : '');
+                  const [rangeA, rangeB] = quoteFechaIn && rangeEnd
+                    ? [quoteFechaIn < rangeEnd ? quoteFechaIn : rangeEnd, quoteFechaIn < rangeEnd ? rangeEnd : quoteFechaIn]
+                    : ['',''];
+                  const mPrevMonth = () => setMCalMonth(m => { if (m === 0) { setMCalYear(y => y - 1); return 11; } return m - 1; });
+                  const mNextMonth = () => setMCalMonth(m => { if (m === 11) { setMCalYear(y => y + 1); return 0; } return m + 1; });
+
+                  return (
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-xl border border-gray-100 z-20 p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <button type="button" onClick={mPrevMonth} className="w-7 h-7 rounded-lg hover:bg-gray-100 flex items-center justify-center transition text-gray-500">
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7"/></svg>
+                        </button>
+                        <span className="text-sm font-black text-[#0f2d5e] uppercase tracking-wide">{MONTHS_ES[mCalMonth]} {mCalYear}</span>
+                        <button type="button" onClick={mNextMonth} className="w-7 h-7 rounded-lg hover:bg-gray-100 flex items-center justify-center transition text-gray-500">
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"/></svg>
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-7 mb-1">
+                        {DAYS_ES.map(d => <div key={d} className="text-center text-[10px] font-bold text-gray-400 py-1">{d}</div>)}
+                      </div>
+                      <div className="grid grid-cols-7">
+                        {days.map((iso, idx) => {
+                          if (!iso) return <div key={`me${idx}`}/>;
+                          const isPast  = iso < todayIso;
+                          const isStart = iso === quoteFechaIn;
+                          const isEnd   = iso === quoteFechaOut;
+                          const inRange = rangeA && rangeB && iso > rangeA && iso < rangeB;
+                          const isToday = iso === todayIso;
+                          return (
+                            <button key={iso} type="button" disabled={isPast}
+                              onClick={() => handleDayClick(iso)}
+                              onMouseEnter={() => setMHoverDate(iso)}
+                              onMouseLeave={() => setMHoverDate('')}
+                              className={['h-9 w-full text-xs font-semibold flex items-center justify-center transition',
+                                isPast ? 'text-gray-300 cursor-not-allowed' : 'cursor-pointer',
+                                isStart || isEnd ? 'bg-[#0f2d5e] text-white rounded-full z-10 relative' : inRange ? 'bg-blue-100 text-blue-800 rounded-none' : !isPast ? 'hover:bg-blue-50 rounded-full text-gray-700' : '',
+                                isToday && !isStart && !isEnd ? 'font-black text-yellow-500' : '',
+                              ].join(' ')}>
+                              {Number(iso.split('-')[2])}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
+                        <button type="button" onClick={() => { setQuoteFechaIn(''); setQuoteFechaOut(''); }}
+                          className="text-[11px] text-gray-400 hover:text-gray-600 transition font-medium">Borrar fechas</button>
+                        {quoteFechaIn && !quoteFechaOut && <span className="text-[11px] text-blue-500 font-medium">Elige fecha de salida</span>}
+                        {quoteFechaIn && quoteFechaOut && (
+                          <button type="button" onClick={() => setMFechasOpen(false)}
+                            className="text-[11px] font-black text-[#0f2d5e] hover:text-blue-700 transition">Confirmar ✓</button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* ── ADULTOS + NIÑOS en fila ── */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">👥 Adultos</p>
+                  <div className="flex items-center gap-3">
+                    <button type="button" onClick={() => setQuoteAdultos(v => Math.max(1, v - 1))}
+                      className="w-8 h-8 rounded-full border border-gray-200 hover:border-blue-300 text-gray-500 hover:text-[#0f2d5e] flex items-center justify-center font-bold text-lg transition">−</button>
+                    <span className="flex-1 text-center text-xl font-black text-[#0f2d5e]">{quoteAdultos}</span>
+                    <button type="button" onClick={() => setQuoteAdultos(v => v + 1)}
+                      className="w-8 h-8 rounded-full border border-gray-200 hover:border-blue-300 text-gray-500 hover:text-[#0f2d5e] flex items-center justify-center font-bold text-lg transition">+</button>
+                  </div>
+                </div>
+                <div className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">🧒 Niños</p>
+                  <div className="flex items-center gap-3">
+                    <button type="button" onClick={() => setQuoteNinos(v => Math.max(0, v - 1))}
+                      className="w-8 h-8 rounded-full border border-gray-200 hover:border-blue-300 text-gray-500 hover:text-[#0f2d5e] flex items-center justify-center font-bold text-lg transition">−</button>
+                    <span className="flex-1 text-center text-xl font-black text-[#0f2d5e]">{quoteNinos}</span>
+                    <button type="button" onClick={() => setQuoteNinos(v => v + 1)}
+                      className="w-8 h-8 rounded-full border border-gray-200 hover:border-blue-300 text-gray-500 hover:text-[#0f2d5e] flex items-center justify-center font-bold text-lg transition">+</button>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── COTIZAR ── */}
+              <button type="button" onClick={() => { handleCotizar(); setCotizaModal(false); }}
+                className="w-full bg-[#0f2d5e] hover:bg-blue-900 active:bg-blue-950 transition text-white font-black text-sm uppercase tracking-widest py-4 rounded-xl shadow-lg flex items-center justify-center gap-2">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+                Cotizar por WhatsApp
+              </button>
+
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
