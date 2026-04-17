@@ -290,7 +290,7 @@ function HotelCard({ hotel, waPhone, isCenter }: { hotel: LandingHotel; waPhone:
                 <span className="text-sm font-semibold">{currency}</span>
               </p>
             )}
-            <a href={`https://wa.me/+529614521079`} target="_blank" rel="noopener noreferrer"
+            <a href={`https://wa.me/${waPhone}?text=${encodeURIComponent(`Hola! Me interesa cotizar el paquete: ${hotel.name} ✈️`)}`} target="_blank" rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
               className="block text-center bg-yellow-400 hover:bg-yellow-300 active:bg-yellow-500 text-[#0f2d5e] font-black text-sm tracking-widest uppercase py-3 rounded-xl shadow-lg transition">
               COTIZAR
@@ -480,7 +480,7 @@ export function EntreNubesTemplate({ tenant }: { tenant: TenantLandingData }) {
     lines.push(`*Adultos:* ${quoteAdultos}`);
     lines.push(`*Niños:*   ${quoteNinos}`);
     const msg = encodeURIComponent(lines.join('\n'));
-    window.open(`https://wa.me/+529614521079`, '_blank');
+    window.open(`https://wa.me/${waPhone}?text=${msg}`, '_blank');
   }, [quoteDestino, quoteFechaIn, quoteFechaOut, quoteAdultos, quoteNinos, waPhone]);
 
   const toggleMenu = useCallback(() => {
@@ -810,8 +810,44 @@ export function EntreNubesTemplate({ tenant }: { tenant: TenantLandingData }) {
     };
   }, []);
 
+  // ── JSON-LD: Schema.org TravelAgency ────────────────────────────────────────
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'TravelAgency',
+    name: tenant.name,
+    description: `Agencia de viajes ${tenant.name}. Paquetes nacionales, internacionales, tours, bodas y lunas de miel.`,
+    url: typeof window !== 'undefined' ? window.location.origin : undefined,
+    telephone: tenant.phone || undefined,
+    email: tenant.email || undefined,
+    address: tenant.address
+      ? { '@type': 'PostalAddress', streetAddress: tenant.address }
+      : undefined,
+    image: tenant.logo || undefined,
+    sameAs: [
+      tenant.facebookReviewUrl,
+      tenant.googleReviewUrl,
+    ].filter(Boolean),
+    hasOfferCatalog: {
+      '@type': 'OfferCatalog',
+      name: 'Paquetes de viaje',
+      itemListElement: [
+        { '@type': 'Offer', itemOffered: { '@type': 'Trip', name: 'Viajes Nacionales' } },
+        { '@type': 'Offer', itemOffered: { '@type': 'Trip', name: 'Viajes Internacionales' } },
+        { '@type': 'Offer', itemOffered: { '@type': 'Trip', name: 'Tours' } },
+        { '@type': 'Offer', itemOffered: { '@type': 'Trip', name: 'Bodas' } },
+        { '@type': 'Offer', itemOffered: { '@type': 'Trip', name: 'Lunas de Miel' } },
+      ],
+    },
+  };
+
   return (
     <div className="font-sans bg-white">
+
+      {/* ── JSON-LD para Google ───────────────────────────────────────────── */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
 
       {/* ── Navbar ───────────────────────────────────────────────────────── */}
       <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 md:px-8 py-3 bg-white shadow-lg">
@@ -962,8 +998,11 @@ export function EntreNubesTemplate({ tenant }: { tenant: TenantLandingData }) {
             className="absolute left-10 top-[25%] md:top-1/2 -translate-y-1/2 text-white select-none"
             style={{ zIndex: 30 }}
           >
-            <h1 className="text-[clamp(2.5rem,6vw,5rem)] font-black leading-none uppercase drop-shadow-[0_4px_24px_rgba(0,0,0,0.55)]">
-              {/* Cada línea divide caracteres en spans para la animación de entrada */}
+            {/* H1 oculto: indexable por Google, invisible para el usuario */}
+            <h1 className="sr-only">{tenant.name} — Agencia de Viajes</h1>
+
+            {/* H2 visible: texto animado del hero */}
+            <h2 className="text-[clamp(2.5rem,6vw,5rem)] font-black leading-none uppercase drop-shadow-[0_4px_24px_rgba(0,0,0,0.55)]">
               {(() => {
                 heroCharsRef.current = [];
                 const lines: { text: string; yellow?: boolean }[] = [
@@ -989,7 +1028,7 @@ export function EntreNubesTemplate({ tenant }: { tenant: TenantLandingData }) {
                   </div>
                 ));
               })()}
-            </h1>
+            </h2>
           </div>
 
           {/* ── Persiana — clip-path elipse = sólo visible dentro del marco ── */}
