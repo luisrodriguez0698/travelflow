@@ -30,6 +30,7 @@ async function getTenant(hostname: string) {
       facebookReviewUrl: true,
       googleReviewUrl: true,
       hotels: {
+        where: { showInWeb: true },
         select: {
           id: true,
           name: true,

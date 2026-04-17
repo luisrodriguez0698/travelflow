@@ -105,6 +105,7 @@ export async function POST(request: NextRequest) {
         webDescription: body.webDescription?.trim() || null,
         packagePrice: body.packagePrice != null ? Number(body.packagePrice) : null,
         packageCurrency: body.packageCurrency || 'MXN',
+        showInWeb: body.showInWeb !== undefined ? Boolean(body.showInWeb) : true,
         createdBy: sessionUser?.id || null,
       },
       include: { destination: { select: { id: true, name: true } } },

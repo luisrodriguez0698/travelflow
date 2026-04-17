@@ -20,9 +20,10 @@ import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { PackageImageUpload } from '@/components/package-image-upload';
+import { Switch } from '@/components/ui/switch';
 import {
   Plus, Search, Pencil, Trash2, Loader2, Hotel as HotelIcon,
-  Star, Diamond, X,
+  Star, Diamond, X, Globe, GlobeLock,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -51,6 +52,7 @@ interface Hotel {
   webDescription: string | null;
   packagePrice: number | null;
   packageCurrency: string | null;
+  showInWeb: boolean;
   creatorName?: string | null;
 }
 
@@ -72,6 +74,7 @@ const defaultForm = {
   webDescription: '',
   packagePrice: '' as string | number,
   packageCurrency: 'MXN',
+  showInWeb: true,
 };
 
 export default function HotelsPage() {
@@ -85,6 +88,10 @@ export default function HotelsPage() {
   const [formData, setFormData] = useState({ ...defaultForm });
   const [saving, setSaving] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [showWebConfirm, setShowWebConfirm] = useState(false);
+  // Toggle rápido desde la lista
+  const [toggleWebTarget, setToggleWebTarget] = useState<{ id: string; name: string; next: boolean } | null>(null);
+  const [togglingWebId, setTogglingWebId] = useState<string | null>(null);
 
   // Imágenes originales al abrir el modal (para detectar huérfanas al cancelar)
   const originalImagesRef = useRef<string[]>([]);
@@ -157,6 +164,7 @@ export default function HotelsPage() {
       webDescription: hotel.webDescription || '',
       packagePrice: hotel.packagePrice ?? '',
       packageCurrency: hotel.packageCurrency || 'MXN',
+      showInWeb: hotel.showInWeb ?? true,
     });
     setNewInclude('');
     setNewNotInclude('');
@@ -244,6 +252,7 @@ export default function HotelsPage() {
           webDescription: formData.webDescription || null,
           packagePrice: formData.packagePrice !== '' ? Number(formData.packagePrice) : null,
           packageCurrency: formData.packageCurrency,
+          showInWeb: formData.showInWeb,
         }),
       });
       if (res.ok) {
@@ -276,6 +285,30 @@ export default function HotelsPage() {
       toast.error('Error de conexión');
     } finally {
       setDeleteId(null);
+    }
+  };
+
+  const handleToggleWeb = async () => {
+    if (!toggleWebTarget) return;
+    setTogglingWebId(toggleWebTarget.id);
+    try {
+      const res = await fetch(`/api/hotels/${toggleWebTarget.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ showInWeb: toggleWebTarget.next }),
+      });
+      if (res.ok) {
+        toast.success(toggleWebTarget.next ? 'Hotel visible en la web' : 'Hotel ocultado de la web');
+        fetchData();
+      } else {
+        const data = await res.json();
+        toast.error(data.error || 'Error al actualizar');
+      }
+    } catch {
+      toast.error('Error de conexión');
+    } finally {
+      setTogglingWebId(null);
+      setToggleWebTarget(null);
     }
   };
 
@@ -347,6 +380,7 @@ export default function HotelsPage() {
               <TableHead>Clasificación</TableHead>
               <TableHead>Plan</TableHead>
               <TableHead>Habitación</TableHead>
+              <TableHead className="text-center">Web</TableHead>
               <TableHead className="text-center">Creado por</TableHead>
               <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
@@ -354,7 +388,7 @@ export default function HotelsPage() {
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                   No hay hoteles registrados
                 </TableCell>
               </TableRow>
@@ -385,6 +419,26 @@ export default function HotelsPage() {
                   </TableCell>
                   <TableCell className="text-sm">{hotel.plan || '—'}</TableCell>
                   <TableCell className="text-sm">{hotel.roomType || '—'}</TableCell>
+                  <TableCell className="text-center">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span>
+                            <Switch
+                              checked={hotel.showInWeb ?? true}
+                              disabled={togglingWebId === hotel.id}
+                              onCheckedChange={(next) =>
+                                setToggleWebTarget({ id: hotel.id, name: hotel.name, next })
+                              }
+                            />
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          {hotel.showInWeb ? 'Visible en la web' : 'Oculto de la web'}
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </TableCell>
                   <TableCell className="text-center">
                     {hotel.creatorName ? (
                       <TooltipProvider>
@@ -611,6 +665,37 @@ export default function HotelsPage() {
               </div>
             </div>
 
+            {/* ── Visibilidad Web ─────────────────────────────────────────── */}
+            <div className="border-t pt-4">
+              <div className="flex items-center justify-between rounded-xl border border-dashed border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/20 px-4 py-3">
+                <div className="flex items-center gap-3">
+                  {formData.showInWeb
+                    ? <Globe className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                    : <GlobeLock className="w-4 h-4 text-gray-400 flex-shrink-0" />}
+                  <div>
+                    <p className="text-sm font-semibold leading-tight">
+                      {formData.showInWeb ? 'Visible en la web' : 'Oculto en la web'}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {formData.showInWeb
+                        ? 'Aparece en el buscador y sección de destinos de la landing'
+                        : 'No aparece en la landing ni en el cotizador web'}
+                    </p>
+                  </div>
+                </div>
+                <Switch
+                  checked={formData.showInWeb}
+                  onCheckedChange={(checked) => {
+                    if (!checked) {
+                      setShowWebConfirm(true);
+                    } else {
+                      setFormData({ ...formData, showInWeb: true });
+                    }
+                  }}
+                />
+              </div>
+            </div>
+
             {/* Includes - Dynamic List */}
             <div>
               <Label>Incluye</Label>
@@ -692,6 +777,68 @@ export default function HotelsPage() {
             <Button onClick={handleSave} disabled={saving}>
               {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               {editing ? 'Guardar Cambios' : 'Crear Hotel'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirm toggle web desde la lista */}
+      <Dialog open={!!toggleWebTarget} onOpenChange={(open) => { if (!open) setToggleWebTarget(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {toggleWebTarget?.next
+                ? <Globe className="w-5 h-5 text-blue-500" />
+                : <GlobeLock className="w-5 h-5 text-amber-500" />}
+              {toggleWebTarget?.next ? 'Mostrar en la web' : 'Ocultar de la web'}
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            <span className="font-semibold text-foreground">{toggleWebTarget?.name}</span>
+            {toggleWebTarget?.next
+              ? ' volverá a aparecer en el buscador y sección de destinos de la landing.'
+              : ' dejará de aparecer en el buscador y sección de destinos de la landing.'}
+            <br /><br />
+            <span className="font-medium text-foreground">¿Deseas continuar?</span>
+          </p>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setToggleWebTarget(null)}>Cancelar</Button>
+            <Button
+              className={toggleWebTarget?.next
+                ? 'bg-blue-500 hover:bg-blue-600 text-white'
+                : 'bg-amber-500 hover:bg-amber-600 text-white'}
+              onClick={handleToggleWeb}
+              disabled={!!togglingWebId}
+            >
+              {togglingWebId ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+              {toggleWebTarget?.next ? 'Sí, mostrar' : 'Sí, ocultar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirm ocultar en web */}
+      <Dialog open={showWebConfirm} onOpenChange={setShowWebConfirm}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <GlobeLock className="w-5 h-5 text-amber-500" />
+              Ocultar de la web
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Este hotel dejará de aparecer en el buscador de destinos y en la sección de destinos de la landing page.
+            <br /><br />
+            <span className="font-medium text-foreground">¿Deseas continuar?</span>
+          </p>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setShowWebConfirm(false)}>Cancelar</Button>
+            <Button
+              variant="default"
+              className="bg-amber-500 hover:bg-amber-600 text-white"
+              onClick={() => { setFormData({ ...formData, showInWeb: false }); setShowWebConfirm(false); }}
+            >
+              Sí, ocultar
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -67,6 +67,7 @@ export async function PUT(
         ...(body.webDescription !== undefined && { webDescription: body.webDescription?.trim() || null }),
         ...(body.packagePrice !== undefined && { packagePrice: body.packagePrice != null ? Number(body.packagePrice) : null }),
         ...(body.packageCurrency !== undefined && { packageCurrency: body.packageCurrency || 'MXN' }),
+        ...(body.showInWeb !== undefined && { showInWeb: Boolean(body.showInWeb) }),
       },
       include: { destination: { select: { id: true, name: true } } },
     });

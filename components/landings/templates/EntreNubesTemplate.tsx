@@ -290,7 +290,7 @@ function HotelCard({ hotel, waPhone, isCenter }: { hotel: LandingHotel; waPhone:
                 <span className="text-sm font-semibold">{currency}</span>
               </p>
             )}
-            <a href={`https://wa.me/${waPhone}?text=${waMsg}`} target="_blank" rel="noopener noreferrer"
+            <a href={`https://wa.me/+529614521079`} target="_blank" rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
               className="block text-center bg-yellow-400 hover:bg-yellow-300 active:bg-yellow-500 text-[#0f2d5e] font-black text-sm tracking-widest uppercase py-3 rounded-xl shadow-lg transition">
               COTIZAR
@@ -480,7 +480,7 @@ export function EntreNubesTemplate({ tenant }: { tenant: TenantLandingData }) {
     lines.push(`*Adultos:* ${quoteAdultos}`);
     lines.push(`*Niños:*   ${quoteNinos}`);
     const msg = encodeURIComponent(lines.join('\n'));
-    window.open(`https://wa.me/${waPhone}?text=${msg}`, '_blank');
+    window.open(`https://wa.me/+529614521079`, '_blank');
   }, [quoteDestino, quoteFechaIn, quoteFechaOut, quoteAdultos, quoteNinos, waPhone]);
 
   const toggleMenu = useCallback(() => {
@@ -793,9 +793,20 @@ export function EntreNubesTemplate({ tenant }: { tenant: TenantLandingData }) {
 
     hero.addEventListener('mousemove', onMouseMove);
 
+    // ── Refresh tras carga completa de imágenes ──────────────────────────
+    // En primera visita (sin caché) las imágenes cargan después de que GSAP
+    // ya calculó posiciones. Esto las recalcula cuando todo está listo.
+    const onFullLoad = () => ScrollTrigger.refresh();
+    if (document.readyState === 'complete') {
+      ScrollTrigger.refresh();
+    } else {
+      window.addEventListener('load', onFullLoad, { once: true });
+    }
+
     return () => {
       ctx.revert();
       hero.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('load', onFullLoad);
     };
   }, []);
 
@@ -989,6 +1000,7 @@ export function EntreNubesTemplate({ tenant }: { tenant: TenantLandingData }) {
               zIndex: 24,          // debajo del marco (25) pero encima de nubes (20)
               width: '42%',
               maxWidth: '540px',
+              aspectRatio: '1 / 1', // reserva espacio antes de que cargue la imagen
               top: '50%',
               left: '50%',
               transform: 'translate(-50%, -50%)',
@@ -1900,7 +1912,7 @@ export function EntreNubesTemplate({ tenant }: { tenant: TenantLandingData }) {
           className="md:hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4"
           onClick={e => { if (e.target === e.currentTarget) setCotizaModal(false); }}
         >
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md h-[80%] my-auto overflow-hidden">
 
             {/* Header modal */}
             <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-gray-100">
