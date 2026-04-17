@@ -1513,7 +1513,7 @@ export function EntreNubesTemplate({ tenant }: { tenant: TenantLandingData }) {
               <p className="text-white font-black text-sm sm:text-lg uppercase leading-snug tracking-wide">
                 "TÚ ELIGES EL DESTINO...<br />
                 NOSOTRAS TE LLEVAMOS<br />
-                <span className="text-white">ENTRE NUBES.</span>"
+                <span className="text-white">Agencia de Viajes - Entre Nubes</span>"
               </p>
             </div>
 
