@@ -44,22 +44,26 @@ export async function middleware(req: NextRequest, event: NextFetchEvent) {
   const hostname = (req.headers.get('host') ?? '').split(':')[0]; // strip port
   const { pathname } = req.nextUrl;
 
-  // Siempre pasar activos estáticos y rutas internas de Next.js
+  // ── 1. Dominio personalizado → rewrite a la landing del tenant ──────────────
+  // Para dominios de tenant: favicon.ico pasa al route handler (sirve el logo).
+  // El resto de estáticos se dejan pasar sin rewrite.
+  if (!isAppDomain(hostname)) {
+    if (pathname.startsWith('/_next/') || /\.(?:png|jpg|jpeg|svg|webp|css|js|woff2?)$/.test(pathname)) {
+      return NextResponse.next();
+    }
+    // favicon.ico y todas las rutas → rewrite a /landings/[hostname]/...
+    const url = req.nextUrl.clone();
+    url.pathname = `/landings/${hostname}${pathname === '/' ? '' : pathname}`;
+    return NextResponse.rewrite(url);
+  }
+
+  // Para el dominio principal: saltar todos los activos estáticos
   if (
     pathname.startsWith('/_next/') ||
     pathname.startsWith('/favicon') ||
     /\.(?:ico|png|jpg|jpeg|svg|webp|css|js|woff2?)$/.test(pathname)
   ) {
     return NextResponse.next();
-  }
-
-  // ── 1. Dominio personalizado → rewrite a la landing del tenant ──────────────
-  if (!isAppDomain(hostname)) {
-    // El hostname completo se pasa como segmento dinámico.
-    // La página /landings/[hostname] buscará el tenant en la BD.
-    const url = req.nextUrl.clone();
-    url.pathname = `/landings/${hostname}${pathname === '/' ? '' : pathname}`;
-    return NextResponse.rewrite(url);
   }
 
   // ── 2. Subdominio interno (agenciapato.travelflow…) → rewrite a landing ─────
@@ -88,5 +92,5 @@ export async function middleware(req: NextRequest, event: NextFetchEvent) {
 
 export const config = {
   // Ejecutar en todas las rutas excepto activos estáticos compilados
-  matcher: ['/((?!_next/static|_next/image|favicon\\.ico).*)'],
+  matcher: ['/((?!_next/static|_next/image).*)'],
 };
