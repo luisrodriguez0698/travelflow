@@ -7,6 +7,13 @@
 .swiper-wrapper { display: flex; align-items: stretch; box-sizing: content-box; }
 .swiper-slide   { flex-shrink: 0; height: auto; position: relative; }
 
+/* Bounce horizontal para hint de swipe */
+@keyframes bounce-x {
+  0%, 100% { transform: translateX(0); }
+  50%      { transform: translateX(5px); }
+}
+.animate-bounce-x { animation: bounce-x 0.9s ease-in-out infinite; }
+
 /* Marquee infinito */
 @keyframes marquee {
   from { transform: translateX(0); }

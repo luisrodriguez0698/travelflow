@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
+import Script from 'next/script';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { ScrollToPlugin } from 'gsap/ScrollToPlugin';
@@ -207,6 +208,23 @@ function HotelCard({ hotel, waPhone, isCenter }: { hotel: LandingHotel; waPhone:
       diff < 0 ? 1 : -1,
     );
   };
+  // En mobile, el swipe de fotos debe absorber el evento para no mover el carrusel padre
+  const onImgTouchStart = (e: React.TouchEvent) => {
+    dragStartX.current = e.touches[0].clientX;
+    dragging.current = true;
+  };
+  const onImgTouchEnd = (e: React.TouchEvent) => {
+    if (!dragging.current) return;
+    dragging.current = false;
+    const diff = e.changedTouches[0].clientX - dragStartX.current;
+    if (Math.abs(diff) > 35) {
+      e.stopPropagation();
+      slideImage(
+        diff < 0 ? (imgIdx + 1) % images.length : (imgIdx - 1 + images.length) % images.length,
+        diff < 0 ? 1 : -1,
+      );
+    }
+  };
 
   return (
     <div
@@ -227,6 +245,8 @@ function HotelCard({ hotel, waPhone, isCenter }: { hotel: LandingHotel; waPhone:
             style={{ height: '56%' }}
             onPointerDown={images.length > 1 ? onPointerDown : undefined}
             onPointerUp={images.length > 1 ? onPointerUp : undefined}
+            onTouchStart={images.length > 1 ? onImgTouchStart : undefined}
+            onTouchEnd={images.length > 1 ? onImgTouchEnd : undefined}
           >
             <div ref={imgWrapRef} className="w-full h-full">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -290,7 +310,7 @@ function HotelCard({ hotel, waPhone, isCenter }: { hotel: LandingHotel; waPhone:
                 <span className="text-sm font-semibold">{currency}</span>
               </p>
             )}
-            <a href={`https://wa.me/${waPhone}?text=${encodeURIComponent(`Hola! Me interesa cotizar el paquete: ${hotel.name} ✈️`)}`} target="_blank" rel="noopener noreferrer"
+            <a href={`https://wa.me/+52${waPhone}?text=${encodeURIComponent(`Hola! Me interesa cotizar el paquete: ${hotel.name}`)}`} target="_blank" rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
               className="block text-center bg-yellow-400 hover:bg-yellow-300 active:bg-yellow-500 text-[#0f2d5e] font-black text-sm tracking-widest uppercase py-3 rounded-xl shadow-lg transition">
               COTIZAR
@@ -387,6 +407,8 @@ export function EntreNubesTemplate({ tenant }: { tenant: TenantLandingData }) {
   const destTrackRef          = useRef<HTMLDivElement>(null);
   const cardSlotRefs          = useRef<(HTMLDivElement | null)[]>([]);
   const [carouselIdx, setCarouselIdx] = useState(0);
+  const [showSwipeHint, setShowSwipeHint] = useState(true);
+  const touchStartX = useRef(0);
   const [activeNav, setActiveNav]     = useState(0);
   const [menuOpen, setMenuOpen]       = useState(false);
 
@@ -473,14 +495,14 @@ export function EntreNubesTemplate({ tenant }: { tenant: TenantLandingData }) {
       const [y, m, day] = d.split('-');
       return `${day}/${m}/${y}`;
     };
-    const lines = ['Hola! Me interesa cotizar un viaje ✈️'];
+    const lines = ['Hola! Me interesa cotizar un viaje '];
     if (quoteDestino)  lines.push(`*Destino:* ${quoteDestino}`);
     if (quoteFechaIn)  lines.push(`*Llegada:* ${fmt(quoteFechaIn)}`);
     if (quoteFechaOut) lines.push(`*Salida:*  ${fmt(quoteFechaOut)}`);
     lines.push(`*Adultos:* ${quoteAdultos}`);
     lines.push(`*Niños:*   ${quoteNinos}`);
     const msg = encodeURIComponent(lines.join('\n'));
-    window.open(`https://wa.me/${waPhone}?text=${msg}`, '_blank');
+    window.open(`https://wa.me/+52${waPhone}?text=${msg}`, '_blank');
   }, [quoteDestino, quoteFechaIn, quoteFechaOut, quoteAdultos, quoteNinos, waPhone]);
 
   const toggleMenu = useCallback(() => {
@@ -537,14 +559,32 @@ export function EntreNubesTemplate({ tenant }: { tenant: TenantLandingData }) {
     const track     = destTrackRef.current;
     if (!container || !track) return;
     const trackX = container.offsetWidth / 2 - CARD_W / 2 - clamped * SLOT;
-    gsap.to(track, { x: trackX, duration: 0.55, ease: 'power3.out' });
+    gsap.to(track, { x: trackX, duration: 0.75, ease: 'power2.inOut' });
     cardSlotRefs.current.forEach((card, i) => {
       if (!card) return;
       const dist = Math.abs(i - clamped);
-      gsap.to(card, { scale: cardScale(dist), opacity: cardOpacity(dist), duration: 0.45, ease: 'power2.out' });
+      gsap.to(card, { scale: cardScale(dist), opacity: cardOpacity(dist), duration: 0.65, ease: 'power2.inOut' });
     });
     setCarouselIdx(clamped);
   }, [hotels.length, SLOT]);
+
+  const onCarouselTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  }, []);
+
+  const onCarouselTouchEnd = useCallback((e: React.TouchEvent) => {
+    const diff = touchStartX.current - e.changedTouches[0].clientX;
+    if (Math.abs(diff) > 40) {
+      setShowSwipeHint(false);
+      goToSlide(carouselIdx + (diff > 0 ? 1 : -1));
+    }
+  }, [carouselIdx, goToSlide]);
+
+  useEffect(() => {
+    if (!showSwipeHint) return;
+    const id = setTimeout(() => setShowSwipeHint(false), 3000);
+    return () => clearTimeout(id);
+  }, [showSwipeHint]);
 
   useEffect(() => {
     if (hotels.length === 0) return;
@@ -1396,6 +1436,8 @@ export function EntreNubesTemplate({ tenant }: { tenant: TenantLandingData }) {
               <div
                 ref={destTrackContainerRef}
                 style={{ height: CARD_H * 1.15 + 16, overflowX: 'clip', overflowY: 'visible' }}
+                onTouchStart={onCarouselTouchStart}
+                onTouchEnd={onCarouselTouchEnd}
               >
                 <div
                   ref={destTrackRef}
@@ -1412,13 +1454,13 @@ export function EntreNubesTemplate({ tenant }: { tenant: TenantLandingData }) {
 
               {carouselIdx > 0 && (
                 <button
-                  onClick={() => goToSlide(carouselIdx - 1)}
+                  onClick={() => { setShowSwipeHint(false); goToSlide(carouselIdx - 1); }}
                   className="absolute left-4 top-1/2 -translate-y-1/2 bg-[#0f1e3d] hover:bg-white/40 backdrop-blur-sm text-white w-12 h-12 rounded-full flex items-center justify-center text-2xl leading-none transition shadow-lg z-10"
                 >‹</button>
               )}
               {carouselIdx < hotels.length - 1 && (
                 <button
-                  onClick={() => goToSlide(carouselIdx + 1)}
+                  onClick={() => { setShowSwipeHint(false); goToSlide(carouselIdx + 1); }}
                   className="absolute right-4 top-1/2 -translate-y-1/2 bg-[#0f1e3d] hover:bg-white/40 backdrop-blur-sm text-white w-12 h-12 rounded-full flex items-center justify-center text-2xl leading-none transition shadow-lg z-10"
                 >›</button>
               )}
@@ -1437,6 +1479,17 @@ export function EntreNubesTemplate({ tenant }: { tenant: TenantLandingData }) {
                 ))}
               </div>
             )}
+
+            {/* Hint de deslizamiento — solo mobile, desaparece en 3s o al interactuar */}
+            <div
+              className={`sm:hidden flex items-center justify-center gap-2 mt-4 text-[#0f1e3d]/50 text-xs transition-opacity duration-700 ${
+                showSwipeHint ? 'opacity-100' : 'opacity-0 pointer-events-none'
+              }`}
+            >
+              <svg className="w-4 h-4 animate-bounce-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M5 12l7-7M5 12l7 7"/></svg>
+              <span className="tracking-wide uppercase font-medium">desliza para ver más</span>
+              <svg className="w-4 h-4 animate-bounce-x scale-x-[-1]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M5 12l7-7M5 12l7 7"/></svg>
+            </div>
 
           </div>
         </section>
@@ -1458,16 +1511,16 @@ export function EntreNubesTemplate({ tenant }: { tenant: TenantLandingData }) {
             backgroundPosition: 'center center',
           }}
         />
-        {/* Overlay general suave */}
-        {/* <div className="absolute inset-0 bg-[#0a1a40]/60" /> */}
+        {/* Overlay oscuro solo en mobile para mejorar contraste del texto */}
+        <div className="absolute inset-0 bg-[#000000]/50 sm:hidden" />
 
         {/* Contenido */}
         <div className="relative z-10 max-w-5xl mx-auto flex flex-col min-h-[740px]">
 
           {/* Título — fila completa arriba */}
           <div className="nosotros-line w-full text-center pt-12 pb-4 px-6">
-            <h2 className="text-[#0f1e3d] text-4xl sm:text-5xl uppercase leading-none tracking-widest">
-              ACERCA <span className="text-[#0f1e3d] font-black">DE NOSOTROS</span>
+            <h2 className="text-white sm:text-[#0f1e3d] text-4xl sm:text-5xl uppercase leading-none tracking-widest">
+              ACERCA <span className="font-black">DE NOSOTROS</span>
             </h2>
           </div>
 
@@ -1558,18 +1611,54 @@ export function EntreNubesTemplate({ tenant }: { tenant: TenantLandingData }) {
         </div>
       </section>
 
-      {/* ── Lo que Opinan ───────────────────────────────────────────────── */}
-      {testimonials.length > 0 && (
-        <section id="opiniones" className="py-16 px-4" style={{ background: 'linear-gradient(135deg, #1565c0 0%, #1976d2 50%, #42a5f5 100%)' }}>
-          {/* Título */}
-          <div className="text-center mb-10">
-            <p className="text-white/80 text-sm font-bold tracking-[0.25em] uppercase mb-1">LO QUE OPINAN</p>
-            <h2 className="text-white font-black text-4xl sm:text-5xl uppercase leading-none tracking-wide">
-              NUESTROS CLIENTES
-            </h2>
-          </div>
+      {/* ── Lo que Opinan — Google Reviews ──────────────────────────────── */}
+      <section id="opiniones" className="py-16 px-4" style={{ background: 'linear-gradient(135deg, #1565c0 0%, #1976d2 50%, #42a5f5 100%)' }}>
+        {/* Título */}
+        <div className="text-center mb-10">
+          <p className="text-white/80 text-sm font-bold tracking-[0.25em] uppercase mb-1">LO QUE OPINAN</p>
+          <h2 className="text-white font-black text-4xl sm:text-5xl uppercase leading-none tracking-wide">
+            NUESTROS CLIENTES
+          </h2>
+        </div>
 
-          {/* Swiper de testimonios */}
+        {/* Widget de Google Reviews */}
+        <div className="max-w-6xl mx-auto">
+          <div className="sk-ww-google-reviews" data-embed-id="25673452" />
+          <Script src="https://widgets.sociablekit.com/google-reviews/widget.js" strategy="lazyOnload" />
+        </div>
+
+        {/* Botones de reseñas */}
+        {(tenant.facebookReviewUrl || tenant.googleReviewUrl) && (
+          <div className="flex flex-wrap justify-center gap-4 mt-10">
+            {tenant.facebookReviewUrl && (
+              <a
+                href={tenant.facebookReviewUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3 bg-white text-[#1a1a2e] font-black text-sm uppercase tracking-widest px-6 py-3 rounded-xl shadow-lg hover:bg-blue-50 transition"
+              >
+                <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073C0 18.1 4.388 23.094 10.125 24v-8.437H7.078v-3.49h3.047V9.41c0-3.025 1.792-4.697 4.533-4.697 1.312 0 2.686.236 2.686.236v2.97h-1.513c-1.491 0-1.956.93-1.956 1.886v2.267h3.328l-.532 3.49h-2.796V24C19.612 23.094 24 18.1 24 12.073z"/></svg>
+                OPINIONES EN FACEBOOK
+              </a>
+            )}
+            {tenant.googleReviewUrl && (
+              <a
+                href={tenant.googleReviewUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3 bg-white text-[#1a1a2e] font-black text-sm uppercase tracking-widest px-6 py-3 rounded-xl shadow-lg hover:bg-gray-50 transition"
+              >
+                <svg className="w-5 h-5" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+                OPINIONES EN GOOGLE
+              </a>
+            )}
+          </div>
+        )}
+      </section>
+
+      {/* ── Testimonios (lista interna) — pendiente de activar ───────────── */}
+      {false && testimonials.length > 0 && (
+        <section className="py-16 px-4" style={{ background: 'linear-gradient(135deg, #1565c0 0%, #1976d2 50%, #42a5f5 100%)' }}>
           <div className="max-w-6xl mx-auto relative px-6">
             <Swiper
               modules={[Autoplay, Navigation]}
@@ -1595,39 +1684,9 @@ export function EntreNubesTemplate({ tenant }: { tenant: TenantLandingData }) {
                 </SwiperSlide>
               ))}
             </Swiper>
-
-            {/* Flechas custom */}
             <button ref={opinionPrevRef} className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white text-[#1565c0] w-10 h-10 rounded-full shadow-lg flex items-center justify-center text-xl font-bold hover:bg-blue-50 transition disabled:opacity-30">‹</button>
             <button ref={opinionNextRef} className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white text-[#1565c0] w-10 h-10 rounded-full shadow-lg flex items-center justify-center text-xl font-bold hover:bg-blue-50 transition disabled:opacity-30">›</button>
           </div>
-
-          {/* Botones de reseñas */}
-          {(tenant.facebookReviewUrl || tenant.googleReviewUrl) && (
-            <div className="flex flex-wrap justify-center gap-4 mt-10">
-              {tenant.facebookReviewUrl && (
-                <a
-                  href={tenant.facebookReviewUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-3 bg-white text-[#1a1a2e] font-black text-sm uppercase tracking-widest px-6 py-3 rounded-xl shadow-lg hover:bg-blue-50 transition"
-                >
-                  <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073C0 18.1 4.388 23.094 10.125 24v-8.437H7.078v-3.49h3.047V9.41c0-3.025 1.792-4.697 4.533-4.697 1.312 0 2.686.236 2.686.236v2.97h-1.513c-1.491 0-1.956.93-1.956 1.886v2.267h3.328l-.532 3.49h-2.796V24C19.612 23.094 24 18.1 24 12.073z"/></svg>
-                  OPINIONES EN FACEBOOK
-                </a>
-              )}
-              {tenant.googleReviewUrl && (
-                <a
-                  href={tenant.googleReviewUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-3 bg-white text-[#1a1a2e] font-black text-sm uppercase tracking-widest px-6 py-3 rounded-xl shadow-lg hover:bg-gray-50 transition"
-                >
-                  <svg className="w-5 h-5" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-                  OPINIONES EN GOOGLE
-                </a>
-              )}
-            </div>
-          )}
         </section>
       )}
 
@@ -1951,7 +2010,7 @@ export function EntreNubesTemplate({ tenant }: { tenant: TenantLandingData }) {
           className="md:hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4"
           onClick={e => { if (e.target === e.currentTarget) setCotizaModal(false); }}
         >
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md h-[80%] my-auto overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md h-[95%] my-auto overflow-hidden">
 
             {/* Header modal */}
             <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-gray-100">

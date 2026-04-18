@@ -23,8 +23,9 @@ import { PackageImageUpload } from '@/components/package-image-upload';
 import { Switch } from '@/components/ui/switch';
 import {
   Plus, Search, Pencil, Trash2, Loader2, Hotel as HotelIcon,
-  Star, Diamond, X, Globe, GlobeLock,
+  Star, Diamond, X, Globe, GlobeLock, ImageDown,
 } from 'lucide-react';
+import { HotelCardImageModal } from './HotelCardImageModal';
 import { toast } from 'sonner';
 
 interface Destination {
@@ -92,6 +93,7 @@ export default function HotelsPage() {
   // Toggle rápido desde la lista
   const [toggleWebTarget, setToggleWebTarget] = useState<{ id: string; name: string; next: boolean } | null>(null);
   const [togglingWebId, setTogglingWebId] = useState<string | null>(null);
+  const [cardImageHotel, setCardImageHotel] = useState<Hotel | null>(null);
 
   // Imágenes originales al abrir el modal (para detectar huérfanas al cancelar)
   const originalImagesRef = useRef<string[]>([]);
@@ -457,6 +459,16 @@ export default function HotelsPage() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button variant="ghost" size="icon" onClick={() => setCardImageHotel(hotel)}>
+                              <ImageDown className="w-4 h-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent><p>Descargar imagen del card</p></TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                       <Button variant="ghost" size="icon" onClick={() => openEdit(hotel)}>
                         <Pencil className="w-4 h-4" />
                       </Button>
@@ -859,6 +871,11 @@ export default function HotelsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <HotelCardImageModal
+        hotel={cardImageHotel}
+        open={!!cardImageHotel}
+        onClose={() => setCardImageHotel(null)}
+      />
     </div>
   );
 }
