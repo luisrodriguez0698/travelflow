@@ -10,10 +10,13 @@ export async function GET(request: NextRequest) {
     const tenantId = await requirePermission('bancos');
     const { searchParams } = new URL(request.url);
     const all = searchParams.get('all');
+    // status: 'active' (default) | 'archived' | 'all'
+    const status = searchParams.get('status') || 'active';
+    const statusWhere = status === 'all' ? {} : { isActive: status === 'archived' ? false : true };
 
     if (all === 'true') {
       const allAccounts = await prisma.bankAccount.findMany({
-        where: { tenantId },
+        where: { tenantId, ...statusWhere },
         orderBy: { referenceName: 'asc' },
       });
 
@@ -38,7 +41,7 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search') || '';
     const skip = (page - 1) * limit;
 
-    const where: any = { tenantId };
+    const where: any = { tenantId, ...statusWhere };
     if (search) {
       // accountNumber is encrypted so cannot be searched with contains
       where.OR = [

@@ -59,6 +59,10 @@ import {
   MapPin,
   User,
   Truck,
+  Archive,
+  ArchiveRestore,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { DateRange } from 'react-day-picker';
@@ -89,6 +93,8 @@ interface BankAccount {
   currentBalance: number;
   createdAt: string;
   creatorName?: string | null;
+  isActive: boolean;
+  deletedAt?: string | null;
 }
 
 interface BankTransaction {
@@ -145,6 +151,10 @@ export default function BanksPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  // Archived accounts
+  const [archivedAccounts, setArchivedAccounts] = useState<BankAccount[]>([]);
+  const [showArchived, setShowArchived] = useState(false);
+
   // View state
   const [selectedAccount, setSelectedAccount] = useState<BankAccount | null>(null);
   const [transactions, setTransactions] = useState<BankTransaction[]>([]);
@@ -186,6 +196,7 @@ export default function BanksPage() {
 
   useEffect(() => {
     fetchAccounts();
+    fetchArchivedAccounts();
   }, []);
 
   const fetchAccounts = async () => {
@@ -200,6 +211,18 @@ export default function BanksPage() {
       toast({ title: 'Error', description: 'No se pudieron cargar las cuentas', variant: 'destructive' });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchArchivedAccounts = async () => {
+    try {
+      const res = await fetch('/api/bank-accounts?all=true&status=archived');
+      if (res.ok) {
+        const data = await res.json();
+        setArchivedAccounts(data);
+      }
+    } catch {
+      // Silently ignore, this is a secondary list
     }
   };
 
@@ -247,6 +270,7 @@ export default function BanksPage() {
     setSelectedAccount(null);
     setTransactions([]);
     fetchAccounts();
+    fetchArchivedAccounts();
   };
 
   // Account CRUD
@@ -303,19 +327,32 @@ export default function BanksPage() {
     }
   };
 
+  const openDeleteAccount = (account: BankAccount) => {
+    setDeleteAccount(account);
+    const otherActiveAccounts = accounts.filter((a) => a.id !== account.id);
+    // If there's nowhere to transfer to, default straight to settling with an adjustment
+    setDeleteTransferAccountId(otherActiveAccounts.length === 0 ? 'ADJUST' : '');
+  };
+
   const handleDeleteAccount = async () => {
     if (!deleteAccount) return;
 
     const hasBalance = deleteAccount.currentBalance > 0;
     if (hasBalance && !deleteTransferAccountId) {
-      toast({ title: 'Error', description: 'Selecciona una cuenta destino para transferir el saldo', variant: 'destructive' });
+      toast({ title: 'Error', description: 'Elige transferir el saldo o saldarlo con un ajuste', variant: 'destructive' });
       return;
     }
+
+    const isAdjust = deleteTransferAccountId === 'ADJUST';
 
     setSaving(true);
     try {
       const body: any = {};
-      if (deleteTransferAccountId) body.transferToAccountId = deleteTransferAccountId;
+      if (isAdjust) {
+        body.adjustToZero = true;
+      } else if (deleteTransferAccountId) {
+        body.transferToAccountId = deleteTransferAccountId;
+      }
 
       const res = await fetch(`/api/bank-accounts/${deleteAccount.id}`, {
         method: 'DELETE',
@@ -326,13 +363,40 @@ export default function BanksPage() {
         const err = await res.json();
         throw new Error(err.error || 'Error');
       }
-      toast({ title: 'Cuenta archivada', description: hasBalance ? `Saldo de $${deleteAccount.currentBalance.toLocaleString('es-MX')} transferido y cuenta archivada` : 'La cuenta fue archivada correctamente' });
+      const balanceLabel = `$${deleteAccount.currentBalance.toLocaleString('es-MX')}`;
+      toast({
+        title: 'Cuenta archivada',
+        description: !hasBalance
+          ? 'La cuenta fue archivada correctamente'
+          : isAdjust
+          ? `Saldo de ${balanceLabel} saldado con ajuste y cuenta archivada`
+          : `Saldo de ${balanceLabel} transferido y cuenta archivada`,
+      });
       setDeleteAccount(null);
       setDeleteTransferAccountId('');
       if (selectedAccount?.id === deleteAccount.id) setSelectedAccount(null);
       fetchAccounts();
+      fetchArchivedAccounts();
     } catch (error: any) {
       toast({ title: 'Error', description: error.message || 'No se pudo archivar', variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleRestoreAccount = async (account: BankAccount) => {
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/bank-accounts/${account.id}`, { method: 'PATCH' });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Error');
+      }
+      toast({ title: 'Cuenta restaurada', description: `${account.referenceName} vuelve a estar activa` });
+      fetchAccounts();
+      fetchArchivedAccounts();
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message || 'No se pudo restaurar', variant: 'destructive' });
     } finally {
       setSaving(false);
     }
@@ -506,22 +570,31 @@ export default function BanksPage() {
         </div>
 
         {/* Action Buttons */}
-        <div className="flex gap-2 flex-wrap">
-          <Button onClick={() => openTxModal('INCOME')} className="bg-green-600 hover:bg-green-700">
-            <ArrowDownCircle className="w-4 h-4 mr-2" />
-            Nuevo Ingreso
-          </Button>
-          <Button onClick={() => openTxModal('EXPENSE')} variant="destructive">
-            <ArrowUpCircle className="w-4 h-4 mr-2" />
-            Nuevo Egreso
-          </Button>
-          {otherAccounts.length > 0 && (
-            <Button onClick={() => openTxModal('TRANSFER')} variant="outline">
-              <ArrowRightLeft className="w-4 h-4 mr-2" />
-              Transferir
+        {selectedAccount.isActive === false ? (
+          <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-900/40 p-3">
+            <Archive className="w-4 h-4 text-gray-500" />
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Cuenta archivada: solo lectura. Restáurala desde la lista de cuentas archivadas para volver a registrar movimientos.
+            </p>
+          </div>
+        ) : (
+          <div className="flex gap-2 flex-wrap">
+            <Button onClick={() => openTxModal('INCOME')} className="bg-green-600 hover:bg-green-700">
+              <ArrowDownCircle className="w-4 h-4 mr-2" />
+              Nuevo Ingreso
             </Button>
-          )}
-        </div>
+            <Button onClick={() => openTxModal('EXPENSE')} variant="destructive">
+              <ArrowUpCircle className="w-4 h-4 mr-2" />
+              Nuevo Egreso
+            </Button>
+            {otherAccounts.length > 0 && (
+              <Button onClick={() => openTxModal('TRANSFER')} variant="outline">
+                <ArrowRightLeft className="w-4 h-4 mr-2" />
+                Transferir
+              </Button>
+            )}
+          </div>
+        )}
 
         {/* Filters */}
         <Card className="p-4">
@@ -649,7 +722,7 @@ export default function BanksPage() {
                                 <Eye className="w-4 h-4" />
                               </Button>
                             )}
-                            {!isCancelled && (
+                            {!isCancelled && selectedAccount.isActive !== false && (
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -1043,7 +1116,7 @@ export default function BanksPage() {
                   size="sm"
                   variant="outline"
                   className="text-red-600 hover:text-red-700"
-                  onClick={() => setDeleteAccount(account)}
+                  onClick={() => openDeleteAccount(account)}
                 >
                   <Trash2 className="w-4 h-4" />
                 </Button>
@@ -1062,6 +1135,50 @@ export default function BanksPage() {
             <Plus className="w-4 h-4 mr-2" />
             Nueva Cuenta
           </Button>
+        </Card>
+      )}
+
+      {/* Archived Accounts */}
+      {archivedAccounts.length > 0 && (
+        <Card className="p-4">
+          <button
+            className="flex items-center gap-2 w-full text-left"
+            onClick={() => setShowArchived((v) => !v)}
+          >
+            {showArchived ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+            <Archive className="w-4 h-4 text-gray-500" />
+            <span className="font-medium text-gray-700 dark:text-gray-300">
+              Cuentas archivadas ({archivedAccounts.length})
+            </span>
+          </button>
+          {showArchived && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+              {archivedAccounts.map((account) => (
+                <Card key={account.id} className="p-6 bg-muted/30 opacity-80">
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <h3 className="font-semibold text-lg">{account.referenceName}</h3>
+                      <p className="text-sm text-gray-500">{account.bankName}</p>
+                    </div>
+                    <Badge variant="secondary">Archivada</Badge>
+                  </div>
+                  <p className="text-sm text-gray-500 mb-1">{account.accountNumber}</p>
+                  <p className="text-2xl font-bold text-gray-500 mb-3">
+                    {formatCurrency(account.currentBalance)}
+                  </p>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" className="flex-1" onClick={() => viewAccount(account)}>
+                      <Eye className="w-4 h-4 mr-1" />
+                      Ver bitácora
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => handleRestoreAccount(account)} disabled={saving}>
+                      <ArchiveRestore className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
         </Card>
       )}
 
@@ -1162,7 +1279,7 @@ export default function BanksPage() {
           <DialogHeader>
             <DialogTitle>Archivar cuenta</DialogTitle>
             <DialogDescription>
-              La cuenta y todo su historial de movimientos se conservarán, pero ya no aparecerá en las listas activas.
+              La cuenta y todo su historial de movimientos se conservarán en "Cuentas archivadas" (bitácora de solo lectura), pero dejará de aparecer en listas y selectores activos.
             </DialogDescription>
           </DialogHeader>
 
@@ -1176,29 +1293,35 @@ export default function BanksPage() {
             </div>
 
             {(deleteAccount?.currentBalance ?? 0) > 0 ? (
-              <div className="space-y-2">
-                <div className="flex items-start gap-2 rounded-lg border border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-900/20 p-3">
-                  <span className="text-yellow-600 dark:text-yellow-400 mt-0.5 text-sm">⚠️</span>
-                  <p className="text-sm text-yellow-700 dark:text-yellow-300">
-                    Esta cuenta tiene saldo. Debes transferirlo a otra cuenta antes de archivarla.
-                  </p>
-                </div>
-                <Label>Transferir saldo a <span className="text-red-500">*</span></Label>
-                <Select value={deleteTransferAccountId} onValueChange={setDeleteTransferAccountId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecciona cuenta destino..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {accounts
-                      .filter((a) => a.id !== deleteAccount?.id)
-                      .map((a) => (
-                        <SelectItem key={a.id} value={a.id}>
-                          {a.referenceName} — {a.bankName} (${a.currentBalance.toLocaleString('es-MX')})
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              (() => {
+                const otherActiveAccounts = accounts.filter((a) => a.id !== deleteAccount?.id);
+                return (
+                  <div className="space-y-2">
+                    <div className="flex items-start gap-2 rounded-lg border border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-900/20 p-3">
+                      <span className="text-yellow-600 dark:text-yellow-400 mt-0.5 text-sm">⚠️</span>
+                      <p className="text-sm text-yellow-700 dark:text-yellow-300">
+                        {otherActiveAccounts.length > 0
+                          ? 'Esta cuenta tiene saldo. Transfiérelo a otra cuenta o sáldalo con un ajuste antes de archivarla.'
+                          : 'Esta cuenta tiene saldo y es la única cuenta activa. Se registrará un ajuste automático para saldarla a $0 al archivarla.'}
+                      </p>
+                    </div>
+                    <Label>Resolver saldo pendiente <span className="text-red-500">*</span></Label>
+                    <Select value={deleteTransferAccountId} onValueChange={setDeleteTransferAccountId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecciona una opción..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ADJUST">— Saldar con ajuste (sin transferir) —</SelectItem>
+                        {otherActiveAccounts.map((a) => (
+                          <SelectItem key={a.id} value={a.id}>
+                            Transferir a: {a.referenceName} — {a.bankName} (${a.currentBalance.toLocaleString('es-MX')})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                );
+              })()
             ) : (
               <p className="text-sm text-muted-foreground">
                 El saldo es cero, la cuenta se archivará directamente.
