@@ -27,6 +27,12 @@ interface DatePickerProps {
   className?: string;
   fromYear?: number;
   toYear?: number;
+  minDate?: Date | null;
+  maxDate?: Date | null;
+}
+
+function stripTime(date: Date): number {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
 }
 
 const MONTHS = [
@@ -42,8 +48,10 @@ export function DatePicker({
   placeholder = 'Selecciona una fecha',
   disabled = false,
   className,
-  fromYear = 1920,
-  toYear = new Date().getFullYear(),
+  fromYear = 2020,
+  toYear = new Date().getFullYear() + 3,
+  minDate,
+  maxDate,
 }: DatePickerProps) {
   const [open, setOpen] = React.useState(false);
   const [viewDate, setViewDate] = React.useState<Date>(value || new Date());
@@ -115,7 +123,15 @@ export function DatePicker({
     setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1));
   };
 
+  const isDisabledDate = (date: Date) => {
+    const time = stripTime(date);
+    if (minDate && time < stripTime(minDate)) return true;
+    if (maxDate && time > stripTime(maxDate)) return true;
+    return false;
+  };
+
   const handleSelectDate = (date: Date) => {
+    if (isDisabledDate(date)) return;
     onChange(date);
     setOpen(false);
   };
@@ -228,23 +244,28 @@ export function DatePicker({
             ))}
             
             {/* Calendar days */}
-            {calendarDays.map((day, index) => (
-              <button
-                key={index}
-                type="button"
-                onClick={() => handleSelectDate(day.date)}
-                className={cn(
-                  'h-8 w-8 rounded-md text-sm transition-colors',
-                  'hover:bg-accent hover:text-accent-foreground',
-                  'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
-                  !day.isCurrentMonth && 'text-muted-foreground/50',
-                  isSelected(day.date) && 'bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground',
-                  isToday(day.date) && !isSelected(day.date) && 'bg-accent text-accent-foreground',
-                )}
-              >
-                {day.date.getDate()}
-              </button>
-            ))}
+            {calendarDays.map((day, index) => {
+              const dayDisabled = isDisabledDate(day.date);
+              return (
+                <button
+                  key={index}
+                  type="button"
+                  disabled={dayDisabled}
+                  onClick={() => handleSelectDate(day.date)}
+                  className={cn(
+                    'h-8 w-8 rounded-md text-sm transition-colors',
+                    'hover:bg-accent hover:text-accent-foreground',
+                    'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
+                    !day.isCurrentMonth && 'text-muted-foreground/50',
+                    isSelected(day.date) && 'bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground',
+                    isToday(day.date) && !isSelected(day.date) && 'bg-accent text-accent-foreground',
+                    dayDisabled && 'opacity-30 cursor-not-allowed hover:bg-transparent hover:text-inherit',
+                  )}
+                >
+                  {day.date.getDate()}
+                </button>
+              );
+            })}
           </div>
           
           {/* Quick actions */}

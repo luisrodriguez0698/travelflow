@@ -83,9 +83,9 @@ export async function POST(request: NextRequest) {
 
     const { fullName, ine, passport, curp, phone, email, birthDate } = body;
 
-    if (!fullName || !phone) {
+    if (!fullName) {
       return NextResponse.json(
-        { error: 'Nombre y teléfono son requeridos' },
+        { error: 'El nombre es requerido' },
         { status: 400 }
       );
     }
@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
         ine: ine || null,
         passport: passport || null,
         curp: curp || null,
-        phone,
+        phone: phone || null,
         email: email || null,
         birthDate: birthDate ? new Date(birthDate) : null,
         createdBy: sessionUser?.id || null,

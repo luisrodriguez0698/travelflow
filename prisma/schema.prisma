@@ -87,7 +87,7 @@ model Client {
   ine       String?
   passport  String?
   curp      String?
-  phone     String
+  phone     String?
   email     String?
   birthDate DateTime?
   createdBy String?

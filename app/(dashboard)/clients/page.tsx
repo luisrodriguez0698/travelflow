@@ -47,7 +47,7 @@ interface Client {
   id: string;
   fullName: string;
   email: string | null;
-  phone: string;
+  phone: string | null;
   ine: string | null;
   passport: string | null;
   curp: string | null;
@@ -145,7 +145,7 @@ export default function ClientsPage() {
     setFormData({
       fullName: client.fullName,
       email: client.email || '',
-      phone: client.phone,
+      phone: client.phone || '',
       ine: client.ine || '',
       passport: client.passport || '',
       curp: client.curp || '',
@@ -160,8 +160,8 @@ export default function ClientsPage() {
   };
 
   const handleCreate = async () => {
-    if (!formData.fullName || !formData.phone) {
-      toast.error('Nombre y teléfono son requeridos');
+    if (!formData.fullName) {
+      toast.error('El nombre es requerido');
       return;
     }
     setIsSubmitting(true);
@@ -190,8 +190,8 @@ export default function ClientsPage() {
   };
 
   const handleEdit = async () => {
-    if (!selectedClient || !formData.fullName || !formData.phone) {
-      toast.error('Nombre y teléfono son requeridos');
+    if (!selectedClient || !formData.fullName) {
+      toast.error('El nombre es requerido');
       return;
     }
     setIsSubmitting(true);
@@ -255,7 +255,7 @@ export default function ClientsPage() {
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="grid gap-2">
-          <Label htmlFor="phone">Teléfono *</Label>
+          <Label htmlFor="phone">Teléfono</Label>
           <Input
             id="phone"
             value={formData.phone}
@@ -377,7 +377,7 @@ export default function ClientsPage() {
                 paginatedClients.map((client) => (
                   <TableRow key={client.id}>
                     <TableCell className="font-medium">{client.fullName}</TableCell>
-                    <TableCell>{client.phone}</TableCell>
+                    <TableCell>{client.phone || '-'}</TableCell>
                     <TableCell className="hidden md:table-cell">{client.email || '-'}</TableCell>
                     <TableCell className="hidden lg:table-cell">{client.ine || client.passport || '-'}</TableCell>
                     <TableCell className="hidden lg:table-cell">{client.curp || '-'}</TableCell>

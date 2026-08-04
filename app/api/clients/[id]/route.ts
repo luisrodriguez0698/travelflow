@@ -42,9 +42,9 @@ async function updateClient(
 
     const { fullName, ine, passport, curp, phone, email, birthDate } = body;
 
-    if (!fullName || !phone) {
+    if (!fullName) {
       return NextResponse.json(
-        { error: 'Nombre y teléfono son requeridos' },
+        { error: 'El nombre es requerido' },
         { status: 400 }
       );
     }
@@ -59,7 +59,7 @@ async function updateClient(
         ine: ine || null,
         passport: passport || null,
         curp: curp || null,
-        phone,
+        phone: phone || null,
         email: email || null,
         birthDate: birthDate ? new Date(birthDate) : null,
       },

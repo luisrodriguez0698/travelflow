@@ -189,14 +189,13 @@ export default function EditClientPage() {
             </div>
 
             <div>
-              <Label htmlFor="phone">Teléfono *</Label>
+              <Label htmlFor="phone">Teléfono</Label>
               <Input
                 id="phone"
                 name="phone"
                 placeholder="9611234567"
                 value={formData.phone}
                 onChange={handleChange}
-                required
                 disabled={saving}
               />
             </div>

@@ -31,7 +31,7 @@ import { format, isPast, differenceInDays, startOfMonth, endOfMonth, subMonths, 
 import { es } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 
-interface Client { id: string; fullName: string; phone: string; email?: string; }
+interface Client { id: string; fullName: string; phone: string | null; email?: string; }
 interface Season { id: string; name: string; color: string; }
 interface Destination { id: string; name: string; description: string; season?: Season | null; }
 interface Supplier { id: string; name: string; phone: string; serviceType: string; }
@@ -471,8 +471,8 @@ export default function QuotationsPage() {
 
   // Inline client creation/edit
   const handleSaveClient = async () => {
-    if (!newClient.fullName.trim() || !newClient.phone.trim()) {
-      toast({ title: 'Error', description: 'Nombre y teléfono son requeridos', variant: 'destructive' });
+    if (!newClient.fullName.trim()) {
+      toast({ title: 'Error', description: 'El nombre es requerido', variant: 'destructive' });
       return;
     }
     setSavingInline(true);
@@ -506,7 +506,7 @@ export default function QuotationsPage() {
     const client = clients.find((c) => c.id === formData.clientId);
     if (!client) return;
     setEditingClientId(client.id);
-    setNewClient({ fullName: client.fullName, phone: client.phone, email: client.email || '' });
+    setNewClient({ fullName: client.fullName, phone: client.phone || '', email: client.email || '' });
     setShowClientModal(true);
   };
 
@@ -962,11 +962,25 @@ export default function QuotationsPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Fecha de Salida</Label>
-                <DatePicker value={formData.departureDate || undefined} onChange={(date) => setFormData((p) => ({ ...p, departureDate: date || null }))} />
+                <DatePicker
+                  value={formData.departureDate || undefined}
+                  maxDate={formData.returnDate || undefined}
+                  onChange={(date) => setFormData((p) => ({
+                    ...p,
+                    departureDate: date || null,
+                    returnDate: date && p.returnDate && date > p.returnDate ? null : p.returnDate,
+                  }))}
+                />
               </div>
               <div className="space-y-2">
                 <Label>Fecha de Regreso</Label>
-                <DatePicker value={formData.returnDate || undefined} onChange={(date) => setFormData((p) => ({ ...p, returnDate: date || null }))} />
+                <DatePicker
+                  value={formData.returnDate || undefined}
+                  minDate={formData.departureDate || undefined}
+                  disabled={!formData.departureDate}
+                  placeholder={formData.departureDate ? undefined : 'Primero selecciona salida'}
+                  onChange={(date) => setFormData((p) => ({ ...p, returnDate: date || null }))}
+                />
               </div>
             </div>
 
@@ -1328,7 +1342,7 @@ export default function QuotationsPage() {
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2"><Label>Nombre completo *</Label><Input value={newClient.fullName} onChange={(e) => setNewClient((p) => ({ ...p, fullName: e.target.value }))} placeholder="Nombre completo" /></div>
-            <div className="space-y-2"><Label>Teléfono *</Label><Input value={newClient.phone} onChange={(e) => setNewClient((p) => ({ ...p, phone: e.target.value }))} placeholder="Teléfono" /></div>
+            <div className="space-y-2"><Label>Teléfono</Label><Input value={newClient.phone} onChange={(e) => setNewClient((p) => ({ ...p, phone: e.target.value }))} placeholder="Teléfono" /></div>
             <div className="space-y-2"><Label>Email</Label><Input value={newClient.email} onChange={(e) => setNewClient((p) => ({ ...p, email: e.target.value }))} placeholder="Email (opcional)" /></div>
           </div>
           <DialogFooter>

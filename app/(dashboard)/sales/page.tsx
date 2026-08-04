@@ -33,7 +33,7 @@ import { useToast } from '@/hooks/use-toast';
 interface Client {
   id: string;
   fullName: string;
-  phone: string;
+  phone: string | null;
   email?: string;
 }
 
@@ -462,8 +462,8 @@ export default function SalesPage() {
 
   // Inline client creation/edit
   const handleSaveClient = async () => {
-    if (!newClient.fullName.trim() || !newClient.phone.trim()) {
-      toast({ title: 'Error', description: 'Nombre y teléfono son requeridos', variant: 'destructive' });
+    if (!newClient.fullName.trim()) {
+      toast({ title: 'Error', description: 'El nombre es requerido', variant: 'destructive' });
       return;
     }
     setSavingInline(true);
@@ -504,7 +504,7 @@ export default function SalesPage() {
     const client = clients.find((c) => c.id === formData.clientId);
     if (!client) return;
     setEditingClientId(client.id);
-    setNewClient({ fullName: client.fullName, phone: client.phone, email: client.email || '' });
+    setNewClient({ fullName: client.fullName, phone: client.phone || '', email: client.email || '' });
     setShowClientModal(true);
   };
 
@@ -1012,13 +1012,21 @@ export default function SalesPage() {
                 <Label>Fecha de Salida</Label>
                 <DatePicker
                   value={formData.departureDate || undefined}
-                  onChange={(date) => setFormData((p) => ({ ...p, departureDate: date || null }))}
+                  maxDate={formData.returnDate || undefined}
+                  onChange={(date) => setFormData((p) => ({
+                    ...p,
+                    departureDate: date || null,
+                    returnDate: date && p.returnDate && date > p.returnDate ? null : p.returnDate,
+                  }))}
                 />
               </div>
               <div className="space-y-2">
                 <Label>Fecha de Regreso</Label>
                 <DatePicker
                   value={formData.returnDate || undefined}
+                  minDate={formData.departureDate || undefined}
+                  disabled={!formData.departureDate}
+                  placeholder={formData.departureDate ? undefined : 'Primero selecciona salida'}
                   onChange={(date) => setFormData((p) => ({ ...p, returnDate: date || null }))}
                 />
               </div>
@@ -1424,7 +1432,7 @@ export default function SalesPage() {
               <Input value={newClient.fullName} onChange={(e) => setNewClient((p) => ({ ...p, fullName: e.target.value }))} placeholder="Nombre completo" />
             </div>
             <div className="space-y-2">
-              <Label>Teléfono *</Label>
+              <Label>Teléfono</Label>
               <Input value={newClient.phone} onChange={(e) => setNewClient((p) => ({ ...p, phone: e.target.value }))} placeholder="Teléfono" />
             </div>
             <div className="space-y-2">
