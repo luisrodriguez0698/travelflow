@@ -25,7 +25,8 @@ interface Props {
 
 async function fetchAsBlobUrl(src: string): Promise<string> {
   try {
-    const res = await fetch(src);
+    // Fetched through our own origin so the browser never needs the R2 bucket's CORS headers
+    const res = await fetch(`/api/image-proxy?url=${encodeURIComponent(src)}`);
     const blob = await res.blob();
     return URL.createObjectURL(blob);
   } catch {
@@ -67,7 +68,9 @@ export function HotelCardImageModal({ hotel, open, onClose }: Props) {
     if (!cardRef.current || !hotel) return;
     setDownloading(true);
     try {
-      const dataUrl = await toPng(cardRef.current, { cacheBust: true, pixelRatio: 2 });
+      // cacheBust appends a "?timestamp" to every image URL, which breaks blob: URLs
+      // (they don't support query strings) — the card image is already loaded fresh via blob.
+      const dataUrl = await toPng(cardRef.current, { pixelRatio: 2 });
       const link = document.createElement('a');
       link.download = `${hotel.name.toLowerCase().replace(/\s+/g, '-')}.png`;
       link.href = dataUrl;
