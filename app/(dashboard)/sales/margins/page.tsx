@@ -13,6 +13,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
+import { PaginationFooter } from '@/components/ui/pagination-footer';
 import { DateRange } from 'react-day-picker';
 import {
   ArrowLeft,
@@ -72,8 +73,12 @@ export default function MarginsPage() {
 
   useEffect(() => {
     const fetchSales = async () => {
+      setLoading(true);
       try {
-        const res = await fetch('/api/sales');
+        const params = new URLSearchParams();
+        if (dateRange.from) params.set('dateFrom', format(dateRange.from, 'yyyy-MM-dd'));
+        if (dateRange.to) params.set('dateTo', format(dateRange.to, 'yyyy-MM-dd'));
+        const res = await fetch(`/api/sales?${params.toString()}`);
         if (res.ok) {
           const data = await res.json();
           setSales(data);
@@ -85,7 +90,18 @@ export default function MarginsPage() {
       }
     };
     fetchSales();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dateRange]);
+
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(20);
+
+  useEffect(() => { setPage(1); }, [dateRange]);
+
+  const handleLimitChange = (n: number) => {
+    setLimit(n);
+    setPage(1);
+  };
 
   const filteredSales = useMemo(() => {
     if (!dateRange.from) return sales;
@@ -122,6 +138,10 @@ export default function MarginsPage() {
         Ganancia: s.totalPrice - s.netCost,
       }));
   }, [filteredSales]);
+
+  const pagedSales = useMemo(() => {
+    return filteredSales.slice((page - 1) * limit, page * limit);
+  }, [filteredSales, page, limit]);
 
   const lineChartData = useMemo(() => {
     return filteredSales
@@ -300,7 +320,7 @@ export default function MarginsPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              filteredSales.map((sale) => {
+              pagedSales.map((sale) => {
                 const profit = sale.totalPrice - sale.netCost;
                 const margin = sale.netCost > 0 ? (profit / sale.netCost) * 100 : 0;
                 return (
@@ -356,6 +376,14 @@ export default function MarginsPage() {
             )}
           </TableBody>
         </Table>
+        <PaginationFooter
+          page={page}
+          limit={limit}
+          total={filteredSales.length}
+          totalPages={Math.max(1, Math.ceil(filteredSales.length / limit))}
+          onPageChange={setPage}
+          onLimitChange={handleLimitChange}
+        />
       </Card>
     </div>
   );

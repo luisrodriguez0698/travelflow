@@ -26,6 +26,7 @@ import {
   Star, Diamond, X, Globe, GlobeLock, ImageDown,
 } from 'lucide-react';
 import { HotelCardImageModal } from './HotelCardImageModal';
+import { PaginationFooter } from '@/components/ui/pagination-footer';
 import { toast } from 'sonner';
 
 interface Destination {
@@ -84,6 +85,9 @@ export default function HotelsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterDest, setFilterDest] = useState('');
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(20);
+  const [pagination, setPagination] = useState({ total: 0, totalPages: 1 });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editing, setEditing] = useState<Hotel | null>(null);
   const [formData, setFormData] = useState({ ...defaultForm });
@@ -102,11 +106,14 @@ export default function HotelsPage() {
   const [newInclude, setNewInclude] = useState('');
   const [newNotInclude, setNewNotInclude] = useState('');
 
-  const fetchData = async () => {
+  const fetchData = async (pageArg?: number) => {
     try {
+      const currentPage = pageArg ?? page;
       const params = new URLSearchParams();
       if (filterDest) params.set('destinationId', filterDest);
       if (search) params.set('search', search);
+      params.set('page', String(currentPage));
+      params.set('limit', String(limit));
 
       const [hotelsRes, destRes] = await Promise.all([
         fetch(`/api/hotels?${params.toString()}`),
@@ -115,6 +122,7 @@ export default function HotelsPage() {
       if (hotelsRes.ok) {
         const json = await hotelsRes.json();
         setHotels(json.data || json);
+        if (json.pagination) setPagination(json.pagination);
       }
       if (destRes.ok) setDestinations(await destRes.json());
     } catch (error) {
@@ -124,7 +132,27 @@ export default function HotelsPage() {
     }
   };
 
-  useEffect(() => { fetchData(); }, [filterDest]);
+  useEffect(() => { fetchData(page); }, [filterDest, page, limit]);
+
+  // Debounce search, then jump back to page 1
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (page !== 1) setPage(1);
+      else fetchData(1);
+    }, 400);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
+
+  const handleFilterDestChange = (v: string) => {
+    setFilterDest(v === 'all' ? '' : v);
+    setPage(1);
+  };
+
+  const handleLimitChange = (n: number) => {
+    setLimit(n);
+    setPage(1);
+  };
 
   const filtered = hotels.filter((h) => {
     if (!search) return true;
@@ -358,7 +386,7 @@ export default function HotelsPage() {
               className="pl-10"
             />
           </div>
-          <Select value={filterDest || 'all'} onValueChange={(v) => setFilterDest(v === 'all' ? '' : v)}>
+          <Select value={filterDest || 'all'} onValueChange={handleFilterDestChange}>
             <SelectTrigger className="w-full sm:w-[220px]">
               <SelectValue placeholder="Todos los destinos" />
             </SelectTrigger>
@@ -482,6 +510,15 @@ export default function HotelsPage() {
             )}
           </TableBody>
         </Table>
+
+        <PaginationFooter
+          page={page}
+          limit={limit}
+          total={pagination.total}
+          totalPages={pagination.totalPages}
+          onPageChange={setPage}
+          onLimitChange={handleLimitChange}
+        />
       </Card>
 
       {/* Create/Edit Modal */}

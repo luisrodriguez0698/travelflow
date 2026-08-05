@@ -52,19 +52,19 @@ function compressImage(file: File): Promise<{ blob: Blob; contentType: string }>
 
       ctx.drawImage(img, 0, 0, width, height);
 
-      const outputType = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
-      const quality = outputType === 'image/jpeg' ? COMPRESS_QUALITY : undefined;
-
+      // WebP compresses photos (including PNGs, which are lossless and used to bloat here)
+      // significantly better than JPEG at the same visual quality. If the browser can't
+      // encode WebP, canvas.toBlob silently falls back to PNG per spec — never fails.
       canvas.toBlob(
         (blob) => {
           if (!blob) {
             reject(new Error('Error al comprimir la imagen'));
             return;
           }
-          resolve({ blob, contentType: outputType });
+          resolve({ blob, contentType: blob.type || 'image/webp' });
         },
-        outputType,
-        quality,
+        'image/webp',
+        COMPRESS_QUALITY,
       );
     };
 
@@ -119,7 +119,11 @@ export function PackageImageUpload({ images, onImagesChange, folder = 'uploads' 
 
         const { blob: compressedBlob, contentType } = await compressImage(file);
 
-        const ext = contentType === 'image/jpeg' ? 'jpg' : contentType === 'image/png' ? 'png' : file.name.split('.').pop() ?? 'jpg';
+        const ext =
+          contentType === 'image/webp' ? 'webp' :
+          contentType === 'image/jpeg' ? 'jpg' :
+          contentType === 'image/png' ? 'png' :
+          file.name.split('.').pop() ?? 'jpg';
         const baseName = file.name.replace(/\.[^.]+$/, '');
         const compressedFile = new File([compressedBlob], `${baseName}.${ext}`, { type: contentType });
 

@@ -4,16 +4,34 @@ import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const tenantId = await requirePermission('destinos');
+    const { searchParams } = new URL(request.url);
+    // page/limit are opt-in: other consumers (dropdowns) rely on getting the full array
+    const pageParam = searchParams.get('page');
+    const limitParam = searchParams.get('limit');
+    const paginated = pageParam !== null || limitParam !== null;
+    const page = parseInt(pageParam || '1', 10);
+    const limit = parseInt(limitParam || '20', 10);
+    const search = searchParams.get('search') || '';
+
+    const where: any = { tenantId };
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' as const } },
+        { description: { contains: search, mode: 'insensitive' as const } },
+      ];
+    }
+
     const destinations = await prisma.destination.findMany({
-      where: { tenantId },
+      where,
       include: {
         season: true,
         _count: { select: { bookings: true } },
       },
       orderBy: { name: 'asc' },
+      ...(paginated ? { skip: (page - 1) * limit, take: limit } : {}),
     });
 
     // Fetch creator names
@@ -26,10 +44,20 @@ export async function GET() {
       : [];
     const creatorMap = Object.fromEntries(creators.map((u) => [u.id, u.name || u.email || 'Usuario']));
 
-    return NextResponse.json(destinations.map((d) => ({
+    const withCreator = destinations.map((d) => ({
       ...d,
       creatorName: d.createdBy ? creatorMap[d.createdBy] || null : null,
-    })));
+    }));
+
+    if (!paginated) {
+      return NextResponse.json(withCreator);
+    }
+
+    const total = await prisma.destination.count({ where });
+    return NextResponse.json({
+      data: withCreator,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    });
   } catch (error) {
     console.error('Error fetching destinations:', error);
     return NextResponse.json({ error: 'Error fetching destinations' }, { status: 500 });

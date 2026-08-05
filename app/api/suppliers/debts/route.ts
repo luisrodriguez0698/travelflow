@@ -7,6 +7,9 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   try {
     const tenantId = await requireTenantId();
+    const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const limit = parseInt(searchParams.get('limit') || '20', 10);
 
     // Get all suppliers
     const suppliers = await prisma.supplier.findMany({
@@ -106,7 +109,7 @@ export async function GET(request: NextRequest) {
       })
       .filter(Boolean);
 
-    // Global totals
+    // Global totals — computed over the full result set, before pagination slices it
     const totals = result.reduce(
       (acc, s: any) => ({
         totalDebt: acc.totalDebt + s.totalDebt,
@@ -116,7 +119,14 @@ export async function GET(request: NextRequest) {
       { totalDebt: 0, totalPaid: 0, totalRemaining: 0 }
     );
 
-    return NextResponse.json({ data: result, totals });
+    const total = result.length;
+    const paged = result.slice((page - 1) * limit, page * limit);
+
+    return NextResponse.json({
+      data: paged,
+      totals,
+      pagination: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) },
+    });
   } catch (error) {
     console.error('Error fetching supplier debts summary:', error);
     return NextResponse.json({ error: 'Error al cargar resumen de deudas' }, { status: 500 });

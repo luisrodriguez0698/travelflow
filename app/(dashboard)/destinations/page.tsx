@@ -13,6 +13,7 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
+import { PaginationFooter } from '@/components/ui/pagination-footer';
 import { Badge } from '@/components/ui/badge';
 import {
   Tooltip,
@@ -49,14 +50,27 @@ export default function DestinationsPage() {
   const [formData, setFormData] = useState({ name: '', description: '', seasonId: '' });
   const [saving, setSaving] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(20);
+  const [pagination, setPagination] = useState({ total: 0, totalPages: 1 });
 
-  const fetchData = async () => {
+  const fetchData = async (pageArg?: number) => {
     try {
+      const currentPage = pageArg ?? page;
+      const params = new URLSearchParams();
+      if (search) params.set('search', search);
+      params.set('page', String(currentPage));
+      params.set('limit', String(limit));
+
       const [destRes, seasRes] = await Promise.all([
-        fetch('/api/destinations'),
+        fetch(`/api/destinations?${params.toString()}`),
         fetch('/api/seasons'),
       ]);
-      if (destRes.ok) setDestinations(await destRes.json());
+      if (destRes.ok) {
+        const json = await destRes.json();
+        setDestinations(json.data || json);
+        if (json.pagination) setPagination(json.pagination);
+      }
       if (seasRes.ok) setSeasons(await seasRes.json());
     } catch (error) {
       console.error('Error:', error);
@@ -65,7 +79,22 @@ export default function DestinationsPage() {
     }
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { fetchData(page); }, [page, limit]);
+
+  // Debounce search, then jump back to page 1
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (page !== 1) setPage(1);
+      else fetchData(1);
+    }, 400);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
+
+  const handleLimitChange = (n: number) => {
+    setLimit(n);
+    setPage(1);
+  };
 
   const filtered = destinations.filter((d) =>
     d.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -244,6 +273,14 @@ export default function DestinationsPage() {
             )}
           </TableBody>
         </Table>
+        <PaginationFooter
+          page={page}
+          limit={limit}
+          total={pagination.total}
+          totalPages={pagination.totalPages}
+          onPageChange={setPage}
+          onLimitChange={handleLimitChange}
+        />
       </Card>
 
       {/* Create/Edit Modal */}

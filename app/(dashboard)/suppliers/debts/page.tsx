@@ -45,6 +45,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { PaginationFooter } from '@/components/ui/pagination-footer';
 import {
   ArrowLeft,
   Loader2,
@@ -157,6 +158,9 @@ export default function SupplierDebtsPage() {
   const [suppliers, setSuppliers] = useState<SupplierSummary[]>([]);
   const [totals, setTotals] = useState({ totalDebt: 0, totalPaid: 0, totalRemaining: 0 });
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(20);
+  const [pagination, setPagination] = useState({ total: 0, totalPages: 1 });
 
   // Level 2 state
   const [selectedSupplier, setSelectedSupplier] = useState<SupplierDetail | null>(null);
@@ -180,21 +184,24 @@ export default function SupplierDebtsPage() {
 
   // ─── Fetchers ────────────────────────────────────────
 
-  const fetchSuppliersSummary = useCallback(async () => {
+  const fetchSuppliersSummary = useCallback(async (pageArg?: number) => {
     try {
       setLoading(true);
-      const res = await fetch('/api/suppliers/debts');
+      const currentPage = pageArg ?? page;
+      const res = await fetch(`/api/suppliers/debts?page=${currentPage}&limit=${limit}`);
       if (res.ok) {
         const data = await res.json();
         setSuppliers(data.data);
         setTotals(data.totals);
+        if (data.pagination) setPagination(data.pagination);
       }
     } catch {
       toast.error('Error al cargar deudas de proveedores');
     } finally {
       setLoading(false);
     }
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, limit]);
 
   const fetchSupplierDetail = useCallback(async (supplierId: string) => {
     try {
@@ -239,6 +246,11 @@ export default function SupplierDebtsPage() {
     setSelectedSupplier(null);
     setExpandedSaleId(null);
     fetchSuppliersSummary();
+  };
+
+  const handleLimitChange = (n: number) => {
+    setLimit(n);
+    setPage(1);
   };
 
   const openPaymentModal = (sale: SaleDebt) => {
@@ -824,6 +836,14 @@ export default function SupplierDebtsPage() {
             )}
           </TableBody>
         </Table>
+        <PaginationFooter
+          page={page}
+          limit={limit}
+          total={pagination.total}
+          totalPages={pagination.totalPages}
+          onPageChange={setPage}
+          onLimitChange={handleLimitChange}
+        />
       </Card>
     </div>
   );
