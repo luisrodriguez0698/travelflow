@@ -1,12 +1,34 @@
 'use client';
 
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, type CSSProperties } from 'react';
 import { toPng } from 'html-to-image';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Download, Loader2, ImageOff } from 'lucide-react';
+import { Label } from '@/components/ui/label';
+import {
+  Download, Loader2, ImageOff,
+  CornerUpLeft, CornerUpRight, CornerDownLeft, CornerDownRight,
+} from 'lucide-react';
 
 const DEFAULT_IMG = 'https://gsxw2i31kz.ufs.sh/f/ad7xoTb5AU8ssMAwLqQ2veqATUR7yWXE8xwNVbjnK14Jk39s';
+
+type LogoPosition = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+
+const LOGO_POSITIONS: { value: LogoPosition; label: string; icon: typeof CornerUpLeft }[] = [
+  { value: 'top-left', label: 'Arriba izquierda', icon: CornerUpLeft },
+  { value: 'top-right', label: 'Arriba derecha', icon: CornerUpRight },
+  { value: 'bottom-left', label: 'Abajo izquierda', icon: CornerDownLeft },
+  { value: 'bottom-right', label: 'Abajo derecha', icon: CornerDownRight },
+];
+
+function logoPositionStyle(position: LogoPosition): CSSProperties {
+  const offset = 8;
+  const base: CSSProperties = { position: 'absolute' };
+  if (position === 'top-left') return { ...base, top: offset, left: offset };
+  if (position === 'top-right') return { ...base, top: offset, right: offset };
+  if (position === 'bottom-left') return { ...base, bottom: offset, left: offset };
+  return { ...base, bottom: offset, right: offset };
+}
 
 interface Hotel {
   id: string;
@@ -40,6 +62,8 @@ export function HotelCardImageModal({ hotel, open, onClose }: Props) {
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [imgLoading, setImgLoading] = useState(true);
+  const [logoBlobUrl, setLogoBlobUrl] = useState<string | null>(null);
+  const [logoPosition, setLogoPosition] = useState<LogoPosition>('top-left');
 
   const images = hotel?.images?.length ? hotel.images : [DEFAULT_IMG];
   const currency = hotel?.packageCurrency ?? 'MXN';
@@ -63,6 +87,23 @@ export function HotelCardImageModal({ hotel, open, onClose }: Props) {
     });
     return () => { alive = false; };
   }, [selectedIdx, images, open]);
+
+  // Logo del tenant, cargado una vez por apertura del modal
+  useEffect(() => {
+    if (!open) return;
+    let alive = true;
+    setLogoBlobUrl(null);
+    fetch('/api/tenant/branding')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!alive || !data?.logoUrl) return;
+        return fetchAsBlobUrl(data.logoUrl).then((url) => {
+          if (alive) setLogoBlobUrl(url);
+        });
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [open]);
 
   const handleDownload = async () => {
     if (!cardRef.current || !hotel) return;
@@ -109,6 +150,30 @@ export function HotelCardImageModal({ hotel, open, onClose }: Props) {
           </div>
         )}
 
+        {/* Posición del logo */}
+        {logoBlobUrl && (
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Posición del logo</Label>
+            <div className="grid grid-cols-4 gap-2">
+              {LOGO_POSITIONS.map(({ value, label, icon: Icon }) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setLogoPosition(value)}
+                  title={label}
+                  className={`flex items-center justify-center h-9 rounded-lg border transition-colors ${
+                    logoPosition === value
+                      ? 'border-blue-500 bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400'
+                      : 'border-input text-muted-foreground hover:bg-muted'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Card a capturar */}
         <div className="flex justify-center py-2">
           <div
@@ -125,7 +190,7 @@ export function HotelCardImageModal({ hotel, open, onClose }: Props) {
             }}
           >
             {/* Imagen */}
-            <div style={{ width: '100%', height: 168, background: '#f3f4f6', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ position: 'relative', width: '100%', height: 168, background: '#f3f4f6', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               {imgLoading ? (
                 <Loader2 style={{ width: 24, height: 24, color: '#9ca3af', animation: 'spin 1s linear infinite' }} />
               ) : blobUrl ? (
@@ -138,22 +203,60 @@ export function HotelCardImageModal({ hotel, open, onClose }: Props) {
               ) : (
                 <ImageOff style={{ width: 32, height: 32, color: '#d1d5db' }} />
               )}
+
+              {/* Logo pequeño, opacidad normal */}
+              {logoBlobUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={logoBlobUrl}
+                  alt="Logo"
+                  style={{
+                    ...logoPositionStyle(logoPosition),
+                    height: 60,
+                    width: 'auto',
+                    maxWidth: 130,
+                    objectFit: 'contain',
+                    display: 'block',
+                  }}
+                />
+              )}
             </div>
 
             {/* Contenido */}
-            <div style={{ padding: '14px 16px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <p style={{ color: '#0f2d5e', fontWeight: 900, fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0, lineHeight: 1.3 }}>
+            <div style={{ position: 'relative', padding: '14px 16px 16px', display: 'flex', flexDirection: 'column', gap: 8, overflow: 'hidden' }}>
+              {/* Logo grande como marca de agua */}
+              {logoBlobUrl && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    pointerEvents: 'none',
+                  }}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={logoBlobUrl}
+                    alt=""
+                    style={{ width: '140%', height: 'auto', maxHeight: '140%', objectFit: 'contain', opacity: 0.1 }}
+                  />
+                </div>
+              )}
+
+              <p style={{ position: 'relative', color: '#0f2d5e', fontWeight: 900, fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0, lineHeight: 1.3 }}>
                 {hotel.name}
               </p>
 
               {hotel.webDescription && (
-                <p style={{ color: '#6b7280', fontSize: 12, lineHeight: 1.6, whiteSpace: 'pre-line', margin: 0 }}>
+                <p style={{ position: 'relative', color: '#6b7280', fontSize: 12, lineHeight: 1.6, whiteSpace: 'pre-line', margin: 0 }}>
                   {hotel.webDescription}
                 </p>
               )}
 
               {hotel.packagePrice != null && (
-                <p style={{ color: '#0f2d5e', fontWeight: 900, fontSize: 22, margin: '4px 0 0', lineHeight: 1 }}>
+                <p style={{ position: 'relative', color: '#0f2d5e', fontWeight: 900, fontSize: 22, margin: '4px 0 0', lineHeight: 1 }}>
                   ${hotel.packagePrice.toLocaleString('es-MX')}{' '}
                   <span style={{ fontSize: 12, fontWeight: 600, color: '#9ca3af' }}>{currency}</span>
                 </p>

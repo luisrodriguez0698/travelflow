@@ -5,9 +5,10 @@ export const dynamic = 'force-dynamic';
 // Only proxy known image hosts to avoid turning this into an open SSRF relay
 function getAllowedHosts(): string[] {
   const hosts = ['gsxw2i31kz.ufs.sh'];
-  if (process.env.R2_PUBLIC_URL) {
+  for (const envVar of [process.env.R2_PUBLIC_URL, process.env.AWS_ENDPOINT_URL]) {
+    if (!envVar) continue;
     try {
-      hosts.push(new URL(process.env.R2_PUBLIC_URL).host);
+      hosts.push(new URL(envVar).host);
     } catch {
       // ignore malformed env value
     }
