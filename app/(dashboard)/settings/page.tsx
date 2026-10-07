@@ -23,9 +23,12 @@ import {
   Image as ImageIcon,
   Trash2,
   AlertTriangle,
+  Smartphone,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
+import { InstallAppCard } from '@/components/install-app-card';
+import { PushNotificationsToggle } from '@/components/push-notifications-toggle';
 
 interface AgencySettings {
   id: string;
@@ -439,6 +442,18 @@ export default function SettingsPage() {
               Guardar Cambios
             </Button>
           </div>
+        </div>
+      </Card>
+
+      {/* App y notificaciones */}
+      <Card className="p-6">
+        <div className="flex items-center gap-2 mb-6">
+          <Smartphone className="w-5 h-5 text-blue-500" />
+          <h2 className="text-xl font-semibold">App y notificaciones</h2>
+        </div>
+        <div className="space-y-3">
+          <InstallAppCard />
+          <PushNotificationsToggle />
         </div>
       </Card>
 
