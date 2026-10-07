@@ -5,6 +5,14 @@ import { prisma } from './prisma';
 import { ALL_MODULES } from './permissions';
 import { rateLimit } from './rate-limit';
 
+function resolvePermissions(user: { role: string; roleRef: { permissions: unknown } | null }): string[] {
+  return user.roleRef
+    ? (user.roleRef.permissions as string[])
+    : user.role === 'ADMIN'
+      ? [...ALL_MODULES]
+      : [];
+}
+
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
@@ -43,11 +51,7 @@ export const authOptions: NextAuthOptions = {
         }
 
         // Get permissions from role, fallback to all for legacy ADMIN users
-        const permissions = user.roleRef
-          ? (user.roleRef.permissions as string[])
-          : user.role === 'ADMIN'
-            ? [...ALL_MODULES]
-            : [];
+        const permissions = resolvePermissions(user);
 
         return {
           id: user.id,
@@ -69,6 +73,17 @@ export const authOptions: NextAuthOptions = {
         token.tenantName = (user as any).tenantName;
         token.role = (user as any).role;
         token.permissions = (user as any).permissions;
+      } else if (token.id) {
+        // Re-read permissions from the DB on every session check so role edits
+        // take effect immediately instead of only after the next login.
+        const dbUser = await prisma.user.findUnique({
+          where: { id: token.id as string },
+          include: { roleRef: true },
+        });
+        if (dbUser) {
+          token.role = dbUser.role;
+          token.permissions = resolvePermissions(dbUser);
+        }
       }
       return token;
     },

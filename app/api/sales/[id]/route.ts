@@ -221,7 +221,7 @@ export async function PUT(
           const lastDayOfMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
           if (currentDay < 15) { result.setDate(15); }
           else if (currentDay < lastDayOfMonth) { result.setDate(lastDayOfMonth); }
-          else { result.setMonth(currentMonth + 1); result.setDate(15); }
+          else { result.setDate(1); result.setMonth(currentMonth + 1); result.setDate(15); }
         }
         return result;
       };

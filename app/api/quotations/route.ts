@@ -217,6 +217,7 @@ export async function POST(request: NextRequest) {
           } else if (currentDay < lastDayOfMonth) {
             result.setDate(lastDayOfMonth);
           } else {
+            result.setDate(1);
             result.setMonth(currentMonth + 1);
             result.setDate(15);
           }
