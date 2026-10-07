@@ -39,7 +39,7 @@ export function BottomNav() {
 
   return (
     <nav
-      className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800"
+      className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-card border-t border-border"
       style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
     >
       <div className="flex items-stretch justify-around h-16">

@@ -21,10 +21,10 @@ export function Navbar() {
   const { theme, setTheme } = useTheme();
 
   return (
-    <header className="h-16 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
+    <header className="h-16 border-b border-border bg-card">
       <div className="flex items-center justify-between h-full px-4 lg:px-6">
         <div className="pl-12 lg:pl-0">
-          <h2 className="text-lg lg:text-xl font-semibold text-gray-900 dark:text-white truncate max-w-[200px] lg:max-w-none">
+          <h2 className="text-lg lg:text-xl font-semibold text-foreground truncate max-w-[200px] lg:max-w-none">
             {(session?.user as any)?.tenantName || 'TravelFlow'}
           </h2>
         </div>

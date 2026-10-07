@@ -163,7 +163,7 @@ export function Sidebar() {
       variant="ghost"
       size="icon"
       onClick={() => setMobileOpen(!mobileOpen)}
-      className="lg:hidden fixed top-3 left-3 z-50 bg-white dark:bg-gray-900 shadow-md rounded-lg"
+      className="lg:hidden fixed top-3 left-3 z-50 bg-card shadow-md rounded-lg"
     >
       {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
     </Button>
@@ -175,13 +175,13 @@ export function Sidebar() {
     return (
       <div className="flex flex-col h-full">
         {/* Logo */}
-        <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200 dark:border-gray-800">
+        <div className="flex items-center justify-between h-16 px-4 border-b border-border">
           <div className="flex items-center space-x-2 overflow-hidden">
             <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center flex-shrink-0">
               <Plane className="w-4 h-4 text-white" />
             </div>
             {showExpanded && (
-              <span className="text-lg font-bold text-gray-900 dark:text-white whitespace-nowrap">
+              <span className="text-lg font-bold text-foreground whitespace-nowrap">
                 TravelFlow
               </span>
             )}
@@ -281,7 +281,7 @@ export function Sidebar() {
       {/* Mobile Sidebar */}
       <aside
         className={cn(
-          'fixed left-0 top-0 z-40 h-screen bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 lg:hidden w-64',
+          'fixed left-0 top-0 z-40 h-screen bg-card border-r border-border lg:hidden w-64',
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >
@@ -291,7 +291,7 @@ export function Sidebar() {
       {/* Desktop Sidebar */}
       <aside
         className={cn(
-          'hidden lg:block fixed left-0 top-0 z-40 h-screen bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800',
+          'hidden lg:block fixed left-0 top-0 z-40 h-screen bg-card border-r border-border',
           collapsed ? 'w-16' : 'w-64',
         )}
       >

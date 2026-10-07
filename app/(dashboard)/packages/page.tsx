@@ -695,13 +695,82 @@ export default function PackagesPage() {
 
       {/* Table */}
       <Card>
+        {/* Mobile/tablet: stacked cards (no horizontal scroll) */}
+        <div className="lg:hidden divide-y divide-gray-200 dark:divide-gray-800">
+          {paginatedPackages.length === 0 ? (
+            <div className="text-center py-12">
+              <PackageIcon className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+              <p className="text-gray-600 dark:text-gray-400">
+                {searchTerm ? 'No se encontraron paquetes' : 'No hay paquetes registrados'}
+              </p>
+            </div>
+          ) : (
+            paginatedPackages.map((pkg) => {
+              const nextDep = getNextDeparture(pkg);
+              return (
+                <div key={pkg.id} className="p-4 space-y-2">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-purple-50 dark:bg-purple-900/20 rounded-lg flex items-center justify-center shrink-0">
+                      <PackageIcon className="w-5 h-5 text-purple-500" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-medium truncate">{pkg.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {pkg.departures.length} salida{pkg.departures.length !== 1 ? 's' : ''}
+                      </p>
+                    </div>
+                  </div>
+                  {pkg.description && (
+                    <p className="text-sm text-muted-foreground truncate">{pkg.description}</p>
+                  )}
+                  <div className="flex items-center justify-between">
+                    {nextDep ? (
+                      <div className="text-sm">
+                        <p className="font-medium">
+                          {format(new Date(nextDep.departureDate), "d MMM yy", { locale: es })}
+                          {' '}al {format(new Date(nextDep.returnDate), "d MMM yy", { locale: es })}
+                        </p>
+                        <p className="font-semibold text-green-600 dark:text-green-400">
+                          ${nextDep.priceAdult.toLocaleString('es-MX')}
+                          {nextDep.priceChild > 0 && (
+                            <span className="text-xs text-muted-foreground font-normal">
+                              {' '}· Niño: ${nextDep.priceChild.toLocaleString('es-MX')}
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground text-sm">Sin salidas</span>
+                    )}
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="icon" onClick={() => openEditModal(pkg)}>
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                        onClick={() => openDeleteDialog(pkg)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Desktop/tablet-landscape: full table */}
+        <div className="hidden lg:block">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Nombre del Paquete</TableHead>
-              <TableHead className="hidden md:table-cell">Descripción</TableHead>
+              <TableHead>Descripción</TableHead>
               <TableHead>Próxima Salida</TableHead>
-              <TableHead className="hidden sm:table-cell">Precio Base</TableHead>
+              <TableHead>Precio Base</TableHead>
               <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
@@ -787,6 +856,7 @@ export default function PackagesPage() {
             )}
           </TableBody>
         </Table>
+        </div>
 
         {/* Pagination */}
         {totalPages > 1 && (

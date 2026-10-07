@@ -64,11 +64,14 @@ html, body {
   .dark {
     --background: 222.2 84% 4.9%;
     --foreground: 210 40% 98%;
- 
-    --card: 222.2 84% 4.9%;
+
+    /* Lighter than --background so Card/Popover read as a raised surface
+       instead of blending into the page (matches --primary-foreground's
+       tone, reused here for a consistent elevated-panel hue). */
+    --card: 222.2 47.4% 11.2%;
     --card-foreground: 210 40% 98%;
- 
-    --popover: 222.2 84% 4.9%;
+
+    --popover: 222.2 47.4% 11.2%;
     --popover-foreground: 210 40% 98%;
  
     --primary: 210 40% 98%;

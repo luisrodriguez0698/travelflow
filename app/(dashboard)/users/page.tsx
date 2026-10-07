@@ -413,7 +413,7 @@ export default function UsersPage() {
           </div>
 
           {/* Mobile/tablet: stacked cards (no horizontal scroll) */}
-          <div className="lg:hidden bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 divide-y divide-gray-200 dark:divide-gray-800">
+          <div className="lg:hidden bg-card rounded-lg border divide-y divide-border">
             {usersLoading ? (
               <div className="text-center py-8">
                 <Loader2 className="w-6 h-6 animate-spin mx-auto text-gray-400" />
@@ -472,7 +472,7 @@ export default function UsersPage() {
           </div>
 
           {/* Desktop/tablet-landscape: full table */}
-          <div className="hidden lg:block bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 overflow-hidden">
+          <div className="hidden lg:block bg-card rounded-lg border overflow-hidden">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -600,7 +600,7 @@ export default function UsersPage() {
           </div>
 
           {/* Mobile/tablet: stacked cards (no horizontal scroll) */}
-          <div className="lg:hidden bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 divide-y divide-gray-200 dark:divide-gray-800">
+          <div className="lg:hidden bg-card rounded-lg border divide-y divide-border">
             {rolesLoading ? (
               <div className="text-center py-8">
                 <Loader2 className="w-6 h-6 animate-spin mx-auto text-gray-400" />
@@ -656,7 +656,7 @@ export default function UsersPage() {
           </div>
 
           {/* Desktop/tablet-landscape: full table */}
-          <div className="hidden lg:block bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 overflow-hidden">
+          <div className="hidden lg:block bg-card rounded-lg border overflow-hidden">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -746,7 +746,7 @@ export default function UsersPage() {
       {activeTab === 'invitations' && (
         <>
         {/* Mobile/tablet: stacked cards (no horizontal scroll) */}
-        <div className="lg:hidden bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 divide-y divide-gray-200 dark:divide-gray-800">
+        <div className="lg:hidden bg-card rounded-lg border divide-y divide-border">
           {invitationsLoading ? (
             <div className="text-center py-8">
               <Loader2 className="w-6 h-6 animate-spin mx-auto text-gray-400" />
@@ -808,7 +808,7 @@ export default function UsersPage() {
         </div>
 
         {/* Desktop/tablet-landscape: full table */}
-        <div className="hidden lg:block bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 overflow-hidden">
+        <div className="hidden lg:block bg-card rounded-lg border overflow-hidden">
           <Table>
             <TableHeader>
               <TableRow>
