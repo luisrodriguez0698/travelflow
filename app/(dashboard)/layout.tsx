@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth-options';
 import { Sidebar } from '@/components/sidebar';
 import { Navbar } from '@/components/navbar';
+import { BottomNav } from '@/components/bottom-nav';
 import { SidebarProvider } from '@/components/sidebar-context';
 import { DashboardContent } from './dashboard-content';
 
@@ -23,8 +24,9 @@ export default async function DashboardLayout({
         <Sidebar />
         <DashboardContent>
           <Navbar />
-          <main className="p-4 md:p-6 pt-16 md:pt-6">{children}</main>
+          <main className="p-4 lg:p-6 pt-16 lg:pt-6 pb-24 lg:pb-6">{children}</main>
         </DashboardContent>
+        <BottomNav />
       </div>
     </SidebarProvider>
   );

@@ -8,8 +8,13 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import {
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
-} from '@/components/ui/dialog';
+  ResponsiveDialog as Dialog,
+  ResponsiveDialogContent as DialogContent,
+  ResponsiveDialogDescription as DialogDescription,
+  ResponsiveDialogFooter as DialogFooter,
+  ResponsiveDialogHeader as DialogHeader,
+  ResponsiveDialogTitle as DialogTitle,
+} from '@/components/ui/responsive-dialog';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
@@ -732,6 +737,70 @@ export default function QuotationsPage() {
       {/* Table */}
       {quotations.length > 0 ? (
         <Card>
+          {/* Mobile/tablet: stacked cards (no horizontal scroll) */}
+          <div className="lg:hidden divide-y divide-gray-200 dark:divide-gray-800">
+            {paginatedQuotations.map((q) => (
+              <div key={q.id} className="p-4 space-y-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <span className="font-mono text-xs text-gray-500 bg-gray-100 dark:bg-gray-800 dark:text-gray-400 px-1.5 py-0.5 rounded">
+                        {q.id.slice(-8).toUpperCase()}
+                      </span>
+                      <Badge variant={q.paymentType === 'CASH' ? 'default' : 'secondary'}>
+                        {q.paymentType === 'CASH' ? 'Contado' : 'Crédito'}
+                      </Badge>
+                    </div>
+                    <p className="font-medium truncate">{q.client?.fullName}</p>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      {q.destination?.name || '—'}
+                      {q.destination?.season && (
+                        <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: q.destination.season.color }} title={q.destination.season.name} />
+                      )}
+                    </div>
+                  </div>
+                  {getExpirationBadge(q.expirationDate)}
+                </div>
+
+                <div className="flex items-center justify-between text-sm text-muted-foreground">
+                  <span>Salida: {q.departureDate ? formatDateStr(q.departureDate) : '—'}</span>
+                  <span>{q.createdAt ? format(new Date(q.createdAt), "d MMM yyyy", { locale: es }) : '—'}</span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-lg font-semibold text-green-600">
+                    ${q.totalPrice?.toLocaleString('es-MX')}
+                  </span>
+                  {q.creatorName && (
+                    <span
+                      className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 text-white text-xs font-semibold"
+                      title={q.creatorName}
+                    >
+                      {q.creatorName.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-1">
+                  <Link href={`/quotations/${q.id}`}>
+                    <Button size="sm" variant="outline"><Eye className="w-4 h-4 mr-1" />Ver</Button>
+                  </Link>
+                  <Link href={`/quotations/${q.id}/edit`}>
+                    <Button size="sm" variant="outline"><Pencil className="w-4 h-4" /></Button>
+                  </Link>
+                  <Button size="sm" variant="outline" className="text-green-600 hover:text-green-700" onClick={() => { setConvertingQuotation(q); setIsConvertModalOpen(true); }}>
+                    <ShoppingCart className="w-4 h-4" />
+                  </Button>
+                  <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700" onClick={() => { setDeletingQuotation(q); setIsDeleteModalOpen(true); }}>
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop/tablet-landscape: full table */}
+          <div className="hidden lg:block">
           <Table>
             <TableHeader>
               <TableRow>
@@ -811,6 +880,7 @@ export default function QuotationsPage() {
               ))}
             </TableBody>
           </Table>
+          </div>
           {totalPages > 1 && (
             <div className="flex justify-between items-center p-4 border-t">
               <p className="text-sm text-gray-600 dark:text-gray-400">

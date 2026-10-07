@@ -10,8 +10,12 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import {
-  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
-} from '@/components/ui/dialog';
+  ResponsiveDialog as Dialog,
+  ResponsiveDialogContent as DialogContent,
+  ResponsiveDialogFooter as DialogFooter,
+  ResponsiveDialogHeader as DialogHeader,
+  ResponsiveDialogTitle as DialogTitle,
+} from '@/components/ui/responsive-dialog';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
@@ -402,6 +406,69 @@ export default function HotelsPage() {
 
       {/* Table */}
       <Card>
+        {/* Mobile/tablet: stacked cards (no horizontal scroll) */}
+        <div className="lg:hidden divide-y divide-gray-200 dark:divide-gray-800">
+          {filtered.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">No hay hoteles registrados</div>
+          ) : (
+            filtered.map((hotel) => (
+              <div key={hotel.id} className="p-4 space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <HotelIcon className="w-4 h-4 text-blue-500 shrink-0" />
+                      <span className="font-medium truncate">{hotel.name}</span>
+                    </div>
+                    <Badge variant="outline" className="mt-1">{hotel.destination?.name}</Badge>
+                  </div>
+                  {hotel.creatorName && (
+                    <span
+                      className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 text-white text-xs font-semibold shrink-0"
+                      title={hotel.creatorName}
+                    >
+                      {hotel.creatorName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-3 text-sm text-muted-foreground flex-wrap">
+                  {(hotel.stars > 0 || hotel.diamonds > 0) && (
+                    <div className="flex items-center gap-0.5">
+                      {hotel.stars > 0 ? renderStars(hotel.stars) : renderDiamonds(hotel.diamonds)}
+                    </div>
+                  )}
+                  <span>{hotel.plan || '—'}</span>
+                  <span>{hotel.roomType || '—'}</span>
+                </div>
+                <div className="flex items-center justify-between pt-1">
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={hotel.showInWeb ?? true}
+                      disabled={togglingWebId === hotel.id}
+                      onCheckedChange={(next) => setToggleWebTarget({ id: hotel.id, name: hotel.name, next })}
+                    />
+                    <span className="text-xs text-muted-foreground">
+                      {hotel.showInWeb ? 'Visible en la web' : 'Oculto de la web'}
+                    </span>
+                  </div>
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" onClick={() => setCardImageHotel(hotel)}>
+                      <ImageDown className="w-4 h-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => openEdit(hotel)}>
+                      <Pencil className="w-4 h-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => setDeleteId(hotel.id)} className="text-red-500 hover:text-red-600">
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Desktop/tablet-landscape: full table */}
+        <div className="hidden lg:block">
         <Table>
           <TableHeader>
             <TableRow>
@@ -510,6 +577,7 @@ export default function HotelsPage() {
             )}
           </TableBody>
         </Table>
+        </div>
 
         <PaginationFooter
           page={page}

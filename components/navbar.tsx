@@ -22,9 +22,9 @@ export function Navbar() {
 
   return (
     <header className="h-16 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
-      <div className="flex items-center justify-between h-full px-4 md:px-6">
-        <div className="pl-12 md:pl-0">
-          <h2 className="text-lg md:text-xl font-semibold text-gray-900 dark:text-white truncate max-w-[200px] md:max-w-none">
+      <div className="flex items-center justify-between h-full px-4 lg:px-6">
+        <div className="pl-12 lg:pl-0">
+          <h2 className="text-lg lg:text-xl font-semibold text-gray-900 dark:text-white truncate max-w-[200px] lg:max-w-none">
             {(session?.user as any)?.tenantName || 'TravelFlow'}
           </h2>
         </div>

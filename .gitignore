@@ -38,3 +38,12 @@ next-env.d.ts
 # misc
 .claude/
 settings.local.json
+
+# PWA generated files (built by next-pwa at build time)
+public/sw.js
+public/sw.js.map
+public/workbox-*.js
+public/workbox-*.js.map
+public/worker-*.js
+public/swe-worker-*.js
+public/fallback-*.js

@@ -299,6 +299,66 @@ export default function MarginsPage() {
 
       {/* Detail Table */}
       <Card>
+        {/* Mobile/tablet: stacked cards (no horizontal scroll) */}
+        <div className="lg:hidden divide-y divide-gray-200 dark:divide-gray-800">
+          {filteredSales.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">No hay ventas en el período seleccionado</div>
+          ) : (
+            pagedSales.map((sale) => {
+              const profit = sale.totalPrice - sale.netCost;
+              const margin = sale.netCost > 0 ? (profit / sale.netCost) * 100 : 0;
+              return (
+                <div key={sale.id} className="p-4 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-medium truncate">{sale.client?.fullName || '—'}</p>
+                      <p className="text-sm text-muted-foreground truncate">{sale.destination?.name || '—'}</p>
+                    </div>
+                    <Badge variant={sale.status === 'COMPLETED' ? 'default' : sale.status === 'CANCELLED' ? 'destructive' : 'secondary'}>
+                      {sale.status === 'ACTIVE' ? 'Activa' : sale.status === 'COMPLETED' ? 'Completada' : 'Cancelada'}
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    {format(new Date(sale.saleDate), "d 'de' MMM, yyyy", { locale: es })}
+                  </p>
+                  <div className="grid grid-cols-3 gap-2 text-sm">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Precio Venta</p>
+                      <p className="font-medium">{formatCurrency(sale.totalPrice)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Costo Neto</p>
+                      <p>{sale.netCost > 0 ? formatCurrency(sale.netCost) : '—'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Ganancia</p>
+                      <p className={`font-medium ${profit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                        {sale.netCost > 0 ? formatCurrency(profit) : '—'}
+                      </p>
+                    </div>
+                  </div>
+                  {sale.netCost > 0 && (
+                    <Badge
+                      variant="outline"
+                      className={
+                        margin >= 10
+                          ? 'border-emerald-300 text-emerald-700 dark:text-emerald-400'
+                          : margin >= 0
+                          ? 'border-yellow-300 text-yellow-700 dark:text-yellow-400'
+                          : 'border-red-300 text-red-700 dark:text-red-400'
+                      }
+                    >
+                      Margen: {margin.toFixed(1)}%
+                    </Badge>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Desktop/tablet-landscape: full table */}
+        <div className="hidden lg:block">
         <Table>
           <TableHeader>
             <TableRow>
@@ -376,6 +436,7 @@ export default function MarginsPage() {
             )}
           </TableBody>
         </Table>
+        </div>
         <PaginationFooter
           page={page}
           limit={limit}

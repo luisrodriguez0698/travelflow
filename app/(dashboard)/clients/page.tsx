@@ -7,13 +7,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { DatePicker } from '@/components/ui/date-picker';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+  ResponsiveDialog as Dialog,
+  ResponsiveDialogContent as DialogContent,
+  ResponsiveDialogDescription as DialogDescription,
+  ResponsiveDialogFooter as DialogFooter,
+  ResponsiveDialogHeader as DialogHeader,
+  ResponsiveDialogTitle as DialogTitle,
+} from '@/components/ui/responsive-dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -358,15 +358,66 @@ export default function ClientsPage() {
 
       {/* Table */}
       <Card>
-        <div className="overflow-x-auto">
+        {/* Mobile/tablet: stacked cards (no horizontal scroll) */}
+        <div className="lg:hidden divide-y divide-gray-200 dark:divide-gray-800">
+          {paginatedClients.length > 0 ? (
+            paginatedClients.map((client) => (
+              <div key={client.id} className="p-4 space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-medium truncate">{client.fullName}</p>
+                    <p className="text-sm text-muted-foreground">{client.phone || '-'}</p>
+                  </div>
+                  {client.creatorName && (
+                    <span
+                      className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 text-white text-xs font-semibold shrink-0"
+                      title={client.creatorName}
+                    >
+                      {client.creatorName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
+                    </span>
+                  )}
+                </div>
+                {client.email && (
+                  <p className="text-sm text-muted-foreground truncate">{client.email}</p>
+                )}
+                <div className="flex items-center justify-end gap-2 pt-1">
+                  <Button variant="outline" size="sm" onClick={() => openEditModal(client)}>
+                    <Edit className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                    onClick={() => openDeleteDialog(client)}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="text-center py-12">
+              <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-500">No se encontraron clientes</p>
+              {searchTerm && (
+                <Button variant="link" onClick={() => setSearchTerm('')} className="mt-2">
+                  Limpiar búsqueda
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Desktop/tablet-landscape: full table */}
+        <div className="hidden lg:block">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Nombre</TableHead>
                 <TableHead>Teléfono</TableHead>
-                <TableHead className="hidden md:table-cell">Email</TableHead>
-                <TableHead className="hidden lg:table-cell">INE/Pasaporte</TableHead>
-                <TableHead className="hidden lg:table-cell">CURP</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead className="hidden xl:table-cell">INE/Pasaporte</TableHead>
+                <TableHead className="hidden xl:table-cell">CURP</TableHead>
                 <TableHead className="hidden xl:table-cell">Fecha Nac.</TableHead>
                 <TableHead className="text-center">Creado por</TableHead>
                 <TableHead className="text-right">Acciones</TableHead>

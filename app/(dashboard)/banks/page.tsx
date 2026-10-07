@@ -9,13 +9,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+  ResponsiveDialog as Dialog,
+  ResponsiveDialogContent as DialogContent,
+  ResponsiveDialogDescription as DialogDescription,
+  ResponsiveDialogFooter as DialogFooter,
+  ResponsiveDialogHeader as DialogHeader,
+  ResponsiveDialogTitle as DialogTitle,
+} from '@/components/ui/responsive-dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -680,6 +680,54 @@ export default function BanksPage() {
             </div>
           ) : transactions.length > 0 ? (
             <>
+              {/* Mobile/tablet: stacked cards (no horizontal scroll) */}
+              <div className="lg:hidden divide-y divide-gray-200 dark:divide-gray-800">
+                {transactions.map((tx) => {
+                  const isCancelled = tx.status === 'CANCELLED';
+                  return (
+                    <div key={tx.id} className={`p-4 space-y-2 ${isCancelled ? 'opacity-50' : ''}`}>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className={`font-medium truncate ${isCancelled ? 'line-through' : ''}`}>{tx.description}</p>
+                          {tx.booking?.client && (
+                            <p className="text-xs text-gray-500">Cliente: {tx.booking.client.fullName}</p>
+                          )}
+                        </div>
+                        {getTxTypeBadge(tx.type, tx.status)}
+                      </div>
+                      <div className="flex items-center justify-between text-sm text-muted-foreground">
+                        <span>{formatDate(tx.date)}</span>
+                        <span>{tx.reference || '-'}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className={`text-lg font-semibold ${isCancelled ? 'text-gray-400 line-through' : tx.type === 'INCOME' ? 'text-green-600' : 'text-red-600'}`}>
+                          {tx.type === 'INCOME' ? '+' : '-'}{formatCurrency(tx.amount)}
+                        </span>
+                        <div className="flex gap-1">
+                          {tx.bookingId && (
+                            <Button size="sm" variant="outline" onClick={() => setSelectedTx(tx)}>
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                          )}
+                          {!isCancelled && selectedAccount.isActive !== false && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-red-600 hover:text-red-700"
+                              onClick={() => setCancellingTx(tx)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Desktop/tablet-landscape: full table */}
+              <div className="hidden lg:block">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -739,6 +787,7 @@ export default function BanksPage() {
                   })}
                 </TableBody>
               </Table>
+              </div>
               {txTotalPages > 1 && (
                 <div className="flex justify-between items-center p-4 border-t">
                   <p className="text-sm text-gray-500">{txTotal} movimientos</p>

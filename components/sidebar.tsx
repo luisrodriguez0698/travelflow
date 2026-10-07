@@ -163,7 +163,7 @@ export function Sidebar() {
       variant="ghost"
       size="icon"
       onClick={() => setMobileOpen(!mobileOpen)}
-      className="md:hidden fixed top-3 left-3 z-50 bg-white dark:bg-gray-900 shadow-md rounded-lg"
+      className="lg:hidden fixed top-3 left-3 z-50 bg-white dark:bg-gray-900 shadow-md rounded-lg"
     >
       {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
     </Button>
@@ -273,7 +273,7 @@ export function Sidebar() {
       {/* Mobile overlay */}
       {mobileOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
           onClick={() => setMobileOpen(false)}
         />
       )}
@@ -281,7 +281,7 @@ export function Sidebar() {
       {/* Mobile Sidebar */}
       <aside
         className={cn(
-          'fixed left-0 top-0 z-40 h-screen bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 md:hidden w-64',
+          'fixed left-0 top-0 z-40 h-screen bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 lg:hidden w-64',
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >
@@ -291,7 +291,7 @@ export function Sidebar() {
       {/* Desktop Sidebar */}
       <aside
         className={cn(
-          'hidden md:block fixed left-0 top-0 z-40 h-screen bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800',
+          'hidden lg:block fixed left-0 top-0 z-40 h-screen bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800',
           collapsed ? 'w-16' : 'w-64',
         )}
       >

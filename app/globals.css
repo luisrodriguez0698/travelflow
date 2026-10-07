@@ -2,6 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Safety net: no page should ever scroll sideways as a whole — only
+   explicitly scrollable containers (tables, carousels) may. */
+html, body {
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+
 /* Swiper — layout mínimo (evita el warning de CSS nesting de swiper/swiper.css) */
 .swiper         { overflow: hidden; }
 .swiper-wrapper { display: flex; align-items: stretch; box-sizing: content-box; }

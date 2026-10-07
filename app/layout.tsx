@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { Providers } from '@/components/providers';
@@ -9,15 +9,27 @@ export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXTAUTH_URL || 'http://localhost:3000'),
   title: 'TravelFlow - Gestión de Agencias de Viajes',
   description: 'SaaS multitenant para la gestión operativa de agencias de viajes',
+  manifest: '/manifest.json',
   icons: {
     icon: '/favicon.svg',
     shortcut: '/favicon.svg',
+    apple: '/icons/icon-192.png',
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'TravelFlow',
   },
   openGraph: {
     title: 'TravelFlow - Gestión de Agencias de Viajes',
     description: 'SaaS multitenant para la gestión operativa de agencias de viajes',
     images: ['/og-image.png'],
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: '#1E88E5',
+  viewportFit: 'cover',
 };
 
 export default function RootLayout({

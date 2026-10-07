@@ -14,13 +14,13 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+  ResponsiveDialog as Dialog,
+  ResponsiveDialogContent as DialogContent,
+  ResponsiveDialogDescription as DialogDescription,
+  ResponsiveDialogFooter as DialogFooter,
+  ResponsiveDialogHeader as DialogHeader,
+  ResponsiveDialogTitle as DialogTitle,
+} from '@/components/ui/responsive-dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -418,6 +418,123 @@ export default function SupplierDebtsPage() {
 
             {/* Sales Table */}
             <Card>
+              {/* Mobile/tablet: stacked cards (no horizontal scroll) */}
+              <div className="lg:hidden divide-y divide-gray-200 dark:divide-gray-800">
+                {sales.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No hay ventas con deuda para este proveedor
+                  </div>
+                ) : (
+                  sales.map((sale) => {
+                    const tl = TRAFFIC_LIGHT_STYLES[sale.trafficLight];
+                    const isExpanded = expandedSaleId === sale.id;
+                    return (
+                      <div key={sale.id} className="p-4 space-y-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="font-mono text-xs text-muted-foreground">{sale.id.slice(-8).toUpperCase()}</p>
+                            <p className="font-medium truncate">{sale.client?.fullName || '—'}</p>
+                            <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                              {sale.destination?.season && (
+                                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: sale.destination.season.color }} />
+                              )}
+                              {sale.destination?.name || '—'}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <span className={`w-3 h-3 rounded-full ${tl.bg}`} />
+                            {sale.supplierDeadline && (
+                              <span className="text-xs text-muted-foreground">
+                                {format(new Date(sale.supplierDeadline), 'd MMM yyyy', { locale: es })}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2 text-sm">
+                          <div>
+                            <p className="text-xs text-muted-foreground">Costo Neto</p>
+                            <p className="font-medium">{formatCurrency(sale.netCost)}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground">Pagado</p>
+                            <p className="text-emerald-600 dark:text-emerald-400">{formatCurrency(sale.totalPaid)}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground">Pendiente</p>
+                            <p className={`font-medium ${sale.remaining > 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                              {formatCurrency(sale.remaining)}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex justify-end gap-1 pt-1">
+                          {sale.payments.length > 0 && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setExpandedSaleId(isExpanded ? null : sale.id)}
+                            >
+                              <History className="w-4 h-4" />
+                              {isExpanded ? <ChevronUp className="w-3 h-3 ml-1" /> : <ChevronDown className="w-3 h-3 ml-1" />}
+                            </Button>
+                          )}
+                          {sale.remaining > 0 && (
+                            <Button
+                              size="sm"
+                              className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600"
+                              onClick={() => openPaymentModal(sale)}
+                            >
+                              <CreditCard className="w-4 h-4 mr-1" />
+                              Abonar
+                            </Button>
+                          )}
+                          <Link href={`/sales/${sale.id}`}>
+                            <Button variant="outline" size="sm"><Eye className="w-4 h-4" /></Button>
+                          </Link>
+                        </div>
+
+                        {isExpanded && sale.payments.length > 0 && (
+                          <div className="pt-2 border-t">
+                            <p className="text-xs font-semibold text-muted-foreground mb-2">
+                              Historial de Pagos ({sale.payments.length})
+                            </p>
+                            <div className="space-y-2">
+                              {sale.payments.map((payment) => (
+                                <div key={payment.id} className="flex items-center justify-between bg-background rounded-lg px-3 py-2 border gap-2">
+                                  <div className="min-w-0 space-y-0.5">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className="text-sm font-medium">{formatCurrency(payment.amount)}</span>
+                                      <span className="text-xs text-muted-foreground">
+                                        {format(new Date(payment.date), "d MMM yyyy", { locale: es })}
+                                      </span>
+                                    </div>
+                                    <Badge variant="outline" className="text-xs">
+                                      {payment.bankAccount.bankName} - {payment.bankAccount.referenceName}
+                                    </Badge>
+                                    {payment.notes && (
+                                      <p className="text-xs text-muted-foreground italic">{payment.notes}</p>
+                                    )}
+                                  </div>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-red-600 hover:text-red-700 hover:bg-red-50 shrink-0"
+                                    onClick={() => setCancelPaymentId(payment.id)}
+                                  >
+                                    <XCircle className="w-4 h-4" />
+                                  </Button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* Desktop/tablet-landscape: full table */}
+              <div className="hidden lg:block">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -583,6 +700,7 @@ export default function SupplierDebtsPage() {
                   )}
                 </TableBody>
               </Table>
+              </div>
             </Card>
           </>
         )}
@@ -771,6 +889,59 @@ export default function SupplierDebtsPage() {
 
       {/* Suppliers Table */}
       <Card>
+        {/* Mobile/tablet: stacked cards (no horizontal scroll) */}
+        <div className="lg:hidden divide-y divide-gray-200 dark:divide-gray-800">
+          {suppliers.length === 0 ? (
+            <div className="text-center py-12">
+              <Truck className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-500">No hay proveedores con deudas pendientes</p>
+            </div>
+          ) : (
+            suppliers.map((supplier) => (
+              <div key={supplier.id} className="p-4 space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-medium truncate">{supplier.name}</p>
+                    <Badge variant="secondary" className={SERVICE_COLORS[supplier.serviceType] || SERVICE_COLORS.OTRO}>
+                      {SERVICE_LABELS[supplier.serviceType] || supplier.serviceType}
+                    </Badge>
+                  </div>
+                  {supplier.overdueCount > 0 ? (
+                    <Badge variant="destructive" className="text-xs shrink-0">
+                      <AlertTriangle className="w-3 h-3 mr-1" />
+                      {supplier.overdueCount} vencidas
+                    </Badge>
+                  ) : (
+                    <span className="text-xs text-muted-foreground shrink-0">{supplier.salesCount} ventas</span>
+                  )}
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-sm">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Deuda Total</p>
+                    <p className="font-medium">{formatCurrency(supplier.totalDebt)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Pagado</p>
+                    <p className="text-emerald-600 dark:text-emerald-400">{formatCurrency(supplier.totalPaid)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Pendiente</p>
+                    <p className={`font-medium ${supplier.totalRemaining > 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                      {formatCurrency(supplier.totalRemaining)}
+                    </p>
+                  </div>
+                </div>
+                <Button variant="outline" size="sm" className="w-full" onClick={() => viewSupplierDebts(supplier.id)}>
+                  <Eye className="w-4 h-4 mr-1" />
+                  Ver Deudas
+                </Button>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Desktop/tablet-landscape: full table */}
+        <div className="hidden lg:block">
         <Table>
           <TableHeader>
             <TableRow>
@@ -836,6 +1007,7 @@ export default function SupplierDebtsPage() {
             )}
           </TableBody>
         </Table>
+        </div>
         <PaginationFooter
           page={page}
           limit={limit}

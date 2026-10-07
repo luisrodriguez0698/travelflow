@@ -15,12 +15,12 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+  ResponsiveDialog as Dialog,
+  ResponsiveDialogContent as DialogContent,
+  ResponsiveDialogDescription as DialogDescription,
+  ResponsiveDialogHeader as DialogHeader,
+  ResponsiveDialogTitle as DialogTitle,
+} from '@/components/ui/responsive-dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -412,14 +412,74 @@ export default function UsersPage() {
             />
           </div>
 
-          <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 overflow-hidden">
+          {/* Mobile/tablet: stacked cards (no horizontal scroll) */}
+          <div className="lg:hidden bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 divide-y divide-gray-200 dark:divide-gray-800">
+            {usersLoading ? (
+              <div className="text-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin mx-auto text-gray-400" />
+              </div>
+            ) : users.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">No se encontraron usuarios</div>
+            ) : (
+              users.map((user) => (
+                <div key={user.id} className="p-4 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-medium truncate">
+                        {user.name || 'Sin nombre'}
+                        {user.id === currentUserId && (
+                          <Badge variant="outline" className="ml-2 text-xs">Tú</Badge>
+                        )}
+                      </p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 truncate">{user.email}</p>
+                    </div>
+                    <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 shrink-0">
+                      {user.roleRef?.name || user.role}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-500">{formatDate(user.createdAt)}</span>
+                    {user.id !== currentUserId && (
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            setSelectedUser(user);
+                            setEditRoleId(user.roleId || '');
+                            setIsEditRoleModalOpen(true);
+                          }}
+                        >
+                          <UserCog className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            setSelectedUser(user);
+                            setIsDeleteDialogOpen(true);
+                          }}
+                          className="text-red-500 hover:text-red-700"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Desktop/tablet-landscape: full table */}
+          <div className="hidden lg:block bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 overflow-hidden">
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Nombre</TableHead>
                   <TableHead>Email</TableHead>
-                  <TableHead className="hidden md:table-cell">Rol</TableHead>
-                  <TableHead className="hidden md:table-cell">Registro</TableHead>
+                  <TableHead>Rol</TableHead>
+                  <TableHead>Registro</TableHead>
                   <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
@@ -539,13 +599,70 @@ export default function UsersPage() {
             </Button>
           </div>
 
-          <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 overflow-hidden">
+          {/* Mobile/tablet: stacked cards (no horizontal scroll) */}
+          <div className="lg:hidden bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 divide-y divide-gray-200 dark:divide-gray-800">
+            {rolesLoading ? (
+              <div className="text-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin mx-auto text-gray-400" />
+              </div>
+            ) : roles.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">No hay roles creados</div>
+            ) : (
+              roles.map((role) => (
+                <div key={role.id} className="p-4 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="font-medium">
+                      {role.name}
+                      {role.isDefault && <Badge variant="outline" className="ml-2 text-xs">Default</Badge>}
+                    </p>
+                    <div className="flex gap-1 shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          setSelectedRole(role);
+                          setRoleFormData({ name: role.name, permissions: role.permissions as string[] });
+                          setIsRoleModalOpen(true);
+                        }}
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </Button>
+                      {!role.isDefault && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            setDeleteRoleTarget(role);
+                            setIsDeleteRoleDialogOpen(true);
+                          }}
+                          className="text-red-500 hover:text-red-700"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {(role.permissions as string[]).map((p) => (
+                      <Badge key={p} variant="secondary" className="text-xs">
+                        {MODULE_LABELS[p as ModulePermission] || p}
+                      </Badge>
+                    ))}
+                  </div>
+                  <p className="text-sm text-gray-500">{role._count.users} usuario{role._count.users !== 1 ? 's' : ''}</p>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Desktop/tablet-landscape: full table */}
+          <div className="hidden lg:block bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 overflow-hidden">
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Nombre</TableHead>
                   <TableHead>Permisos</TableHead>
-                  <TableHead className="hidden md:table-cell">Usuarios</TableHead>
+                  <TableHead>Usuarios</TableHead>
                   <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
@@ -627,15 +744,79 @@ export default function UsersPage() {
 
       {/* Tab: Invitations */}
       {activeTab === 'invitations' && (
-        <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 overflow-hidden">
+        <>
+        {/* Mobile/tablet: stacked cards (no horizontal scroll) */}
+        <div className="lg:hidden bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 divide-y divide-gray-200 dark:divide-gray-800">
+          {invitationsLoading ? (
+            <div className="text-center py-8">
+              <Loader2 className="w-6 h-6 animate-spin mx-auto text-gray-400" />
+            </div>
+          ) : invitations.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <Mail className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+              No hay invitaciones enviadas
+            </div>
+          ) : (
+            invitations.map((inv) => {
+              const lastSentAt = new Date(new Date(inv.expiresAt).getTime() - 7 * 24 * 60 * 60 * 1000);
+              const hoursSinceSent = (Date.now() - lastSentAt.getTime()) / (1000 * 60 * 60);
+              const canResend = inv.status === 'PENDING' && hoursSinceSent >= 24;
+              return (
+                <div key={inv.id} className="p-4 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-medium truncate">{inv.email}</p>
+                      <Badge variant="secondary" className="mt-1">{inv.role.name}</Badge>
+                    </div>
+                    <Badge
+                      className={
+                        inv.status === 'PENDING'
+                          ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
+                          : inv.status === 'ACCEPTED'
+                            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                            : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                      }
+                    >
+                      {inv.status === 'PENDING' && <Clock className="w-3 h-3 mr-1 inline" />}
+                      {inv.status === 'PENDING' ? 'Pendiente' : inv.status === 'ACCEPTED' ? 'Aceptada' : 'Expirada'}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between text-sm text-gray-500">
+                    <span>Enviada: {formatDate(inv.createdAt)}</span>
+                    <span>Expira: {formatDate(inv.expiresAt)}</span>
+                  </div>
+                  {canResend && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full h-8 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/30"
+                      disabled={resendingId === inv.id}
+                      onClick={() => handleResendInvite(inv.id)}
+                    >
+                      {resendingId === inv.id ? (
+                        <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                      ) : (
+                        <RefreshCw className="w-3 h-3 mr-1" />
+                      )}
+                      Reenviar
+                    </Button>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Desktop/tablet-landscape: full table */}
+        <div className="hidden lg:block bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 overflow-hidden">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Email</TableHead>
                 <TableHead>Rol</TableHead>
                 <TableHead>Estado</TableHead>
-                <TableHead className="hidden md:table-cell">Enviada</TableHead>
-                <TableHead className="hidden md:table-cell">Expira</TableHead>
+                <TableHead>Enviada</TableHead>
+                <TableHead>Expira</TableHead>
                 <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
@@ -715,6 +896,7 @@ export default function UsersPage() {
             </TableBody>
           </Table>
         </div>
+        </>
       )}
 
       {/* Modal: Invite User */}

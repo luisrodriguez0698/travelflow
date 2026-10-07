@@ -10,13 +10,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+  ResponsiveDialog as Dialog,
+  ResponsiveDialogContent as DialogContent,
+  ResponsiveDialogDescription as DialogDescription,
+  ResponsiveDialogFooter as DialogFooter,
+  ResponsiveDialogHeader as DialogHeader,
+  ResponsiveDialogTitle as DialogTitle,
+} from '@/components/ui/responsive-dialog';
 import {
   Table,
   TableBody,
@@ -565,7 +565,31 @@ export default function SaleDetailPage() {
                     <Hotel className="w-4 h-4 text-blue-500" />
                     <h4 className="font-medium text-blue-700 dark:text-blue-400">Hospedaje</h4>
                   </div>
-                  <div className="rounded-lg border overflow-hidden">
+                  {/* Mobile/tablet: stacked cards */}
+                  <div className="lg:hidden space-y-2">
+                    {hotelItems.map((item) => (
+                      <div key={item.id} className="p-3 rounded-lg border bg-blue-50/50 dark:bg-blue-950/20 space-y-1.5">
+                        <div className="flex justify-between items-start gap-2">
+                          <p className="font-medium">{item.hotel?.name || item.description || '-'}</p>
+                          <p className="font-semibold shrink-0">${item.cost.toLocaleString('es-MX')}</p>
+                        </div>
+                        <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted-foreground">
+                          <span>{item.roomType || '-'}</span>
+                          <span>{item.plan ? (planLabels[item.plan] || item.plan) : '-'}</span>
+                          <span>{item.numAdults || 0}A {(item.numChildren || 0) > 0 ? `+ ${item.numChildren}N` : ''}</span>
+                          <span>{item.numNights || '-'} noches</span>
+                          <span>${(item.pricePerNight || 0).toLocaleString('es-MX')}/noche</span>
+                        </div>
+                        {item.reservationNumber && (
+                          <span className="inline-block font-mono text-xs bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 px-2 py-0.5 rounded">
+                            {item.reservationNumber}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  {/* Desktop/tablet-landscape: full table */}
+                  <div className="hidden lg:block rounded-lg border overflow-hidden">
                     <Table>
                       <TableHeader>
                         <TableRow className="bg-blue-50 dark:bg-blue-950/30">
@@ -611,7 +635,33 @@ export default function SaleDetailPage() {
                     <Plane className="w-4 h-4 text-cyan-500" />
                     <h4 className="font-medium text-cyan-700 dark:text-cyan-400">Vuelos</h4>
                   </div>
-                  <div className="rounded-lg border overflow-hidden">
+                  {/* Mobile/tablet: stacked cards */}
+                  <div className="lg:hidden space-y-2">
+                    {flightItems.map((item) => (
+                      <div key={item.id} className="p-3 rounded-lg border bg-cyan-50/50 dark:bg-cyan-950/20 space-y-1.5">
+                        <div className="flex justify-between items-start gap-2">
+                          <div className="flex items-center gap-2">
+                            <Badge variant={item.direction === 'IDA' ? 'default' : 'secondary'}>
+                              {item.direction === 'IDA' ? 'Ida' : 'Regreso'}
+                            </Badge>
+                            <p className="font-medium">{item.airline || '-'}</p>
+                          </div>
+                          <p className="font-semibold shrink-0">${item.cost.toLocaleString('es-MX')}</p>
+                        </div>
+                        <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted-foreground">
+                          <span>{item.origin} → {item.flightDestination}</span>
+                          <span>{item.flightNumber || '-'}</span>
+                          <span>
+                            {item.departureTime ? formatTime(item.departureTime) : '-'}
+                            {item.arrivalTime ? ` - ${formatTime(item.arrivalTime)}` : ''}
+                          </span>
+                          <span>{item.flightClass || '-'}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Desktop/tablet-landscape: full table */}
+                  <div className="hidden lg:block rounded-lg border overflow-hidden">
                     <Table>
                       <TableHeader>
                         <TableRow className="bg-cyan-50 dark:bg-cyan-950/30">
@@ -656,7 +706,24 @@ export default function SaleDetailPage() {
                     <MapPinned className="w-4 h-4 text-amber-500" />
                     <h4 className="font-medium text-amber-700 dark:text-amber-400">Tours</h4>
                   </div>
-                  <div className="rounded-lg border overflow-hidden">
+                  {/* Mobile/tablet: stacked cards */}
+                  <div className="lg:hidden space-y-2">
+                    {tourItems.map((item) => (
+                      <div key={item.id} className="p-3 rounded-lg border bg-amber-50/50 dark:bg-amber-950/20 space-y-1.5">
+                        <div className="flex justify-between items-start gap-2">
+                          <p className="font-medium">{item.tourName || item.description || '-'}</p>
+                          <p className="font-semibold shrink-0">${item.cost.toLocaleString('es-MX')}</p>
+                        </div>
+                        <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted-foreground">
+                          <span>{item.tourDate ? formatItemDate(item.tourDate) : '-'}</span>
+                          <span>{item.numPeople || '-'} personas</span>
+                          <span>${(item.pricePerPerson || 0).toLocaleString('es-MX')}/persona</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Desktop/tablet-landscape: full table */}
+                  <div className="hidden lg:block rounded-lg border overflow-hidden">
                     <Table>
                       <TableHeader>
                         <TableRow className="bg-amber-50 dark:bg-amber-950/30">
@@ -690,7 +757,17 @@ export default function SaleDetailPage() {
                     <Package className="w-4 h-4 text-gray-500" />
                     <h4 className="font-medium text-gray-700 dark:text-gray-400">Otros</h4>
                   </div>
-                  <div className="rounded-lg border overflow-hidden">
+                  {/* Mobile/tablet: stacked cards */}
+                  <div className="lg:hidden space-y-2">
+                    {otherItems.map((item) => (
+                      <div key={item.id} className="p-3 rounded-lg border bg-gray-50/50 dark:bg-gray-950/20 flex justify-between items-start gap-2">
+                        <p className="font-medium">{item.description || '-'}</p>
+                        <p className="font-semibold shrink-0">${item.cost.toLocaleString('es-MX')}</p>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Desktop/tablet-landscape: full table */}
+                  <div className="hidden lg:block rounded-lg border overflow-hidden">
                     <Table>
                       <TableHeader>
                         <TableRow className="bg-gray-50 dark:bg-gray-950/30">
@@ -821,6 +898,49 @@ export default function SaleDetailPage() {
                 )}
               </div>
             </div>
+
+            {/* Mobile/tablet: stacked cards */}
+            <div className="lg:hidden divide-y">
+              {sale.payments?.map((payment) => {
+                const pending = Math.max(0, payment.amount - (payment.paidAmount || 0));
+                return (
+                  <div key={payment.id} className="p-4 space-y-2">
+                    <div className="flex justify-between items-center gap-2">
+                      <span className="text-sm text-muted-foreground">
+                        #{payment.paymentNumber} · {formatDate(payment.dueDate)}
+                      </span>
+                      {getStatusBadge(payment.status)}
+                    </div>
+                    <div className="flex justify-between items-baseline">
+                      <span className="text-sm text-muted-foreground">Monto</span>
+                      <span className="font-semibold">${payment.amount.toLocaleString('es-MX')}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-blue-600 font-medium">
+                        Abonado: ${(payment.paidAmount || 0).toLocaleString('es-MX')}
+                      </span>
+                      <span className="text-orange-600 font-medium">
+                        Pendiente: ${pending.toLocaleString('es-MX')}
+                      </span>
+                    </div>
+                    {payment.status !== 'PAID' && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => openPaymentModal(payment)}
+                      >
+                        <Plus className="w-4 h-4 mr-1" />
+                        Abonar
+                      </Button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Desktop/tablet-landscape: full table */}
+            <div className="hidden lg:block">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -867,6 +987,7 @@ export default function SaleDetailPage() {
                 })}
               </TableBody>
             </Table>
+            </div>
           </Card>
         </>
       )}

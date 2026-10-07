@@ -7,13 +7,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+  ResponsiveDialog as Dialog,
+  ResponsiveDialogContent as DialogContent,
+  ResponsiveDialogDescription as DialogDescription,
+  ResponsiveDialogFooter as DialogFooter,
+  ResponsiveDialogHeader as DialogHeader,
+  ResponsiveDialogTitle as DialogTitle,
+} from '@/components/ui/responsive-dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -316,7 +316,53 @@ export default function SeasonsPage() {
           </div>
         ) : (
           <>
-            <div className="rounded-md border">
+            {/* Mobile/tablet: stacked cards (no horizontal scroll) */}
+            <div className="lg:hidden rounded-md border divide-y divide-gray-200 dark:divide-gray-800">
+              {paginatedSeasons.map((season) => (
+                <div key={season.id} className="p-4 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-4 h-4 rounded-full flex-shrink-0" style={{ backgroundColor: season.color }} />
+                      <div className="min-w-0">
+                        <p className="font-medium truncate">{season.name}</p>
+                        {season.description && (
+                          <p className="text-sm text-muted-foreground truncate">{season.description}</p>
+                        )}
+                      </div>
+                    </div>
+                    {season.creatorName && (
+                      <span
+                        className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 text-white text-xs font-semibold shrink-0"
+                        title={season.creatorName}
+                      >
+                        {season.creatorName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                      {season._count?.departures || 0} salidas
+                    </span>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="icon" onClick={() => openEditModal(season)}>
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                        onClick={() => openDeleteDialog(season)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop/tablet-landscape: full table */}
+            <div className="hidden lg:block rounded-md border">
               <Table>
                 <TableHeader>
                   <TableRow>

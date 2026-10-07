@@ -8,8 +8,13 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import {
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
-} from '@/components/ui/dialog';
+  ResponsiveDialog as Dialog,
+  ResponsiveDialogContent as DialogContent,
+  ResponsiveDialogDescription as DialogDescription,
+  ResponsiveDialogFooter as DialogFooter,
+  ResponsiveDialogHeader as DialogHeader,
+  ResponsiveDialogTitle as DialogTitle,
+} from '@/components/ui/responsive-dialog';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
@@ -729,6 +734,66 @@ export default function SalesPage() {
       {/* Table */}
       {sales.length > 0 ? (
         <Card>
+          {/* Mobile/tablet: stacked cards (no horizontal scroll) */}
+          <div className="lg:hidden divide-y divide-gray-200 dark:divide-gray-800">
+            {paginatedSales.map((sale) => (
+              <div key={sale.id} className="p-4 space-y-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <span className="font-mono text-xs text-gray-500 bg-gray-100 dark:bg-gray-800 dark:text-gray-400 px-1.5 py-0.5 rounded">
+                        {sale.id.slice(-8).toUpperCase()}
+                      </span>
+                      <Badge variant={sale.paymentType === 'CASH' ? 'default' : 'secondary'}>
+                        {sale.paymentType === 'CASH' ? 'Contado' : 'Crédito'}
+                      </Badge>
+                    </div>
+                    <p className="font-medium truncate">{sale.client?.fullName}</p>
+                  </div>
+                  {getStatusBadge(sale.status)}
+                </div>
+
+                <div className="flex items-center justify-between text-sm text-muted-foreground">
+                  <span>Salida: {sale.departureDate ? formatDateStr(sale.departureDate) : '—'}</span>
+                  <span>{sale.createdAt ? format(new Date(sale.createdAt), "d MMM yyyy", { locale: es }) : '—'}</span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-lg font-semibold text-green-600">
+                    ${sale.totalPrice?.toLocaleString('es-MX')}
+                  </span>
+                  {sale.creatorName && (
+                    <span
+                      className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 text-white text-xs font-semibold"
+                      title={sale.creatorName}
+                    >
+                      {sale.creatorName.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-1">
+                  <Link href={`/sales/${sale.id}`}>
+                    <Button size="sm" variant="outline"><Eye className="w-4 h-4 mr-1" />Ver</Button>
+                  </Link>
+                  <Link href={`/sales/${sale.id}/edit`}>
+                    <Button size="sm" variant="outline"><Pencil className="w-4 h-4" /></Button>
+                  </Link>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-red-600 hover:text-red-700"
+                    onClick={() => { setDeletingSale(sale); setIsDeleteModalOpen(true); }}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop/tablet-landscape: full table */}
+          <div className="hidden lg:block">
           <Table>
             <TableHeader>
               <TableRow>
@@ -830,6 +895,7 @@ export default function SalesPage() {
               ))}
             </TableBody>
           </Table>
+          </div>
           {totalPages > 1 && (
             <div className="flex justify-between items-center p-4 border-t">
               <p className="text-sm text-gray-600 dark:text-gray-400">

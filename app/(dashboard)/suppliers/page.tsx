@@ -13,13 +13,13 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+  ResponsiveDialog as Dialog,
+  ResponsiveDialogContent as DialogContent,
+  ResponsiveDialogDescription as DialogDescription,
+  ResponsiveDialogFooter as DialogFooter,
+  ResponsiveDialogHeader as DialogHeader,
+  ResponsiveDialogTitle as DialogTitle,
+} from '@/components/ui/responsive-dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -328,13 +328,66 @@ export default function SuppliersPage() {
       </Card>
 
       <Card>
-        <div className="overflow-x-auto">
+        {/* Mobile/tablet: stacked cards (no horizontal scroll) */}
+        <div className="lg:hidden divide-y divide-gray-200 dark:divide-gray-800">
+          {suppliers.length > 0 ? (
+            suppliers.map((supplier) => (
+              <div key={supplier.id} className="p-4 space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-medium truncate">{supplier.name}</p>
+                    <p className="text-sm text-muted-foreground">{supplier.phone}</p>
+                  </div>
+                  {supplier.creatorName && (
+                    <span
+                      className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 text-white text-xs font-semibold shrink-0"
+                      title={supplier.creatorName}
+                    >
+                      {supplier.creatorName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center justify-between">
+                  <Badge variant="secondary" className={SERVICE_COLORS[supplier.serviceType] || SERVICE_COLORS.OTRO}>
+                    {getServiceLabel(supplier.serviceType)}
+                  </Badge>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={() => openEditModal(supplier)}>
+                      <Edit className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      onClick={() => openDeleteDialog(supplier)}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="text-center py-12">
+              <Truck className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-500">No se encontraron proveedores</p>
+              {searchTerm && (
+                <Button variant="link" onClick={() => setSearchTerm('')} className="mt-2">
+                  Limpiar busqueda
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Desktop/tablet-landscape: full table */}
+        <div className="hidden lg:block">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Nombre</TableHead>
                 <TableHead>Teléfono</TableHead>
-                <TableHead className="hidden md:table-cell">Email</TableHead>
+                <TableHead>Email</TableHead>
                 <TableHead>Tipo de Servicio</TableHead>
                 <TableHead className="text-center">Creado por</TableHead>
                 <TableHead className="text-right">Acciones</TableHead>

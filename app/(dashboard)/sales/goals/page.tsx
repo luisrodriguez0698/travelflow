@@ -622,7 +622,66 @@ function MonthlyView({
           </div>
         ) : (
           <>
-            <div className="overflow-x-auto">
+            {/* Mobile/tablet: stacked cards (no horizontal scroll) */}
+            <div className="lg:hidden divide-y divide-gray-200 dark:divide-gray-800">
+              {paginatedSales.map((sale) => {
+                const folio = sale.id.slice(-8).toUpperCase();
+                const saleDate = new Date(sale.saleDate);
+                const statusColor =
+                  sale.status === 'COMPLETED'
+                    ? 'bg-emerald-500'
+                    : sale.status === 'ACTIVE'
+                    ? 'bg-blue-500'
+                    : sale.status === 'CANCELLED'
+                    ? 'bg-red-500'
+                    : 'bg-yellow-500';
+                const statusLabel =
+                  sale.status === 'COMPLETED'
+                    ? 'Completada'
+                    : sale.status === 'ACTIVE'
+                    ? 'Activa'
+                    : sale.status === 'CANCELLED'
+                    ? 'Cancelada'
+                    : sale.status;
+
+                return (
+                  <div key={sale.id} className="p-4 space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="font-mono text-xs text-muted-foreground">{folio}</p>
+                        <p className="font-medium truncate">{sale.client?.fullName || '—'}</p>
+                        <p className="text-sm text-muted-foreground truncate">{sale.destination?.name || '—'}</p>
+                      </div>
+                      <Badge className={`${statusColor} text-white text-xs shrink-0`}>{statusLabel}</Badge>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">
+                        {saleDate.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                      </span>
+                      <span className="font-medium">{formatCurrency(sale.totalPrice)}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <Link href={`/sales/${sale.id}`}>
+                        <Button variant="ghost" size="sm" className="h-7 text-xs text-blue-600 hover:text-blue-700">
+                          <Eye className="w-3 h-3 mr-1" />
+                          Ver
+                        </Button>
+                      </Link>
+                      {sale.creatorName && (
+                        <span
+                          className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 text-white text-xs font-semibold"
+                          title={sale.creatorName}
+                        >
+                          {sale.creatorName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="hidden lg:block overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -1012,7 +1071,55 @@ function AnnualView({
       {/* Monthly Breakdown Table */}
       <Card className="p-6">
         <h3 className="text-sm font-semibold mb-4">Desglose Mensual</h3>
-        <div className="overflow-x-auto">
+
+        {/* Mobile/tablet: stacked cards (no horizontal scroll) */}
+        <div className="lg:hidden divide-y divide-gray-200 dark:divide-gray-800">
+          {lineData.map((row, i) => {
+            const diff = row.Ventas - row.Meta;
+            const pct = row.Meta > 0 ? (row.Ventas / row.Meta) * 100 : 0;
+            return (
+              <div key={i} className="py-3 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <p className="font-medium">{MONTHS[i]}</p>
+                  {row.Meta > 0 ? (
+                    <Badge
+                      variant={pct >= 100 ? 'default' : 'secondary'}
+                      className={
+                        pct >= 100
+                          ? 'bg-emerald-500 hover:bg-emerald-600'
+                          : pct >= 75
+                          ? 'bg-blue-500 hover:bg-blue-600 text-white'
+                          : ''
+                      }
+                    >
+                      {pct.toFixed(1)}%
+                    </Badge>
+                  ) : (
+                    <span className="text-muted-foreground text-sm">—</span>
+                  )}
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-sm">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Meta</p>
+                    <p>{formatCurrency(row.Meta)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Ventas</p>
+                    <p>{formatCurrency(row.Ventas)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Diferencia</p>
+                    <p className={diff >= 0 ? 'text-emerald-600' : 'text-red-500'}>
+                      {diff >= 0 ? '+' : ''}{formatCurrency(diff)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="hidden lg:block overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>

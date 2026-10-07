@@ -8,8 +8,12 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
-  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
-} from '@/components/ui/dialog';
+  ResponsiveDialog as Dialog,
+  ResponsiveDialogContent as DialogContent,
+  ResponsiveDialogFooter as DialogFooter,
+  ResponsiveDialogHeader as DialogHeader,
+  ResponsiveDialogTitle as DialogTitle,
+} from '@/components/ui/responsive-dialog';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
@@ -202,6 +206,59 @@ export default function DestinationsPage() {
       </Card>
 
       <Card>
+        {/* Mobile/tablet: stacked cards (no horizontal scroll) */}
+        <div className="lg:hidden divide-y divide-gray-200 dark:divide-gray-800">
+          {filtered.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">No hay destinos registrados</div>
+          ) : (
+            filtered.map((dest) => (
+              <div key={dest.id} className="p-4 space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <MapPin className="w-4 h-4 text-blue-500 shrink-0" />
+                      <span className="font-medium truncate">{dest.name}</span>
+                    </div>
+                    {dest.description && (
+                      <p className="text-sm text-muted-foreground truncate">{dest.description}</p>
+                    )}
+                  </div>
+                  {dest.creatorName && (
+                    <span
+                      className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 text-white text-xs font-semibold shrink-0"
+                      title={dest.creatorName}
+                    >
+                      {dest.creatorName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    {dest.season ? (
+                      <Badge variant="outline" style={{ borderColor: dest.season.color, color: dest.season.color }}>
+                        {dest.season.name}
+                      </Badge>
+                    ) : (
+                      <span className="text-muted-foreground text-sm">Sin temporada</span>
+                    )}
+                    <span className="text-sm text-muted-foreground">{dest._count.bookings} ventas</span>
+                  </div>
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" onClick={() => openEdit(dest)}>
+                      <Pencil className="w-4 h-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => setDeleteId(dest.id)} className="text-red-500 hover:text-red-600">
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Desktop/tablet-landscape: full table */}
+        <div className="hidden lg:block">
         <Table>
           <TableHeader>
             <TableRow>
@@ -273,6 +330,7 @@ export default function DestinationsPage() {
             )}
           </TableBody>
         </Table>
+        </div>
         <PaginationFooter
           page={page}
           limit={limit}

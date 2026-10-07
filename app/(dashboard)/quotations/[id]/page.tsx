@@ -6,13 +6,13 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+  ResponsiveDialog as Dialog,
+  ResponsiveDialogContent as DialogContent,
+  ResponsiveDialogDescription as DialogDescription,
+  ResponsiveDialogFooter as DialogFooter,
+  ResponsiveDialogHeader as DialogHeader,
+  ResponsiveDialogTitle as DialogTitle,
+} from '@/components/ui/responsive-dialog';
 import {
   Table,
   TableBody,
@@ -482,7 +482,26 @@ export default function QuotationDetailPage() {
                     <Hotel className="w-4 h-4 text-blue-500" />
                     <h4 className="font-medium text-blue-700 dark:text-blue-400">Hospedaje</h4>
                   </div>
-                  <div className="rounded-lg border overflow-hidden">
+                  {/* Mobile/tablet: stacked cards */}
+                  <div className="lg:hidden space-y-2">
+                    {hotelItems.map((item) => (
+                      <div key={item.id} className="p-3 rounded-lg border bg-blue-50/50 dark:bg-blue-950/20 space-y-1.5">
+                        <div className="flex justify-between items-start gap-2">
+                          <p className="font-medium">{item.hotel?.name || item.description || '-'}</p>
+                          <p className="font-semibold shrink-0">${item.cost.toLocaleString('es-MX')}</p>
+                        </div>
+                        <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted-foreground">
+                          <span>{item.roomType || '-'}</span>
+                          <span>{item.plan ? (planLabels[item.plan] || item.plan) : '-'}</span>
+                          <span>{item.numAdults || 0}A {(item.numChildren || 0) > 0 ? `+ ${item.numChildren}N` : ''}</span>
+                          <span>{item.numNights || '-'} noches</span>
+                          <span>${(item.pricePerNight || 0).toLocaleString('es-MX')}/noche</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Desktop/tablet-landscape: full table */}
+                  <div className="hidden lg:block rounded-lg border overflow-hidden">
                     <Table>
                       <TableHeader>
                         <TableRow className="bg-blue-50 dark:bg-blue-950/30">
@@ -522,7 +541,33 @@ export default function QuotationDetailPage() {
                     <Plane className="w-4 h-4 text-cyan-500" />
                     <h4 className="font-medium text-cyan-700 dark:text-cyan-400">Vuelos</h4>
                   </div>
-                  <div className="rounded-lg border overflow-hidden">
+                  {/* Mobile/tablet: stacked cards */}
+                  <div className="lg:hidden space-y-2">
+                    {flightItems.map((item) => (
+                      <div key={item.id} className="p-3 rounded-lg border bg-cyan-50/50 dark:bg-cyan-950/20 space-y-1.5">
+                        <div className="flex justify-between items-start gap-2">
+                          <div className="flex items-center gap-2">
+                            <Badge variant={item.direction === 'IDA' ? 'default' : 'secondary'}>
+                              {item.direction === 'IDA' ? 'Ida' : 'Regreso'}
+                            </Badge>
+                            <p className="font-medium">{item.airline || '-'}</p>
+                          </div>
+                          <p className="font-semibold shrink-0">${item.cost.toLocaleString('es-MX')}</p>
+                        </div>
+                        <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted-foreground">
+                          <span>{item.origin} → {item.flightDestination}</span>
+                          <span>{item.flightNumber || '-'}</span>
+                          <span>
+                            {item.departureTime ? formatTime(item.departureTime) : '-'}
+                            {item.arrivalTime ? ` - ${formatTime(item.arrivalTime)}` : ''}
+                          </span>
+                          <span>{item.flightClass || '-'}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Desktop/tablet-landscape: full table */}
+                  <div className="hidden lg:block rounded-lg border overflow-hidden">
                     <Table>
                       <TableHeader>
                         <TableRow className="bg-cyan-50 dark:bg-cyan-950/30">
@@ -567,7 +612,24 @@ export default function QuotationDetailPage() {
                     <MapPinned className="w-4 h-4 text-amber-500" />
                     <h4 className="font-medium text-amber-700 dark:text-amber-400">Tours</h4>
                   </div>
-                  <div className="rounded-lg border overflow-hidden">
+                  {/* Mobile/tablet: stacked cards */}
+                  <div className="lg:hidden space-y-2">
+                    {tourItems.map((item) => (
+                      <div key={item.id} className="p-3 rounded-lg border bg-amber-50/50 dark:bg-amber-950/20 space-y-1.5">
+                        <div className="flex justify-between items-start gap-2">
+                          <p className="font-medium">{item.tourName || item.description || '-'}</p>
+                          <p className="font-semibold shrink-0">${item.cost.toLocaleString('es-MX')}</p>
+                        </div>
+                        <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted-foreground">
+                          <span>{item.tourDate ? formatItemDate(item.tourDate) : '-'}</span>
+                          <span>{item.numPeople || '-'} personas</span>
+                          <span>${(item.pricePerPerson || 0).toLocaleString('es-MX')}/persona</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Desktop/tablet-landscape: full table */}
+                  <div className="hidden lg:block rounded-lg border overflow-hidden">
                     <Table>
                       <TableHeader>
                         <TableRow className="bg-amber-50 dark:bg-amber-950/30">
@@ -601,7 +663,37 @@ export default function QuotationDetailPage() {
                     <Truck className="w-4 h-4 text-green-500" />
                     <h4 className="font-medium text-green-700 dark:text-green-400">Transporte Terrestre</h4>
                   </div>
-                  <div className="rounded-lg border overflow-hidden">
+                  {/* Mobile/tablet: stacked cards */}
+                  <div className="lg:hidden space-y-2">
+                    {transferItems.map((item) => {
+                      const isRoundTrip = item.direction === 'IDA_Y_VUELTA';
+                      const dirLabel = isRoundTrip ? 'Ida y Vuelta' : item.direction === 'IDA' ? 'Ida' : 'Regreso';
+                      const dep = item.departureTime ? formatTime(item.departureTime) : '';
+                      const arr = item.arrivalTime ? formatTime(item.arrivalTime) : '';
+                      let timeStr = dep + (arr ? ` - ${arr}` : '');
+                      if (isRoundTrip) {
+                        const retDep = item.returnDepartureTime ? formatTime(item.returnDepartureTime) : '';
+                        const retArr = item.returnArrivalTime ? formatTime(item.returnArrivalTime) : '';
+                        if (retDep || retArr) timeStr += (timeStr ? '\nReg: ' : 'Reg: ') + retDep + (retArr ? ` - ${retArr}` : '');
+                      }
+                      return (
+                        <div key={item.id} className="p-3 rounded-lg border bg-green-50/50 dark:bg-green-950/20 space-y-1.5">
+                          <div className="flex justify-between items-start gap-2">
+                            <p className="font-medium">{item.transportType || '-'} · {dirLabel}</p>
+                            <p className="font-semibold shrink-0">${item.cost.toLocaleString('es-MX')}</p>
+                          </div>
+                          <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted-foreground">
+                            <span>{item.origin || '?'} → {item.flightDestination || '?'}</span>
+                            <span className="whitespace-pre-line">{timeStr || '-'}</span>
+                            <span>{item.numPeople || '-'} pasajeros</span>
+                            <span>{item.isInternational ? 'Internacional' : 'Nacional'}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {/* Desktop/tablet-landscape: full table */}
+                  <div className="hidden lg:block rounded-lg border overflow-hidden">
                     <Table>
                       <TableHeader>
                         <TableRow className="bg-green-50 dark:bg-green-950/30">
@@ -651,7 +743,17 @@ export default function QuotationDetailPage() {
                     <Package className="w-4 h-4 text-gray-500" />
                     <h4 className="font-medium text-gray-700 dark:text-gray-400">Otros</h4>
                   </div>
-                  <div className="rounded-lg border overflow-hidden">
+                  {/* Mobile/tablet: stacked cards */}
+                  <div className="lg:hidden space-y-2">
+                    {otherItems.map((item) => (
+                      <div key={item.id} className="p-3 rounded-lg border bg-gray-50/50 dark:bg-gray-950/20 flex justify-between items-start gap-2">
+                        <p className="font-medium">{item.description || '-'}</p>
+                        <p className="font-semibold shrink-0">${item.cost.toLocaleString('es-MX')}</p>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Desktop/tablet-landscape: full table */}
+                  <div className="hidden lg:block rounded-lg border overflow-hidden">
                     <Table>
                       <TableHeader>
                         <TableRow className="bg-gray-50 dark:bg-gray-950/30">
@@ -740,6 +842,24 @@ export default function QuotationDetailPage() {
                 )}
               </div>
             </div>
+
+            {/* Mobile/tablet: stacked cards */}
+            <div className="lg:hidden divide-y">
+              {quotation.payments?.map((payment) => (
+                <div key={payment.id} className="p-4 flex justify-between items-center gap-2">
+                  <span className="text-sm text-muted-foreground">
+                    #{payment.paymentNumber} · {formatDate(payment.dueDate)}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold">${payment.amount.toLocaleString('es-MX')}</span>
+                    <Badge variant="secondary">Pendiente</Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop/tablet-landscape: full table */}
+            <div className="hidden lg:block">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -764,6 +884,7 @@ export default function QuotationDetailPage() {
                 ))}
               </TableBody>
             </Table>
+            </div>
           </Card>
         </>
       )}
