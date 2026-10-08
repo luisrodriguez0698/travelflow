@@ -21,35 +21,30 @@ export function MetricsCards({ metrics }: MetricsCardsProps) {
       value: `$${metrics.monthlySales?.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`,
       icon: DollarSign,
       color: 'from-green-500 to-emerald-500',
-      bgColor: 'bg-green-50 dark:bg-green-900/20',
     },
     {
       title: 'Número de Ventas',
       value: metrics.salesCount?.toString() ?? '0',
       icon: ShoppingCart,
       color: 'from-blue-500 to-cyan-500',
-      bgColor: 'bg-blue-50 dark:bg-blue-900/20',
     },
     {
       title: 'Clientes Activos',
       value: metrics.activeClients?.toString() ?? '0',
       icon: Users,
       color: 'from-purple-500 to-pink-500',
-      bgColor: 'bg-purple-50 dark:bg-purple-900/20',
     },
     {
       title: 'Pagos Próximos (7 días)',
       value: metrics.upcomingPaymentsCount?.toString() ?? '0',
       icon: Clock,
       color: 'from-orange-500 to-yellow-500',
-      bgColor: 'bg-orange-50 dark:bg-orange-900/20',
     },
     {
       title: 'Pagos Vencidos',
       value: metrics.overduePaymentsCount?.toString() ?? '0',
       icon: AlertCircle,
       color: 'from-red-500 to-rose-500',
-      bgColor: 'bg-red-50 dark:bg-red-900/20',
     },
   ];
 
@@ -62,7 +57,7 @@ export function MetricsCards({ metrics }: MetricsCardsProps) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: index * 0.1 }}
         >
-          <Card className="p-6 hover:shadow-lg transition-shadow duration-200">
+          <Card className="p-6 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200">
             <div className="flex items-start justify-between">
               <div className="flex-1">
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
@@ -73,9 +68,9 @@ export function MetricsCards({ metrics }: MetricsCardsProps) {
                 </h3>
               </div>
               <div
-                className={`w-12 h-12 rounded-lg ${card.bgColor} flex items-center justify-center`}
+                className={`w-12 h-12 rounded-xl bg-gradient-to-br ${card.color} flex items-center justify-center shadow-md`}
               >
-                <card.icon className="w-6 h-6 text-current" style={{ color: 'inherit' }} />
+                <card.icon className="w-6 h-6 text-white" />
               </div>
             </div>
           </Card>

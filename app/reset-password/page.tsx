@@ -95,7 +95,7 @@ function ResetPasswordForm() {
               </div>
               <Link href="/login">
                 <Button
-                  className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600"
+                  variant="gradient" className="w-full"
                 >
                   Iniciar sesión
                 </Button>
@@ -111,7 +111,7 @@ function ResetPasswordForm() {
               </p>
               <Link href="/forgot-password">
                 <Button
-                  className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600"
+                  variant="gradient" className="w-full"
                 >
                   Solicitar nuevo enlace
                 </Button>
@@ -180,7 +180,7 @@ function ResetPasswordForm() {
 
                 <Button
                   type="submit"
-                  className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600"
+                  variant="gradient" className="w-full"
                   disabled={loading}
                 >
                   {loading ? (

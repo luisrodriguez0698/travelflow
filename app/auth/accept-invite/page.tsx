@@ -140,7 +140,7 @@ function AcceptInviteContent() {
               Redirigiendo al inicio de sesión...
             </p>
             <Link href="/login">
-              <Button className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600">
+              <Button variant="gradient">
                 Ir a Iniciar Sesión
               </Button>
             </Link>
@@ -161,7 +161,7 @@ function AcceptInviteContent() {
             </h2>
             <p className="text-slate-400 mb-4">{errorMessage}</p>
             <Link href="/login">
-              <Button className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600">
+              <Button variant="gradient">
                 Ir a Iniciar Sesión
               </Button>
             </Link>
@@ -263,7 +263,7 @@ function AcceptInviteContent() {
 
             <Button
               type="submit"
-              className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600"
+              variant="gradient" className="w-full"
               disabled={submitting}
             >
               {submitting ? (

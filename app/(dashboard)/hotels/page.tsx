@@ -372,7 +372,7 @@ export default function HotelsPage() {
           <h1 className="text-3xl font-bold">Hoteles</h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">Gestiona los hoteles por destino</p>
         </div>
-        <Button onClick={openCreate} className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600">
+        <Button onClick={openCreate} variant="gradient">
           <Plus className="w-4 h-4 mr-2" />
           Nuevo Hotel
         </Button>

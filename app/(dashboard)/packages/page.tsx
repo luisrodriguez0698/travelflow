@@ -670,7 +670,7 @@ export default function PackagesPage() {
         </div>
         <Button
           onClick={openCreateModal}
-          className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600"
+          variant="gradient"
         >
           <Plus className="w-4 h-4 mr-2" />
           Nuevo Paquete

@@ -243,7 +243,7 @@ export default function EditSalePage() {
             <p className="text-xs text-muted-foreground">Modifica la informacion y los servicios del paquete</p>
           </div>
         </div>
-        <Button onClick={handleSave} disabled={saving} className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600">
+        <Button onClick={handleSave} disabled={saving} variant="gradient">
           {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
           Guardar Cambios
         </Button>

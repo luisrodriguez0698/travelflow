@@ -415,7 +415,7 @@ export default function SaleDetailPage() {
         <Button
           onClick={handleDownloadReceipt}
           disabled={generatingPdf}
-          className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600"
+          variant="gradient"
         >
           {generatingPdf ? (
             <Loader2 className="w-4 h-4 mr-2 animate-spin" />

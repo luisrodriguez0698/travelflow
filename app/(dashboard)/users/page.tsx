@@ -369,7 +369,8 @@ export default function UsersPage() {
           <Button
             onClick={() => setIsInviteModalOpen(true)}
             disabled={totalCount >= MAX_USERS}
-            className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 disabled:opacity-60 disabled:cursor-not-allowed"
+            variant="gradient"
+            className="disabled:opacity-60 disabled:cursor-not-allowed"
           >
             <UserPlus className="w-4 h-4 mr-2" />
             Invitar Usuario
@@ -592,7 +593,7 @@ export default function UsersPage() {
                 setRoleFormData({ name: '', permissions: [] });
                 setIsRoleModalOpen(true);
               }}
-              className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600"
+              variant="gradient"
             >
               <Plus className="w-4 h-4 mr-2" />
               Nuevo Rol
@@ -941,7 +942,7 @@ export default function UsersPage() {
               <Button
                 onClick={handleSendInvite}
                 disabled={isSubmitting}
-                className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600"
+                variant="gradient"
               >
                 {isSubmitting ? (
                   <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Enviando...</>
@@ -1067,7 +1068,7 @@ export default function UsersPage() {
               <Button
                 onClick={handleSaveRole}
                 disabled={isSubmitting}
-                className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600"
+                variant="gradient"
               >
                 {isSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                 {selectedRole ? 'Actualizar' : 'Crear Rol'}

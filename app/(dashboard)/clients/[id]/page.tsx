@@ -270,7 +270,7 @@ export default function EditClientPage() {
             </Link>
             <Button
               type="submit"
-              className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600"
+              variant="gradient"
               disabled={saving}
             >
               {saving ? (

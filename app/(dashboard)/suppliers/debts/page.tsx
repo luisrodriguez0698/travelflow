@@ -480,7 +480,7 @@ export default function SupplierDebtsPage() {
                           {sale.remaining > 0 && (
                             <Button
                               size="sm"
-                              className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600"
+                              variant="gradient"
                               onClick={() => openPaymentModal(sale)}
                             >
                               <CreditCard className="w-4 h-4 mr-1" />
@@ -633,7 +633,7 @@ export default function SupplierDebtsPage() {
                                 {sale.remaining > 0 && (
                                   <Button
                                     size="sm"
-                                    className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600"
+                                    variant="gradient"
                                     onClick={() => openPaymentModal(sale)}
                                   >
                                     <CreditCard className="w-4 h-4 mr-1" />
@@ -801,7 +801,7 @@ export default function SupplierDebtsPage() {
               <Button
                 onClick={handleRegisterPayment}
                 disabled={isSubmitting || !paymentBankAccountId || !paymentAmount || !!exceedsBalance || !!exceedsDebt}
-                className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600"
+                variant="gradient"
               >
                 {isSubmitting ? (
                   <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Registrando...</>
