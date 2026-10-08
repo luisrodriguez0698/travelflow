@@ -30,6 +30,9 @@ html, body {
  
 @layer base {
   :root {
+    /* Graficas: paleta categorica validada (CVD + contraste) sobre --card */
+    --chart-series-1: #2a78d6;
+    --chart-series-2: #eb6834;
     --background: 0 0% 100%;
     --foreground: 222.2 84% 4.9%;
 
@@ -62,6 +65,8 @@ html, body {
   }
  
   .dark {
+    --chart-series-1: #3987e5;
+    --chart-series-2: #d95926;
     --background: 222.2 84% 4.9%;
     --foreground: 210 40% 98%;
 

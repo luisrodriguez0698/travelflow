@@ -54,6 +54,11 @@ export const GENERAL_TOUR: TourDef = {
     },
     { element: 'dash-metrics', title: 'Indicadores', description: 'Ventas del mes, clientes activos y pagos por cobrar de un vistazo.' },
     {
+      element: 'dash-chart',
+      title: 'Ventas por mes',
+      description: 'Lo que vendiste y tu <b>ganancia</b> mes a mes. Pasa el mouse por una barra para ver el detalle, cambia entre <b>6 y 12 meses</b> o ábrelo como <b>tabla</b>.',
+    },
+    {
       element: 'dash-activity',
       title: 'Pagos y ventas recientes',
       description: 'Abonos <b>por vencer</b> o <b>vencidos</b> y las últimas ventas registradas.',
@@ -79,6 +84,7 @@ export const SECTION_TOURS: TourDef[] = [
     module: 'dashboard',
     steps: [
       { element: 'dash-metrics', title: 'Indicadores del mes', description: 'Ventas, clientes activos y pagos pendientes, actualizados al momento.' },
+      { element: 'dash-chart', title: 'Tendencia', description: 'Compara lo vendido y la ganancia de cada mes; el margen aparece al pasar el mouse.' },
       { element: 'dash-activity', title: 'Lo urgente', description: 'Revisa aquí cada mañana los abonos vencidos o por vencer para dar seguimiento a tus clientes.' },
     ],
   },

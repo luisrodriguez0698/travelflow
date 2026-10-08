@@ -3,36 +3,56 @@ import { requireTenantId } from '@/lib/get-tenant';
 import { MetricsCards } from '@/components/dashboard/metrics-cards';
 import { PaymentAlerts } from '@/components/dashboard/payment-alerts';
 import { RecentSales } from '@/components/dashboard/recent-sales';
+import { SalesChart, type MonthlySalesPoint } from '@/components/dashboard/sales-chart';
 
 export const dynamic = 'force-dynamic';
+
+// Los meses se cuentan en hora de Mexico: el servidor corre en UTC y una venta
+// de las 7 pm del ultimo dia caeria en el mes siguiente.
+const TIME_ZONE = 'America/Mexico_City';
+const CHART_MONTHS = 12;
+
+const monthKeyFormat = new Intl.DateTimeFormat('en-CA', { timeZone: TIME_ZONE, year: 'numeric', month: '2-digit' });
+const monthKey = (d: Date) => monthKeyFormat.format(d).slice(0, 7); // "2026-10"
+
+function lastMonths(now: Date, count: number) {
+  const [year, month] = monthKey(now).split('-').map(Number);
+  return Array.from({ length: count }, (_, i) => {
+    const d = new Date(Date.UTC(year, month - 1 - (count - 1 - i), 15));
+    const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+    return {
+      key,
+      label: d.toLocaleDateString('es-MX', { month: 'short', timeZone: 'UTC' }).replace('.', ''),
+      fullLabel: d.toLocaleDateString('es-MX', { month: 'long', year: 'numeric', timeZone: 'UTC' }),
+      start: d,
+    };
+  });
+}
 
 export default async function DashboardPage() {
   const tenantId = await requireTenantId();
 
   // Get current month metrics
   const now = new Date();
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
   const nextWeek = new Date();
   nextWeek.setDate(nextWeek.getDate() + 7);
 
   // Run all queries in parallel for faster load
-  const [monthlySales, activeClients, upcomingPayments, overduePayments, recentSales] =
+  const months = lastMonths(now, CHART_MONTHS);
+  // Un dia de margen antes del primer mes por la diferencia de zona horaria
+  const chartFrom = new Date(Date.UTC(months[0].start.getUTCFullYear(), months[0].start.getUTCMonth(), 1) - 86_400_000);
+
+  const [chartSales, activeClients, upcomingPayments, overduePayments, recentSales] =
     await Promise.all([
-      // Monthly sales
-      prisma.booking.aggregate({
+      // Ventas de los ultimos 12 meses (grafica + tarjetas del mes)
+      prisma.booking.findMany({
         where: {
           tenantId,
-          saleDate: {
-            gte: startOfMonth,
-            lte: endOfMonth,
-          },
+          type: 'SALE',
           status: { not: 'CANCELLED' },
+          saleDate: { gte: chartFrom },
         },
-        _sum: {
-          totalPrice: true,
-        },
-        _count: true,
+        select: { saleDate: true, totalPrice: true, netCost: true },
       }),
 
       // Active clients
@@ -83,9 +103,9 @@ export default async function DashboardPage() {
         },
       }),
 
-      // Recent sales
+      // Recent sales (las cotizaciones no: el enlace va a /sales/[id])
       prisma.booking.findMany({
-        where: { tenantId },
+        where: { tenantId, type: 'SALE' },
         include: {
           client: true,
           destination: true,
@@ -97,9 +117,22 @@ export default async function DashboardPage() {
       }),
     ]);
 
+  const byMonth = new Map<string, MonthlySalesPoint>(
+    months.map((m) => [m.key, { month: m.key, label: m.label, fullLabel: m.fullLabel, sales: 0, profit: 0, count: 0 }])
+  );
+  for (const sale of chartSales) {
+    const point = byMonth.get(monthKey(sale.saleDate));
+    if (!point) continue;
+    point.sales += sale.totalPrice;
+    point.profit += sale.totalPrice - sale.netCost;
+    point.count += 1;
+  }
+  const chartData = [...byMonth.values()];
+  const currentMonth = chartData[chartData.length - 1];
+
   const metrics = {
-    monthlySales: monthlySales._sum.totalPrice ?? 0,
-    salesCount: monthlySales._count,
+    monthlySales: currentMonth.sales,
+    salesCount: currentMonth.count,
     activeClients,
     upcomingPaymentsCount: upcomingPayments.length,
     overduePaymentsCount: overduePayments.length,
@@ -118,6 +151,10 @@ export default async function DashboardPage() {
 
       <div data-tour="dash-metrics">
         <MetricsCards metrics={metrics} />
+      </div>
+
+      <div data-tour="dash-chart">
+        <SalesChart data={chartData} />
       </div>
 
       <div data-tour="dash-activity" className="grid grid-cols-1 lg:grid-cols-2 gap-6">
