@@ -31,6 +31,7 @@ import { DateRange } from 'react-day-picker';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { BookingItemsForm, BookingItemData } from '@/components/booking-items-form';
+import { CreatorHistoryButton } from '@/components/record-history';
 import { format, startOfMonth, endOfMonth, subMonths, startOfYear } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
@@ -361,6 +362,7 @@ export default function SalesPage() {
       cost: item.cost || 0,
       sortOrder: item.sortOrder || 0,
       hotelId: item.hotelId || undefined,
+      serviceId: item.serviceId || undefined,
       roomType: item.roomType || undefined,
       numAdults: item.numAdults ?? undefined,
       numChildren: item.numChildren ?? undefined,
@@ -655,7 +657,7 @@ export default function SalesPage() {
             </Button>
           </Link>
           <Link href="/sales/new">
-            <Button variant="gradient">
+            <Button data-tour="page-action" variant="gradient">
               <Plus className="w-4 h-4 mr-2" />
               Nueva Venta
             </Button>
@@ -682,7 +684,7 @@ export default function SalesPage() {
             {/* Folio search */}
             <div className="relative w-44">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <Input
+              <Input data-tour="page-filters"
                 placeholder="Buscar folio..."
                 value={folioSearch}
                 onChange={(e) => setFolioSearch(e.target.value)}
@@ -735,7 +737,7 @@ export default function SalesPage() {
       {sales.length > 0 ? (
         <Card>
           {/* Mobile/tablet: stacked cards (no horizontal scroll) */}
-          <div className="lg:hidden divide-y divide-gray-200 dark:divide-gray-800">
+          <div data-tour="page-list" className="lg:hidden divide-y divide-gray-200 dark:divide-gray-800">
             {paginatedSales.map((sale) => (
               <div key={sale.id} className="p-4 space-y-3">
                 <div className="flex items-start justify-between gap-2">
@@ -762,14 +764,7 @@ export default function SalesPage() {
                   <span className="text-lg font-semibold text-green-600">
                     ${sale.totalPrice?.toLocaleString('es-MX')}
                   </span>
-                  {sale.creatorName && (
-                    <span
-                      className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 text-white text-xs font-semibold"
-                      title={sale.creatorName}
-                    >
-                      {sale.creatorName.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)}
-                    </span>
-                  )}
+                  <CreatorHistoryButton entity="sales" entityId={sale.id} creatorName={sale.creatorName} size="sm" />
                 </div>
 
                 <div className="flex items-center justify-end gap-2 pt-1">
@@ -793,7 +788,7 @@ export default function SalesPage() {
           </div>
 
           {/* Desktop/tablet-landscape: full table */}
-          <div className="hidden lg:block">
+          <div data-tour="page-list" className="hidden lg:block">
           <Table>
             <TableHeader>
               <TableRow>
@@ -861,22 +856,7 @@ export default function SalesPage() {
                   </TableCell>
                   <TableCell>{getStatusBadge(sale.status)}</TableCell>
                   <TableCell className="text-center">
-                    {sale.creatorName ? (
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 text-white text-xs font-semibold cursor-default">
-                              {sale.creatorName.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)}
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>{sale.creatorName}</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    ) : (
-                      <span className="text-sm text-gray-400">—</span>
-                    )}
+                    <CreatorHistoryButton entity="sales" entityId={sale.id} creatorName={sale.creatorName} />
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">

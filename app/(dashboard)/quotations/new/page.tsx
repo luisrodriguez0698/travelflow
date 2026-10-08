@@ -27,6 +27,7 @@ import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { BookingItemsForm, BookingItemData } from '@/components/booking-items-form';
 import { useToast } from '@/hooks/use-toast';
+import { TemplateActions, applyTemplate, type AppliedTemplate } from '@/components/template-actions';
 
 interface Client { id: string; fullName: string; phone: string | null; email?: string; }
 interface Season { id: string; name: string; color: string; }
@@ -108,6 +109,23 @@ export default function NewQuotationPage() {
   }, []);
 
   const netCost = bookingItems.reduce((sum, item) => sum + (item.cost || 0), 0);
+
+  const handleApplyTemplate = ({ items, totalPrice, notes }: AppliedTemplate) => {
+    const cost = items.reduce((sum, item) => sum + (item.cost || 0), 0);
+    setBookingItems(items);
+    setFormData(p => ({ ...p, totalPrice: Math.max(totalPrice, cost), notes: notes || p.notes }));
+  };
+
+  // /sales/new?template=<id> o /quotations/new?template=<id>
+  useEffect(() => {
+    const templateId = new URLSearchParams(window.location.search).get('template');
+    if (!templateId) return;
+    fetch(`/api/templates/${encodeURIComponent(templateId)}`)
+      .then(r => (r.ok ? r.json() : null))
+      .then(t => { if (t) handleApplyTemplate(applyTemplate(t)); })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const profit = formData.totalPrice - netCost;
   const profitPercent = netCost > 0 ? ((profit / netCost) * 100) : 0;
 
@@ -200,7 +218,7 @@ export default function NewQuotationPage() {
   return (
     <div className="space-y-4 pb-8">
       {/* Page header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <Link href="/quotations">
             <Button variant="ghost" size="icon"><ArrowLeft className="w-5 h-5" /></Button>
@@ -210,10 +228,13 @@ export default function NewQuotationPage() {
             <p className="text-xs text-muted-foreground">Completa la informacion y los servicios del paquete</p>
           </div>
         </div>
-        <Button onClick={handleSave} disabled={saving} className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600">
-          {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-          Crear Cotizacion
-        </Button>
+        <div data-tour="form-actions" className="flex flex-wrap items-center justify-end gap-2">
+          <TemplateActions items={bookingItems} totalPrice={formData.totalPrice} notes={formData.notes} onApply={handleApplyTemplate} />
+          <Button onClick={handleSave} disabled={saving} className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600">
+            {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+            Crear Cotizacion
+          </Button>
+        </div>
       </div>
 
       {/* Two-column layout */}
@@ -223,7 +244,7 @@ export default function NewQuotationPage() {
         <div className="space-y-5">
 
           {/* Card 1: Client, Dates */}
-          <Card className="p-5 space-y-4">
+          <Card data-tour="form-client" className="p-5 space-y-4">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cliente y Fechas</p>
 
             {/* Client */}
@@ -293,7 +314,7 @@ export default function NewQuotationPage() {
           </Card>
 
           {/* Card 2: Pricing */}
-          <Card className="p-5 space-y-4">
+          <Card data-tour="form-pricing" className="p-5 space-y-4">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Precios y Pagos</p>
 
             {/* Sale Price + Profit */}
@@ -428,7 +449,7 @@ export default function NewQuotationPage() {
 
         {/* ── RIGHT COLUMN: Services ── */}
         <div className="lg:sticky lg:top-4">
-          <Card className="overflow-hidden border-2 border-amber-100 dark:border-amber-900/50">
+          <Card data-tour="form-services" className="overflow-hidden border-2 border-amber-100 dark:border-amber-900/50">
             <div className="p-4 border-b bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30">
               <div className="flex items-center gap-2 mb-1">
                 <FileText className="w-5 h-5 text-amber-500" />

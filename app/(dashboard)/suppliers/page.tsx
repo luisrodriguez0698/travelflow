@@ -39,12 +39,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { CreatorHistoryButton } from '@/components/record-history';
 import { Plus, Truck, Edit, Trash2, ChevronLeft, ChevronRight, Search, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -306,7 +301,7 @@ export default function SuppliersPage() {
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Proveedores</h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">Gestiona tus proveedores de servicios</p>
         </div>
-        <Button
+        <Button data-tour="page-action"
           onClick={openCreateModal}
           variant="gradient"
         >
@@ -318,7 +313,7 @@ export default function SuppliersPage() {
       <Card className="p-4">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-          <Input
+          <Input data-tour="page-filters"
             placeholder="Buscar por nombre, email, teléfono o tipo..."
             defaultValue={searchTerm}
             onChange={(e) => handleSearchChange(e.target.value)}
@@ -329,7 +324,7 @@ export default function SuppliersPage() {
 
       <Card>
         {/* Mobile/tablet: stacked cards (no horizontal scroll) */}
-        <div className="lg:hidden divide-y divide-gray-200 dark:divide-gray-800">
+        <div data-tour="page-list" className="lg:hidden divide-y divide-gray-200 dark:divide-gray-800">
           {suppliers.length > 0 ? (
             suppliers.map((supplier) => (
               <div key={supplier.id} className="p-4 space-y-2">
@@ -338,14 +333,7 @@ export default function SuppliersPage() {
                     <p className="font-medium truncate">{supplier.name}</p>
                     <p className="text-sm text-muted-foreground">{supplier.phone}</p>
                   </div>
-                  {supplier.creatorName && (
-                    <span
-                      className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 text-white text-xs font-semibold shrink-0"
-                      title={supplier.creatorName}
-                    >
-                      {supplier.creatorName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
-                    </span>
-                  )}
+                  <CreatorHistoryButton entity="suppliers" entityId={supplier.id} creatorName={supplier.creatorName} size="sm" />
                 </div>
                 <div className="flex items-center justify-between">
                   <Badge variant="secondary" className={SERVICE_COLORS[supplier.serviceType] || SERVICE_COLORS.OTRO}>
@@ -381,7 +369,7 @@ export default function SuppliersPage() {
         </div>
 
         {/* Desktop/tablet-landscape: full table */}
-        <div className="hidden lg:block">
+        <div data-tour="page-list" className="hidden lg:block">
           <Table>
             <TableHeader>
               <TableRow>
@@ -406,20 +394,7 @@ export default function SuppliersPage() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-center">
-                      {supplier.creatorName ? (
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 text-white text-xs font-semibold cursor-default">
-                                {supplier.creatorName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
-                              </span>
-                            </TooltipTrigger>
-                            <TooltipContent><p>{supplier.creatorName}</p></TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      ) : (
-                        <span className="text-sm text-gray-400">—</span>
-                      )}
+                      <CreatorHistoryButton entity="suppliers" entityId={supplier.id} creatorName={supplier.creatorName} />
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">

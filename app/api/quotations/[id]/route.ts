@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireTenantId, getSessionUser } from '@/lib/get-tenant';
 import { prisma } from '@/lib/prisma';
-import { logAudit } from '@/lib/audit';
 
 export const dynamic = 'force-dynamic';
 
@@ -153,6 +152,7 @@ export async function PUT(
               cost: item.cost || 0,
               sortOrder: item.sortOrder ?? idx,
               hotelId: item.hotelId || null,
+              serviceId: item.serviceId || null,
               roomType: item.roomType || null,
               numAdults: item.numAdults ?? null,
               numChildren: item.numChildren ?? null,
@@ -267,17 +267,6 @@ export async function PUT(
     });
 
     const sessionUser = await getSessionUser();
-    if (sessionUser) {
-      await logAudit({
-        tenantId,
-        userId: sessionUser.id,
-        userName: sessionUser.name,
-        action: 'UPDATE',
-        entity: 'quotations',
-        entityId: id,
-        changes: { totalPrice: body.totalPrice },
-      });
-    }
 
     return NextResponse.json(result);
   } catch (error) {
@@ -306,17 +295,6 @@ export async function DELETE(
     await prisma.booking.delete({ where: { id } });
 
     const sessionUser = await getSessionUser();
-    if (sessionUser) {
-      await logAudit({
-        tenantId,
-        userId: sessionUser.id,
-        userName: sessionUser.name,
-        action: 'DELETE',
-        entity: 'quotations',
-        entityId: id,
-        changes: { clientId: existing.clientId, totalPrice: existing.totalPrice },
-      });
-    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -1,6 +1,7 @@
 import { getServerSession } from 'next-auth';
 import { authOptions } from './auth-options';
 import { ALL_MODULES } from './permissions';
+import { prisma } from './prisma';
 
 export async function getTenantId(): Promise<string | null> {
   const session = await getServerSession(authOptions);
@@ -49,4 +50,26 @@ export async function requirePermission(module: string): Promise<string> {
   }
 
   return user.tenantId;
+}
+
+/**
+ * El propietario de la agencia es el primer usuario creado en el tenant
+ * (el que la registro en /register). No se puede desactivar, eliminar ni
+ * cambiar de rol.
+ */
+export async function getTenantOwnerId(tenantId: string): Promise<string | null> {
+  const owner = await prisma.user.findFirst({
+    where: { tenantId },
+    orderBy: { createdAt: 'asc' },
+    select: { id: true },
+  });
+  return owner?.id ?? null;
+}
+
+/** Igual que requirePermission pero devuelve boolean en lugar de lanzar error. */
+export async function hasPermission(module: string): Promise<boolean> {
+  const user = await getSessionUser();
+  if (!user) return false;
+  if (user.role === 'ADMIN' && user.permissions.length === 0) return true;
+  return user.permissions.includes(module);
 }

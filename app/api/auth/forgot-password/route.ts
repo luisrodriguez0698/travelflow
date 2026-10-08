@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
     const user = await prisma.user.findUnique({ where: { email } });
 
     // Always return success to avoid exposing whether an email exists
-    if (!user) {
+    if (!user || user.deletedAt || !user.isActive) {
       return NextResponse.json({ success: true });
     }
 

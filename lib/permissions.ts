@@ -31,6 +31,7 @@ export const ROUTE_TO_MODULE: Record<string, ModulePermission> = {
   '/clients': 'clientes',
   '/destinations': 'destinos',
   '/hotels': 'destinos',
+  '/services': 'destinos',
   '/seasons': 'temporadas',
   '/sales': 'ventas',
   '/sales/goals': 'ventas',
@@ -41,6 +42,7 @@ export const ROUTE_TO_MODULE: Record<string, ModulePermission> = {
   '/banks': 'bancos',
   '/settings': 'configuracion',
   '/users': 'usuarios',
+  '/audit': 'usuarios',
 };
 
 export const DEFAULT_ROLES = [
@@ -60,3 +62,10 @@ export const DEFAULT_ROLES = [
     isDefault: true,
   },
 ];
+
+/** El rol Admin creado con la agencia es el super usuario: no se edita ni se elimina. */
+export const PROTECTED_ROLE_NAME = 'Admin';
+
+export function isProtectedRole(role: { name: string; isDefault: boolean }): boolean {
+  return role.isDefault && role.name === PROTECTED_ROLE_NAME;
+}

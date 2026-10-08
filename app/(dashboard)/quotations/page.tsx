@@ -22,7 +22,6 @@ import { Badge } from '@/components/ui/badge';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Switch } from '@/components/ui/switch';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Plus, Search, Pencil, Trash2, FileText, Loader2, Eye, Check, ChevronsUpDown, ShoppingCart, ChevronDown, DollarSign, X, Filter, Hotel, UserPlus, Plane, MapPin } from 'lucide-react';
@@ -32,6 +31,7 @@ import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { BookingItemsForm, BookingItemData } from '@/components/booking-items-form';
+import { CreatorHistoryButton } from '@/components/record-history';
 import { format, isPast, differenceInDays, startOfMonth, endOfMonth, subMonths, startOfYear } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
@@ -354,6 +354,7 @@ export default function QuotationsPage() {
       cost: item.cost || 0,
       sortOrder: item.sortOrder || 0,
       hotelId: item.hotelId || undefined,
+      serviceId: item.serviceId || undefined,
       roomType: item.roomType || undefined,
       numAdults: item.numAdults ?? undefined,
       numChildren: item.numChildren ?? undefined,
@@ -627,7 +628,7 @@ export default function QuotationsPage() {
           <p className="text-gray-600 dark:text-gray-400 mt-1">Gestiona tus cotizaciones y borradores</p>
         </div>
         <Link href="/quotations/new">
-          <Button className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600">
+          <Button data-tour="page-action" className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600">
             <Plus className="w-4 h-4 mr-2" />
             Nueva Cotización
           </Button>
@@ -650,7 +651,7 @@ export default function QuotationsPage() {
           <div className="flex flex-wrap items-center gap-3">
             <div className="relative w-44">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <Input placeholder="Buscar folio..." value={folioSearch} onChange={(e) => setFolioSearch(e.target.value)} className="pl-10 h-9" />
+              <Input data-tour="page-filters" placeholder="Buscar folio..." value={folioSearch} onChange={(e) => setFolioSearch(e.target.value)} className="pl-10 h-9" />
             </div>
             <Popover open={filterClientOpen} onOpenChange={setFilterClientOpen}>
               <PopoverTrigger asChild>
@@ -738,7 +739,7 @@ export default function QuotationsPage() {
       {quotations.length > 0 ? (
         <Card>
           {/* Mobile/tablet: stacked cards (no horizontal scroll) */}
-          <div className="lg:hidden divide-y divide-gray-200 dark:divide-gray-800">
+          <div data-tour="page-list" className="lg:hidden divide-y divide-gray-200 dark:divide-gray-800">
             {paginatedQuotations.map((q) => (
               <div key={q.id} className="p-4 space-y-3">
                 <div className="flex items-start justify-between gap-2">
@@ -771,14 +772,7 @@ export default function QuotationsPage() {
                   <span className="text-lg font-semibold text-green-600">
                     ${q.totalPrice?.toLocaleString('es-MX')}
                   </span>
-                  {q.creatorName && (
-                    <span
-                      className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 text-white text-xs font-semibold"
-                      title={q.creatorName}
-                    >
-                      {q.creatorName.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)}
-                    </span>
-                  )}
+                  <CreatorHistoryButton entity="quotations" entityId={q.id} creatorName={q.creatorName} size="sm" />
                 </div>
 
                 <div className="flex items-center justify-end gap-2 pt-1">
@@ -800,7 +794,7 @@ export default function QuotationsPage() {
           </div>
 
           {/* Desktop/tablet-landscape: full table */}
-          <div className="hidden lg:block">
+          <div data-tour="page-list" className="hidden lg:block">
           <Table>
             <TableHeader>
               <TableRow>
@@ -847,18 +841,7 @@ export default function QuotationsPage() {
                   </TableCell>
                   <TableCell>{getExpirationBadge(q.expirationDate)}</TableCell>
                   <TableCell className="text-center">
-                    {q.creatorName ? (
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 text-white text-xs font-semibold cursor-default">
-                              {q.creatorName.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)}
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent><p>{q.creatorName}</p></TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    ) : <span className="text-sm text-gray-400">—</span>}
+                    <CreatorHistoryButton entity="quotations" entityId={q.id} creatorName={q.creatorName} />
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">

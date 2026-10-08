@@ -116,9 +116,11 @@ export default async function DashboardPage() {
         </p>
       </div>
 
-      <MetricsCards metrics={metrics} />
+      <div data-tour="dash-metrics">
+        <MetricsCards metrics={metrics} />
+      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div data-tour="dash-activity" className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <PaymentAlerts
           upcomingPayments={upcomingPayments}
           overduePayments={overduePayments}

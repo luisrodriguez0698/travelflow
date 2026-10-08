@@ -3,6 +3,7 @@
 import { prisma } from '@/lib/prisma';
 import { requirePermission, getSessionUser } from '@/lib/get-tenant';
 import { logAudit } from '@/lib/audit';
+import { sendInviteEmail } from '@/lib/emails/invite-email';
 
 const MAX_USERS = 5;
 
@@ -15,7 +16,7 @@ export async function sendInvite(email: string, roleId: string) {
   }
 
   // Check tenant user limit
-  const userCount = await prisma.user.count({ where: { tenantId } });
+  const userCount = await prisma.user.count({ where: { tenantId, deletedAt: null } });
   if (userCount >= MAX_USERS) {
     throw new Error(`Tu agencia ha alcanzado el límite de ${MAX_USERS} usuarios`);
   }
@@ -53,31 +54,18 @@ export async function sendInvite(email: string, roleId: string) {
     data: { tenantId, email, roleId, expiresAt },
   });
 
-  // Send email via Brevo API v3
-  const BASE_URL = process.env.NEXTAUTH_URL || 'http://localhost:3000';
-  const INVITE_LINK = `${BASE_URL}/auth/accept-invite?token=${invitation.token}`;
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: tenantId },
+    select: { name: true },
+  });
 
-  try {
-    const brevoResponse = await fetch('https://api.brevo.com/v3/smtp/email', {
-      method: 'POST',
-      headers: {
-        'api-key': process.env.BREVO_API_KEY!,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        templateId: parseInt(process.env.BREVO_TEMPLATE_ID || '1'),
-        to: [{ email }],
-        sender: { name: 'TravelFlow', email: process.env.BREVO_SENDER_EMAIL || '' },
-        params: { INVITE_LINK },
-      }),
-    });
-
-    if (!brevoResponse.ok) {
-      console.error('Brevo error:', await brevoResponse.text());
-    }
-  } catch (err) {
-    console.error('Error sending email via Brevo:', err);
-  }
+  await sendInviteEmail({
+    to: email,
+    token: invitation.token,
+    tenantName: tenant?.name || 'tu agencia',
+    roleName: role.name,
+    inviterName: sessionUser?.name,
+  });
 
   if (sessionUser) {
     await logAudit({

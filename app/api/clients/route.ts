@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePermission, getSessionUser } from '@/lib/get-tenant';
 import { prisma } from '@/lib/prisma';
-import { logAudit } from '@/lib/audit';
 
 export const dynamic = 'force-dynamic';
 
@@ -106,18 +105,6 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Audit log
-    if (sessionUser) {
-      await logAudit({
-        tenantId,
-        userId: sessionUser.id,
-        userName: sessionUser.name,
-        action: 'CREATE',
-        entity: 'clients',
-        entityId: client.id,
-        changes: { fullName, phone, email },
-      });
-    }
 
     return NextResponse.json(client, { status: 201 });
   } catch (error) {

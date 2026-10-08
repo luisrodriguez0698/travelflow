@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { DatePicker } from '@/components/ui/date-picker';
+import { CreatorHistoryButton } from '@/components/record-history';
 import {
   ResponsiveDialog as Dialog,
   ResponsiveDialogContent as DialogContent,
@@ -32,12 +33,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
 import { Plus, Users, Edit, Trash2, ChevronLeft, ChevronRight, Search, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -334,7 +329,7 @@ export default function ClientsPage() {
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Clientes</h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">Gestiona tu directorio de clientes</p>
         </div>
-        <Button
+        <Button data-tour="page-action"
           onClick={openCreateModal}
           variant="gradient"
         >
@@ -347,7 +342,7 @@ export default function ClientsPage() {
       <Card className="p-4">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-          <Input
+          <Input data-tour="page-filters"
             placeholder="Buscar por nombre, email o teléfono..."
             defaultValue={searchTerm}
             onChange={(e) => handleSearchChange(e.target.value)}
@@ -359,7 +354,7 @@ export default function ClientsPage() {
       {/* Table */}
       <Card>
         {/* Mobile/tablet: stacked cards (no horizontal scroll) */}
-        <div className="lg:hidden divide-y divide-gray-200 dark:divide-gray-800">
+        <div data-tour="page-list" className="lg:hidden divide-y divide-gray-200 dark:divide-gray-800">
           {paginatedClients.length > 0 ? (
             paginatedClients.map((client) => (
               <div key={client.id} className="p-4 space-y-2">
@@ -368,14 +363,7 @@ export default function ClientsPage() {
                     <p className="font-medium truncate">{client.fullName}</p>
                     <p className="text-sm text-muted-foreground">{client.phone || '-'}</p>
                   </div>
-                  {client.creatorName && (
-                    <span
-                      className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 text-white text-xs font-semibold shrink-0"
-                      title={client.creatorName}
-                    >
-                      {client.creatorName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
-                    </span>
-                  )}
+                  <CreatorHistoryButton entity="clients" entityId={client.id} creatorName={client.creatorName} size="sm" />
                 </div>
                 {client.email && (
                   <p className="text-sm text-muted-foreground truncate">{client.email}</p>
@@ -409,7 +397,7 @@ export default function ClientsPage() {
         </div>
 
         {/* Desktop/tablet-landscape: full table */}
-        <div className="hidden lg:block">
+        <div data-tour="page-list" className="hidden lg:block">
           <Table>
             <TableHeader>
               <TableRow>
@@ -438,20 +426,7 @@ export default function ClientsPage() {
                         : '-'}
                     </TableCell>
                     <TableCell className="text-center">
-                      {client.creatorName ? (
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 text-white text-xs font-semibold cursor-default">
-                                {client.creatorName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
-                              </span>
-                            </TooltipTrigger>
-                            <TooltipContent><p>{client.creatorName}</p></TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      ) : (
-                        <span className="text-sm text-gray-400">—</span>
-                      )}
+                      <CreatorHistoryButton entity="clients" entityId={client.id} creatorName={client.creatorName} />
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">

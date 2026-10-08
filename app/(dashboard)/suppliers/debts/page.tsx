@@ -855,7 +855,7 @@ export default function SupplierDebtsPage() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div data-tour="page-summary" className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="p-4 bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
           <div className="flex items-center gap-2 mb-1">
             <DollarSign className="w-4 h-4 text-blue-600 dark:text-blue-400" />
@@ -941,7 +941,7 @@ export default function SupplierDebtsPage() {
         </div>
 
         {/* Desktop/tablet-landscape: full table */}
-        <div className="hidden lg:block">
+        <div data-tour="page-list" className="hidden lg:block">
         <Table>
           <TableHeader>
             <TableRow>

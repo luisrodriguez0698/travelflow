@@ -42,8 +42,15 @@ export function InstallAppCard() {
             Toca <span className="font-medium">Compartir</span> en Safari y luego{' '}
             <span className="font-medium">Agregar a pantalla de inicio</span>.
           </p>
-        ) : (
+        ) : canInstall ? (
           <p className="text-sm text-muted-foreground">Acceso directo desde tu pantalla de inicio, como app nativa.</p>
+        ) : (
+          // Sin beforeinstallprompt: navegador sin soporte (Firefox/Safari escritorio)
+          // o el usuario ya descarto el aviso; Chrome/Edge siguen ofreciendo el icono
+          <p className="text-sm text-muted-foreground">
+            En Chrome o Edge usa el icono de <span className="font-medium">instalar</span> en la barra
+            de direcciones, o el menú <span className="font-medium">⋮ → Instalar TravelFlow</span>.
+          </p>
         )}
       </div>
       {!isIos && (

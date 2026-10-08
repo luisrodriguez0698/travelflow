@@ -26,8 +26,10 @@ const PUBLIC_PATHS = [
   '/register',
   '/forgot-password',
   '/reset-password',
+  '/auth/accept-invite', // el invitado aun no tiene cuenta
   '/api/auth',
   '/api/signup',
+  '/manifest.json', // el navegador lo pide sin cookies; si redirige al login la app no es instalable
 ];
 
 function isPublicPath(pathname: string): boolean {

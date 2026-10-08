@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
     const tenantId = await requireTenantId();
 
     const users = await prisma.user.findMany({
-      where: { tenantId },
+      where: { tenantId, deletedAt: null, isActive: true },
       select: { id: true, name: true, email: true, role: true },
       orderBy: { name: 'asc' },
     });

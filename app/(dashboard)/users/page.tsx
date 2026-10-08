@@ -51,13 +51,18 @@ import {
   UserCog,
   Clock,
   RefreshCw,
+  UserX,
+  UserCheck,
+  Crown,
+  Lock,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { sendInvite } from '@/lib/actions/send-invite';
 import { resendInvite } from '@/lib/actions/resend-invite';
+import { CreatorHistoryButton } from '@/components/record-history';
 
 const MAX_USERS = 5;
-import { ALL_MODULES, MODULE_LABELS } from '@/lib/permissions';
+import { ALL_MODULES, MODULE_LABELS, isProtectedRole } from '@/lib/permissions';
 import type { ModulePermission } from '@/lib/permissions';
 
 interface User {
@@ -67,6 +72,8 @@ interface User {
   phone: string | null;
   role: string;
   roleId: string | null;
+  isActive: boolean;
+  isOwner: boolean;
   createdAt: string;
   roleRef: { id: string; name: string } | null;
 }
@@ -116,7 +123,7 @@ export default function UsersPage() {
 
   // Modals
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
-  const [isEditRoleModalOpen, setIsEditRoleModalOpen] = useState(false);
+  const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
   const [isDeleteRoleDialogOpen, setIsDeleteRoleDialogOpen] = useState(false);
@@ -125,13 +132,14 @@ export default function UsersPage() {
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRoleId, setInviteRoleId] = useState('');
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [editRoleId, setEditRoleId] = useState('');
+  const [editUserForm, setEditUserForm] = useState({ name: '', phone: '', roleId: '' });
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
   const [roleFormData, setRoleFormData] = useState({ name: '', permissions: [] as string[] });
   const [deleteRoleTarget, setDeleteRoleTarget] = useState<Role | null>(null);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [resendingId, setResendingId] = useState<string | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   // Fetch users
   const fetchUsers = useCallback(async () => {
@@ -246,27 +254,123 @@ export default function UsersPage() {
     }
   };
 
-  // Update user role
-  const handleUpdateRole = async () => {
-    if (!selectedUser || !editRoleId) return;
+  // Update user (name, phone, role)
+  const handleUpdateUser = async () => {
+    if (!selectedUser) return;
+    if (!editUserForm.name.trim() || !editUserForm.roleId) {
+      toast.error('Nombre y rol son requeridos');
+      return;
+    }
     setIsSubmitting(true);
     try {
       const res = await fetch(`/api/users/${selectedUser.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ roleId: editRoleId }),
+        body: JSON.stringify({
+          name: editUserForm.name,
+          phone: editUserForm.phone || null,
+          roleId: editUserForm.roleId,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      toast.success('Rol actualizado');
-      setIsEditRoleModalOpen(false);
+      toast.success('Usuario actualizado');
+      setIsEditUserModalOpen(false);
       fetchUsers();
+      fetchRoles();
     } catch (err: any) {
-      toast.error(err.message || 'Error al actualizar rol');
+      toast.error(err.message || 'Error al actualizar usuario');
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  // Activate / deactivate user
+  const handleToggleActive = async (user: User) => {
+    setTogglingId(user.id);
+    try {
+      const res = await fetch(`/api/users/${user.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isActive: !user.isActive }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      toast.success(user.isActive ? 'Usuario desactivado' : 'Usuario activado');
+      fetchUsers();
+    } catch (err: any) {
+      toast.error(err.message || 'Error al cambiar el estado del usuario');
+    } finally {
+      setTogglingId(null);
+    }
+  };
+
+  // The owner and the current user can't be edited, deactivated or deleted here
+  const canManageUser = (user: User) => user.id !== currentUserId && !user.isOwner;
+
+  const openEditUser = (user: User) => {
+    setSelectedUser(user);
+    setEditUserForm({ name: user.name || '', phone: user.phone || '', roleId: user.roleId || '' });
+    setIsEditUserModalOpen(true);
+  };
+
+  const renderUserBadges = (user: User) => (
+    <>
+      {user.id === currentUserId && (
+        <Badge variant="outline" className="ml-2 text-xs">Tú</Badge>
+      )}
+      {user.isOwner && (
+        <Badge className="ml-2 text-xs bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
+          <Crown className="w-3 h-3 mr-1" />
+          Propietario
+        </Badge>
+      )}
+      {!user.isActive && (
+        <Badge className="ml-2 text-xs bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-300">
+          Inactivo
+        </Badge>
+      )}
+    </>
+  );
+
+  const renderUserActions = (user: User) => (
+      <div className="flex justify-end items-center gap-1">
+        <CreatorHistoryButton entity="users" entityId={user.id} title={user.name || user.email} />
+        {canManageUser(user) && (<>
+        <Button variant="ghost" size="icon" onClick={() => openEditUser(user)} title="Editar">
+          <UserCog className="w-4 h-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => handleToggleActive(user)}
+          disabled={togglingId === user.id}
+          className={user.isActive ? 'text-amber-600 hover:text-amber-700' : 'text-green-600 hover:text-green-700'}
+          title={user.isActive ? 'Desactivar' : 'Activar'}
+        >
+          {togglingId === user.id ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : user.isActive ? (
+            <UserX className="w-4 h-4" />
+          ) : (
+            <UserCheck className="w-4 h-4" />
+          )}
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => {
+            setSelectedUser(user);
+            setIsDeleteDialogOpen(true);
+          }}
+          className="text-red-500 hover:text-red-700"
+          title="Eliminar"
+        >
+          <Trash2 className="w-4 h-4" />
+        </Button>
+        </>)}
+      </div>
+    );
 
   // Delete user
   const handleDeleteUser = async () => {
@@ -367,6 +471,7 @@ export default function UsersPage() {
         </div>
         <div className="flex flex-col items-end gap-1">
           <Button
+            data-tour="page-action"
             onClick={() => setIsInviteModalOpen(true)}
             disabled={totalCount >= MAX_USERS}
             variant="gradient"
@@ -384,7 +489,7 @@ export default function UsersPage() {
 
       {/* Tabs */}
       <div className="border-b border-gray-200 dark:border-gray-700">
-        <nav className="flex space-x-4">
+        <nav data-tour="page-tabs" className="flex space-x-4">
           <button onClick={() => setActiveTab('users')} className={tabClasses('users')}>
             <Users className="w-4 h-4 inline mr-1.5" />
             Usuarios ({total})
@@ -423,14 +528,12 @@ export default function UsersPage() {
               <div className="text-center py-8 text-gray-500">No se encontraron usuarios</div>
             ) : (
               users.map((user) => (
-                <div key={user.id} className="p-4 space-y-2">
+                <div key={user.id} className={`p-4 space-y-2 ${!user.isActive ? 'opacity-60' : ''}`}>
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="font-medium truncate">
                         {user.name || 'Sin nombre'}
-                        {user.id === currentUserId && (
-                          <Badge variant="outline" className="ml-2 text-xs">Tú</Badge>
-                        )}
+                        {renderUserBadges(user)}
                       </p>
                       <p className="text-sm text-gray-600 dark:text-gray-400 truncate">{user.email}</p>
                     </div>
@@ -440,32 +543,7 @@ export default function UsersPage() {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-500">{formatDate(user.createdAt)}</span>
-                    {user.id !== currentUserId && (
-                      <div className="flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            setSelectedUser(user);
-                            setEditRoleId(user.roleId || '');
-                            setIsEditRoleModalOpen(true);
-                          }}
-                        >
-                          <UserCog className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            setSelectedUser(user);
-                            setIsDeleteDialogOpen(true);
-                          }}
-                          className="text-red-500 hover:text-red-700"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    )}
+                    {renderUserActions(user)}
                   </div>
                 </div>
               ))
@@ -499,12 +577,10 @@ export default function UsersPage() {
                   </TableRow>
                 ) : (
                   users.map((user) => (
-                    <TableRow key={user.id}>
+                    <TableRow key={user.id} className={!user.isActive ? 'opacity-60' : undefined}>
                       <TableCell className="font-medium">
                         {user.name || 'Sin nombre'}
-                        {user.id === currentUserId && (
-                          <Badge variant="outline" className="ml-2 text-xs">Tú</Badge>
-                        )}
+                        {renderUserBadges(user)}
                       </TableCell>
                       <TableCell className="text-gray-600 dark:text-gray-400">
                         {user.email}
@@ -518,34 +594,7 @@ export default function UsersPage() {
                         {formatDate(user.createdAt)}
                       </TableCell>
                       <TableCell className="text-right">
-                        {user.id !== currentUserId && (
-                          <div className="flex justify-end gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => {
-                                setSelectedUser(user);
-                                setEditRoleId(user.roleId || '');
-                                setIsEditRoleModalOpen(true);
-                              }}
-                              title="Editar rol"
-                            >
-                              <UserCog className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => {
-                                setSelectedUser(user);
-                                setIsDeleteDialogOpen(true);
-                              }}
-                              className="text-red-500 hover:text-red-700"
-                              title="Eliminar"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        )}
+                        {renderUserActions(user)}
                       </TableCell>
                     </TableRow>
                   ))
@@ -615,7 +664,16 @@ export default function UsersPage() {
                     <p className="font-medium">
                       {role.name}
                       {role.isDefault && <Badge variant="outline" className="ml-2 text-xs">Default</Badge>}
+                      {isProtectedRole(role) && (
+                        <Badge variant="outline" className="ml-2 text-xs">
+                          <Lock className="w-3 h-3 mr-1" />
+                          Protegido
+                        </Badge>
+                      )}
                     </p>
+                    <div className="flex items-center gap-1 shrink-0">
+                    <CreatorHistoryButton entity="roles" entityId={role.id} title={`Rol ${role.name}`} size="sm" />
+                    {!isProtectedRole(role) && (
                     <div className="flex gap-1 shrink-0">
                       <Button
                         variant="ghost"
@@ -628,19 +686,19 @@ export default function UsersPage() {
                       >
                         <Pencil className="w-4 h-4" />
                       </Button>
-                      {!role.isDefault && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            setDeleteRoleTarget(role);
-                            setIsDeleteRoleDialogOpen(true);
-                          }}
-                          className="text-red-500 hover:text-red-700"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          setDeleteRoleTarget(role);
+                          setIsDeleteRoleDialogOpen(true);
+                        }}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    )}
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-1">
@@ -688,6 +746,12 @@ export default function UsersPage() {
                         {role.isDefault && (
                           <Badge variant="outline" className="ml-2 text-xs">Default</Badge>
                         )}
+                        {isProtectedRole(role) && (
+                          <Badge variant="outline" className="ml-2 text-xs">
+                            <Lock className="w-3 h-3 mr-1" />
+                            Protegido
+                          </Badge>
+                        )}
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
@@ -702,6 +766,9 @@ export default function UsersPage() {
                         {role._count.users}
                       </TableCell>
                       <TableCell className="text-right">
+                        <div className="flex justify-end items-center gap-1">
+                        <CreatorHistoryButton entity="roles" entityId={role.id} title={`Rol ${role.name}`} />
+                        {!isProtectedRole(role) && (
                         <div className="flex justify-end gap-1">
                           <Button
                             variant="ghost"
@@ -718,20 +785,20 @@ export default function UsersPage() {
                           >
                             <Pencil className="w-4 h-4" />
                           </Button>
-                          {!role.isDefault && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => {
-                                setDeleteRoleTarget(role);
-                                setIsDeleteRoleDialogOpen(true);
-                              }}
-                              className="text-red-500 hover:text-red-700"
-                              title="Eliminar"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          )}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              setDeleteRoleTarget(role);
+                              setIsDeleteRoleDialogOpen(true);
+                            }}
+                            className="text-red-500 hover:text-red-700"
+                            title="Eliminar"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                        )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -955,19 +1022,38 @@ export default function UsersPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Modal: Edit User Role */}
-      <Dialog open={isEditRoleModalOpen} onOpenChange={setIsEditRoleModalOpen}>
+      {/* Modal: Edit User */}
+      <Dialog open={isEditUserModalOpen} onOpenChange={setIsEditUserModalOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Cambiar Rol</DialogTitle>
-            <DialogDescription>
-              Cambia el rol de {selectedUser?.name || selectedUser?.email}
-            </DialogDescription>
+            <DialogTitle>Editar Usuario</DialogTitle>
+            <DialogDescription>{selectedUser?.email}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 pt-2">
             <div className="space-y-2">
-              <Label>Nuevo Rol</Label>
-              <Select value={editRoleId} onValueChange={setEditRoleId} disabled={isSubmitting}>
+              <Label>Nombre completo *</Label>
+              <Input
+                value={editUserForm.name}
+                onChange={(e) => setEditUserForm({ ...editUserForm, name: e.target.value })}
+                disabled={isSubmitting}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Teléfono</Label>
+              <Input
+                placeholder="9611234567"
+                value={editUserForm.phone}
+                onChange={(e) => setEditUserForm({ ...editUserForm, phone: e.target.value })}
+                disabled={isSubmitting}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Rol *</Label>
+              <Select
+                value={editUserForm.roleId}
+                onValueChange={(roleId) => setEditUserForm({ ...editUserForm, roleId })}
+                disabled={isSubmitting}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecciona un rol" />
                 </SelectTrigger>
@@ -981,10 +1067,10 @@ export default function UsersPage() {
               </Select>
             </div>
             <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" onClick={() => setIsEditRoleModalOpen(false)} disabled={isSubmitting}>
+              <Button variant="outline" onClick={() => setIsEditUserModalOpen(false)} disabled={isSubmitting}>
                 Cancelar
               </Button>
-              <Button onClick={handleUpdateRole} disabled={isSubmitting}>
+              <Button onClick={handleUpdateUser} disabled={isSubmitting} variant="gradient">
                 {isSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                 Guardar
               </Button>
@@ -1000,7 +1086,8 @@ export default function UsersPage() {
             <AlertDialogTitle>Eliminar Usuario</AlertDialogTitle>
             <AlertDialogDescription>
               ¿Estás seguro de eliminar a <strong>{selectedUser?.name || selectedUser?.email}</strong>?
-              Esta acción no se puede deshacer.
+              Perderá el acceso al sistema y ya no aparecerá en la lista, pero su historial
+              (ventas, pagos, cotizaciones) se conserva con su nombre.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

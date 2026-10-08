@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requirePermission, getSessionUser } from '@/lib/get-tenant';
+import { requirePermission, getSessionUser, getTenantOwnerId } from '@/lib/get-tenant';
 import { prisma } from '@/lib/prisma';
-import { logAudit } from '@/lib/audit';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,7 +14,8 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search') || '';
     const skip = (page - 1) * limit;
 
-    const where: any = { tenantId };
+    // Los usuarios eliminados (borrado logico) no se listan
+    const where: any = { tenantId, deletedAt: null };
     if (search) {
       where.OR = [
         { name: { contains: search, mode: 'insensitive' } },
@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
       ];
     }
 
-    const [users, total, totalCount] = await Promise.all([
+    const [users, total, totalCount, ownerId] = await Promise.all([
       prisma.user.findMany({
         where,
         orderBy: { createdAt: 'desc' },
@@ -36,16 +36,18 @@ export async function GET(request: NextRequest) {
           phone: true,
           role: true,
           roleId: true,
+          isActive: true,
           createdAt: true,
           roleRef: { select: { id: true, name: true } },
         },
       }),
       prisma.user.count({ where }),
-      prisma.user.count({ where: { tenantId } }),
+      prisma.user.count({ where: { tenantId, deletedAt: null } }),
+      getTenantOwnerId(tenantId),
     ]);
 
     return NextResponse.json({
-      data: users,
+      data: users.map((u) => ({ ...u, isOwner: u.id === ownerId })),
       pagination: {
         page,
         limit,
@@ -79,26 +81,34 @@ export async function DELETE(request: NextRequest) {
     }
 
     const user = await prisma.user.findFirst({
-      where: { id, tenantId },
+      where: { id, tenantId, deletedAt: null },
     });
 
     if (!user) {
       return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 });
     }
 
-    await prisma.user.delete({ where: { id } });
-
-    if (sessionUser) {
-      await logAudit({
-        tenantId,
-        userId: sessionUser.id,
-        userName: sessionUser.name,
-        action: 'DELETE',
-        entity: 'users',
-        entityId: id,
-        changes: { email: user.email, name: user.name },
-      });
+    if (id === (await getTenantOwnerId(tenantId))) {
+      return NextResponse.json(
+        { error: 'No se puede eliminar al propietario de la agencia' },
+        { status: 400 }
+      );
     }
+
+    // Borrado logico: se conserva el registro para que ventas, pagos, etc.
+    // sigan mostrando quien los hizo. El email se libera (es unico) para
+    // poder volver a invitar a esa persona en el futuro.
+    await prisma.user.update({
+      where: { id },
+      data: {
+        deletedAt: new Date(),
+        isActive: false,
+        email: `deleted.${Date.now()}.${user.email}`,
+        passwordResetToken: null,
+        passwordResetExpires: null,
+      },
+    });
+
 
     return NextResponse.json({ success: true, message: 'Usuario eliminado' });
   } catch (error: any) {

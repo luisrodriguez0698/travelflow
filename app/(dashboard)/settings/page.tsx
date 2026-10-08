@@ -29,6 +29,7 @@ import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { InstallAppCard } from '@/components/install-app-card';
 import { PushNotificationsToggle } from '@/components/push-notifications-toggle';
+import { DangerZone } from '@/components/danger-zone';
 
 interface AgencySettings {
   id: string;
@@ -271,7 +272,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Settings Form */}
-      <Card className="p-6">
+      <Card data-tour="settings-agency" className="p-6">
         <div className="flex items-center gap-2 mb-6">
           <Building2 className="w-5 h-5 text-blue-500" />
           <h2 className="text-xl font-semibold">Datos de la Agencia</h2>
@@ -446,7 +447,7 @@ export default function SettingsPage() {
       </Card>
 
       {/* App y notificaciones */}
-      <Card className="p-6">
+      <Card data-tour="settings-app" className="p-6">
         <div className="flex items-center gap-2 mb-6">
           <Smartphone className="w-5 h-5 text-blue-500" />
           <h2 className="text-xl font-semibold">App y notificaciones</h2>
@@ -456,6 +457,9 @@ export default function SettingsPage() {
           <PushNotificationsToggle />
         </div>
       </Card>
+
+      {/* Restablecer / eliminar agencia (solo propietario) */}
+      <DangerZone />
 
       {/* ── Dialog confirmación eliminar logo ─────────────────────────── */}
       <Dialog open={showRemoveDialog} onOpenChange={setShowRemoveDialog}>

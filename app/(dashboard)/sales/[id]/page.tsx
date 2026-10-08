@@ -49,6 +49,7 @@ import { es } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import { generateReceiptPdf } from '@/lib/generate-receipt-pdf';
 import { DatePicker } from '@/components/ui/date-picker';
+import { HistoryButton } from '@/components/record-history';
 
 interface PaymentPlan {
   id: string;
@@ -409,6 +410,7 @@ export default function SaleDetailPage() {
                   Creado por {sale.creatorName}
                 </span>
               )}
+              <HistoryButton entity="sales" entityId={sale.id} title={`Folio ${sale.id.slice(-8).toUpperCase()}`} />
             </div>
           </div>
         </div>

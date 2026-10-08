@@ -16,7 +16,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Hotel, Plane, MapPin, Trash2, Pencil, Check, ChevronsUpDown, Truck, Bus, Globe, ArrowLeftRight, UserPlus, X, Hash } from 'lucide-react';
+import { Plus, Hotel, Plane, MapPin, Trash2, Pencil, Check, ChevronsUpDown, Truck, Bus, Globe, ArrowLeftRight, UserPlus, X, Hash, BookOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // ─── Types ───────────────────────────────────────────
@@ -74,6 +74,30 @@ export interface BookingItemData {
   // Supplier (per item)
   supplierId?: string;
   supplierDeadline?: Date | null;
+  // Catalog service (FLIGHT / TOUR / TRANSFER) the data was taken from
+  serviceId?: string;
+}
+
+interface CatalogService {
+  id: string;
+  type: 'FLIGHT' | 'TOUR' | 'TRANSFER';
+  name: string;
+  supplierId: string | null;
+  supplier: { id: string; name: string } | null;
+  isInternational: boolean;
+  cost: number;
+  origin: string | null;
+  destination: string | null;
+  direction: 'IDA' | 'REGRESO' | 'IDA_Y_VUELTA' | null;
+  departureTime: string | null;
+  arrivalTime: string | null;
+  returnDepartureTime: string | null;
+  returnArrivalTime: string | null;
+  airline: string | null;
+  flightNumber: string | null;
+  flightClass: string | null;
+  returnFlightNumber: string | null;
+  transportType: string | null;
 }
 
 interface HotelOption {
@@ -441,6 +465,149 @@ function SupplierSection({
             onChange={(date) => onChange({ supplierDeadline: date || null })}
           />
         </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Catalog Picker (FLIGHT / TOUR / TRANSFER) ───────
+
+const CATALOG_LABELS: Record<CatalogService['type'], { plural: string; placeholder: string }> = {
+  FLIGHT: { plural: 'vuelos', placeholder: 'Buscar vuelo...' },
+  TOUR: { plural: 'tours', placeholder: 'Buscar tour...' },
+  TRANSFER: { plural: 'transportes', placeholder: 'Buscar transporte...' },
+};
+
+/** "HH:MM" del catalogo -> Date (el TimePicker solo usa horas y minutos). */
+function hhmmToDate(value: string | null): Date | null {
+  if (!value) return null;
+  const [h, m] = value.split(':').map(Number);
+  if (isNaN(h) || isNaN(m)) return null;
+  const d = new Date();
+  d.setHours(h, m, 0, 0);
+  return d;
+}
+
+/** Copia los datos del servicio al item; el costo queda editable despues. */
+function serviceToItem(s: CatalogService): Partial<BookingItemData> {
+  const common: Partial<BookingItemData> = {
+    serviceId: s.id,
+    isInternational: s.isInternational,
+    supplierId: s.supplierId || undefined,
+  };
+  if (s.type === 'TOUR') {
+    return { ...common, tourName: s.name, pricePerPerson: s.cost };
+  }
+  const route: Partial<BookingItemData> = {
+    origin: s.origin || '',
+    flightDestination: s.destination || '',
+    direction: s.direction || 'IDA',
+    departureTime: hhmmToDate(s.departureTime),
+    arrivalTime: hhmmToDate(s.arrivalTime),
+    returnDepartureTime: hhmmToDate(s.returnDepartureTime),
+    returnArrivalTime: hhmmToDate(s.returnArrivalTime),
+  };
+  if (s.type === 'FLIGHT') {
+    return {
+      ...common,
+      ...route,
+      airline: s.airline || '',
+      flightNumber: s.flightNumber || '',
+      flightClass: s.flightClass || 'ECONOMICA',
+      returnFlightNumber: s.returnFlightNumber || '',
+      cost: s.cost,
+    };
+  }
+  return { ...common, ...route, transportType: s.transportType || '', pricePerPerson: s.cost };
+}
+
+function CatalogPicker({
+  type,
+  item,
+  onChange,
+}: {
+  type: CatalogService['type'];
+  item: BookingItemData;
+  onChange: (updates: Partial<BookingItemData>) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [services, setServices] = useState<CatalogService[]>([]);
+  const [loading, setLoading] = useState(true);
+  const labels = CATALOG_LABELS[type];
+
+  useEffect(() => {
+    setLoading(true);
+    fetch(`/api/services?type=${type}`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then(setServices)
+      .catch(() => setServices([]))
+      .finally(() => setLoading(false));
+  }, [type]);
+
+  const selected = services.find((s) => s.id === item.serviceId);
+
+  const serviceDetail = (s: CatalogService) =>
+    [
+      s.type === 'FLIGHT' && s.flightNumber,
+      s.type !== 'TOUR' && (s.origin || s.destination) && `${s.origin || '?'} → ${s.destination || '?'}`,
+      s.supplier?.name,
+      formatCurrency(s.cost) + (s.type === 'FLIGHT' ? '' : ' / persona'),
+    ]
+      .filter(Boolean)
+      .join(' · ');
+
+  return (
+    <div className="space-y-1.5 rounded-lg border border-dashed p-3 bg-muted/20">
+      <Label className="flex items-center gap-1.5">
+        <BookOpen className="w-3.5 h-3.5 text-muted-foreground" />
+        Del catálogo
+        <span className="text-xs font-normal text-muted-foreground">(opcional — llena los datos)</span>
+      </Label>
+      {loading ? (
+        <p className="text-xs text-muted-foreground">Cargando {labels.plural}...</p>
+      ) : services.length === 0 ? (
+        <p className="text-xs text-muted-foreground">
+          Aún no hay {labels.plural} en el catálogo. Captúralo abajo o dalo de alta en Catálogo → Servicios.
+        </p>
+      ) : (
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger asChild>
+            <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
+              <span className="truncate">{selected ? selected.name : 'Captura manual'}</span>
+              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+            <Command>
+              <CommandInput placeholder={labels.placeholder} />
+              <CommandList>
+                <CommandEmpty>No se encontraron {labels.plural}.</CommandEmpty>
+                <CommandGroup>
+                  <CommandItem
+                    value="__none__"
+                    onSelect={() => { onChange({ serviceId: undefined }); setOpen(false); }}
+                  >
+                    <Check className={cn('mr-2 h-4 w-4', !item.serviceId ? 'opacity-100' : 'opacity-0')} />
+                    Captura manual
+                  </CommandItem>
+                  {services.map((s) => (
+                    <CommandItem
+                      key={s.id}
+                      value={`${s.name} ${s.airline || ''} ${s.origin || ''} ${s.destination || ''} ${s.supplier?.name || ''}`}
+                      onSelect={() => { onChange(serviceToItem(s)); setOpen(false); }}
+                    >
+                      <Check className={cn('mr-2 h-4 w-4 shrink-0', item.serviceId === s.id ? 'opacity-100' : 'opacity-0')} />
+                      <div className="flex flex-col min-w-0">
+                        <span className="truncate">{s.name}</span>
+                        <span className="text-xs text-muted-foreground truncate">{serviceDetail(s)}</span>
+                      </div>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
       )}
     </div>
   );
@@ -1068,6 +1235,8 @@ function FlightForm({
 
   return (
     <div className="space-y-4">
+      <CatalogPicker type="FLIGHT" item={item} onChange={onChange} />
+
       {/* Internacional toggle */}
       <InternacionalToggle value={item.isInternational} onChange={(v) => onChange({ isInternational: v })} />
 
@@ -1228,6 +1397,8 @@ function TourForm({
 }) {
   return (
     <div className="space-y-4">
+      <CatalogPicker type="TOUR" item={item} onChange={onChange} />
+
       {/* Internacional toggle */}
       <InternacionalToggle value={item.isInternational} onChange={(v) => onChange({ isInternational: v })} />
 
@@ -1300,6 +1471,8 @@ function TransportForm({
 
   return (
     <div className="space-y-4">
+      <CatalogPicker type="TRANSFER" item={item} onChange={onChange} />
+
       {/* Internacional toggle */}
       <InternacionalToggle value={item.isInternational} onChange={(v) => onChange({ isInternational: v })} />
 

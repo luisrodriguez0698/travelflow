@@ -12,7 +12,7 @@ export async function GET() {
       where: { tenantId },
       orderBy: { createdAt: 'asc' },
       include: {
-        _count: { select: { users: true, invitations: true } },
+        _count: { select: { users: { where: { deletedAt: null } }, invitations: true } },
       },
     });
 
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
 
     const role = await prisma.role.create({
       data: { tenantId, name, permissions },
-      include: { _count: { select: { users: true, invitations: true } } },
+      include: { _count: { select: { users: { where: { deletedAt: null } }, invitations: true } } },
     });
 
     return NextResponse.json(role, { status: 201 });

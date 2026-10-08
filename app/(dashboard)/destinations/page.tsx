@@ -19,12 +19,7 @@ import {
 } from '@/components/ui/table';
 import { PaginationFooter } from '@/components/ui/pagination-footer';
 import { Badge } from '@/components/ui/badge';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { CreatorHistoryButton } from '@/components/record-history';
 import { Plus, Search, Pencil, Trash2, MapPin, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -187,7 +182,7 @@ export default function DestinationsPage() {
           <h1 className="text-3xl font-bold">Destinos</h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">Gestiona tus destinos de viaje</p>
         </div>
-        <Button onClick={openCreate} variant="gradient">
+        <Button data-tour="page-action" onClick={openCreate} variant="gradient">
           <Plus className="w-4 h-4 mr-2" />
           Nuevo Destino
         </Button>
@@ -196,7 +191,7 @@ export default function DestinationsPage() {
       <Card className="p-4">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-          <Input
+          <Input data-tour="page-filters"
             placeholder="Buscar destino..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -207,7 +202,7 @@ export default function DestinationsPage() {
 
       <Card>
         {/* Mobile/tablet: stacked cards (no horizontal scroll) */}
-        <div className="lg:hidden divide-y divide-gray-200 dark:divide-gray-800">
+        <div data-tour="page-list" className="lg:hidden divide-y divide-gray-200 dark:divide-gray-800">
           {filtered.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">No hay destinos registrados</div>
           ) : (
@@ -223,14 +218,7 @@ export default function DestinationsPage() {
                       <p className="text-sm text-muted-foreground truncate">{dest.description}</p>
                     )}
                   </div>
-                  {dest.creatorName && (
-                    <span
-                      className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 text-white text-xs font-semibold shrink-0"
-                      title={dest.creatorName}
-                    >
-                      {dest.creatorName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
-                    </span>
-                  )}
+                  <CreatorHistoryButton entity="destinations" entityId={dest.id} creatorName={dest.creatorName} size="sm" />
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -258,7 +246,7 @@ export default function DestinationsPage() {
         </div>
 
         {/* Desktop/tablet-landscape: full table */}
-        <div className="hidden lg:block">
+        <div data-tour="page-list" className="hidden lg:block">
         <Table>
           <TableHeader>
             <TableRow>
@@ -300,20 +288,7 @@ export default function DestinationsPage() {
                   </TableCell>
                   <TableCell className="text-center">{dest._count.bookings}</TableCell>
                   <TableCell className="text-center">
-                    {dest.creatorName ? (
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 text-white text-xs font-semibold cursor-default">
-                              {dest.creatorName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent><p>{dest.creatorName}</p></TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    ) : (
-                      <span className="text-sm text-gray-400">—</span>
-                    )}
+                    <CreatorHistoryButton entity="destinations" entityId={dest.id} creatorName={dest.creatorName} />
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">

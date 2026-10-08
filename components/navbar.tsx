@@ -10,11 +10,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
-import { Moon, Sun, User, LogOut, Building2, CalendarDays } from 'lucide-react';
+import { Moon, Sun, User, UserCircle, LogOut, Building2, CalendarDays } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { NotificationPanel } from './notification-panel';
 import { TripStatusPanel } from './trip-status-panel';
 import Link from 'next/link';
+import { HelpMenu } from './help-tour';
 
 export function Navbar() {
   const { data: session } = useSession() || {};
@@ -29,22 +30,23 @@ export function Navbar() {
           </h2>
         </div>
 
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-1 sm:space-x-4">
           {/* Calendar */}
           <Link href="/calendar">
-            <Button variant="ghost" size="icon">
+            <Button data-tour="navbar-calendar" variant="ghost" size="icon">
               <CalendarDays className="h-5 w-5" />
             </Button>
           </Link>
 
           {/* Trip Status */}
-          <TripStatusPanel />
+          <span data-tour="navbar-trips"><TripStatusPanel /></span>
 
           {/* Notifications */}
-          <NotificationPanel />
+          <span data-tour="navbar-notifications"><NotificationPanel /></span>
 
           {/* Theme Toggle */}
           <Button
+            data-tour="navbar-theme"
             variant="ghost"
             size="icon"
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
@@ -53,10 +55,13 @@ export function Navbar() {
             <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
           </Button>
 
+          {/* Help / guided tours */}
+          <HelpMenu />
+
           {/* User Menu */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="rounded-full">
+              <Button data-tour="navbar-user" variant="ghost" size="icon" className="rounded-full">
                 <User className="h-5 w-5" />
               </Button>
             </DropdownMenuTrigger>
@@ -70,6 +75,12 @@ export function Navbar() {
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
+              <DropdownMenuItem asChild className="cursor-pointer">
+                <Link href="/profile">
+                  <UserCircle className="mr-2 h-4 w-4" />
+                  <span>Mi perfil</span>
+                </Link>
+              </DropdownMenuItem>
               <DropdownMenuItem>
                 <Building2 className="mr-2 h-4 w-4" />
                 <span>{(session?.user as any)?.tenantName}</span>

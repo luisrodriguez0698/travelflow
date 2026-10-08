@@ -24,6 +24,8 @@ import {
   Wallet,
   Hotel,
   Target,
+  LayoutTemplate,
+  History,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from './ui/button';
@@ -33,7 +35,7 @@ type MenuItem = {
   title: string;
   icon: React.ElementType;
   href: string;
-  module: string;
+  module?: string; // sin modulo = visible para todos los roles
 };
 
 type MenuGroup = {
@@ -54,6 +56,7 @@ const menuGroups: MenuGroup[] = [
       { title: 'Ventas', icon: ShoppingCart, href: '/sales', module: 'ventas' },
       { title: 'Metas', icon: Target, href: '/sales/goals', module: 'ventas' },
       { title: 'Cotizaciones', icon: FileText, href: '/quotations', module: 'cotizaciones' },
+      { title: 'Plantillas', icon: LayoutTemplate, href: '/templates' },
     ],
   },
   {
@@ -61,6 +64,7 @@ const menuGroups: MenuGroup[] = [
     items: [
       { title: 'Destinos', icon: MapPin, href: '/destinations', module: 'destinos' },
       { title: 'Hoteles', icon: Hotel, href: '/hotels', module: 'destinos' },
+      { title: 'Servicios', icon: Plane, href: '/services', module: 'destinos' },
       { title: 'Temporadas', icon: CalendarDays, href: '/seasons', module: 'temporadas' },
     ],
   },
@@ -76,6 +80,7 @@ const menuGroups: MenuGroup[] = [
     label: 'Administración',
     items: [
       { title: 'Usuarios', icon: UserCog, href: '/users', module: 'usuarios' },
+      { title: 'Bitácora', icon: History, href: '/audit', module: 'usuarios' },
       { title: 'Configuración', icon: Settings, href: '/settings', module: 'configuracion' },
     ],
   },
@@ -91,6 +96,7 @@ export function Sidebar() {
 
   const filterItems = (items: MenuItem[]) =>
     items.filter((item) => {
+      if (!item.module) return true;
       if (!permissions && userRole === 'ADMIN') return true;
       if (!permissions) return true;
       return permissions.includes(item.module);
@@ -143,6 +149,7 @@ export function Sidebar() {
     return (
       <Link
         href={item.href}
+        data-tour={`nav-${item.href}`}
         className={cn(
           'flex items-center space-x-3 px-3 py-2.5 rounded-lg',
           isActive
@@ -234,7 +241,7 @@ export function Sidebar() {
               // Expanded sidebar: collapsible group
               const isOpen = openGroups[group.label] ?? true;
               return (
-                <div key={group.label} className="mt-3 first:mt-0">
+                <div key={group.label} data-tour={`nav-group-${group.label}`} className="mt-3 first:mt-0">
                   <button
                     onClick={() => toggleGroup(group.label!)}
                     className="w-full flex items-center justify-between px-3 py-1.5 mb-0.5 rounded-md group/header hover:bg-gray-100 dark:hover:bg-gray-800/60"

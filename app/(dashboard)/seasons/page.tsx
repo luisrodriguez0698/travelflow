@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { CreatorHistoryButton } from '@/components/record-history';
 import {
   ResponsiveDialog as Dialog,
   ResponsiveDialogContent as DialogContent,
@@ -32,12 +33,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
 import { Plus, Calendar, Edit, Trash2, ChevronLeft, ChevronRight, Search, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -271,7 +266,7 @@ export default function SeasonsPage() {
           <h1 className="text-3xl font-bold">Temporadas</h1>
           <p className="text-muted-foreground">Gestiona las temporadas para organizar tus salidas</p>
         </div>
-        <Button onClick={openCreateModal}>
+        <Button data-tour="page-action" onClick={openCreateModal}>
           <Plus className="w-4 h-4 mr-2" />
           Nueva Temporada
         </Button>
@@ -283,7 +278,7 @@ export default function SeasonsPage() {
         <div className="flex items-center mb-6">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-            <Input
+            <Input data-tour="page-filters"
               placeholder="Buscar por nombre..."
               value={searchTerm}
               onChange={(e) => {
@@ -317,7 +312,7 @@ export default function SeasonsPage() {
         ) : (
           <>
             {/* Mobile/tablet: stacked cards (no horizontal scroll) */}
-            <div className="lg:hidden rounded-md border divide-y divide-gray-200 dark:divide-gray-800">
+            <div data-tour="page-list" className="lg:hidden rounded-md border divide-y divide-gray-200 dark:divide-gray-800">
               {paginatedSeasons.map((season) => (
                 <div key={season.id} className="p-4 space-y-2">
                   <div className="flex items-start justify-between gap-2">
@@ -330,14 +325,7 @@ export default function SeasonsPage() {
                         )}
                       </div>
                     </div>
-                    {season.creatorName && (
-                      <span
-                        className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 text-white text-xs font-semibold shrink-0"
-                        title={season.creatorName}
-                      >
-                        {season.creatorName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
-                      </span>
-                    )}
+                    <CreatorHistoryButton entity="seasons" entityId={season.id} creatorName={season.creatorName} size="sm" />
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
@@ -362,7 +350,7 @@ export default function SeasonsPage() {
             </div>
 
             {/* Desktop/tablet-landscape: full table */}
-            <div className="hidden lg:block rounded-md border">
+            <div data-tour="page-list" className="hidden lg:block rounded-md border">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -394,20 +382,7 @@ export default function SeasonsPage() {
                         </span>
                       </TableCell>
                       <TableCell className="text-center">
-                        {season.creatorName ? (
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 text-white text-xs font-semibold cursor-default">
-                                  {season.creatorName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
-                                </span>
-                              </TooltipTrigger>
-                              <TooltipContent><p>{season.creatorName}</p></TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        ) : (
-                          <span className="text-sm text-gray-400">—</span>
-                        )}
+                        <CreatorHistoryButton entity="seasons" entityId={season.id} creatorName={season.creatorName} />
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">

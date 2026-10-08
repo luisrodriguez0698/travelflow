@@ -18,6 +18,11 @@ export default async function DashboardLayout({
     redirect('/login');
   }
 
+  // Usuario desactivado/eliminado con sesion abierta: el login cierra la sesion
+  if ((session.user as any)?.disabled) {
+    redirect('/login?disabled=1');
+  }
+
   return (
     <SidebarProvider>
       <div className="min-h-screen bg-gray-50 dark:bg-gray-950 relative">

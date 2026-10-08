@@ -1097,7 +1097,7 @@ export default function BanksPage() {
           <h1 className="text-3xl font-bold">Bancos</h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">Gestiona tus cuentas bancarias y movimientos</p>
         </div>
-        <Button
+        <Button data-tour="page-action"
           onClick={openCreateAccount}
           variant="gradient"
         >
@@ -1107,7 +1107,7 @@ export default function BanksPage() {
       </div>
 
       {/* Total Balance Card */}
-      <Card className="p-6 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950/20 dark:to-cyan-950/20 border-blue-200 dark:border-blue-800">
+      <Card data-tour="page-summary" className="p-6 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950/20 dark:to-cyan-950/20 border-blue-200 dark:border-blue-800">
         <div className="flex items-center gap-3">
           <Wallet className="w-8 h-8 text-blue-600" />
           <div>

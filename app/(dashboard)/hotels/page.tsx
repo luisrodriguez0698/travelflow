@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import { HotelCardImageModal } from './HotelCardImageModal';
 import { PaginationFooter } from '@/components/ui/pagination-footer';
+import { CreatorHistoryButton } from '@/components/record-history';
 import { toast } from 'sonner';
 
 interface Destination {
@@ -372,7 +373,7 @@ export default function HotelsPage() {
           <h1 className="text-3xl font-bold">Hoteles</h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">Gestiona los hoteles por destino</p>
         </div>
-        <Button onClick={openCreate} variant="gradient">
+        <Button data-tour="page-action" onClick={openCreate} variant="gradient">
           <Plus className="w-4 h-4 mr-2" />
           Nuevo Hotel
         </Button>
@@ -383,7 +384,7 @@ export default function HotelsPage() {
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <Input
+            <Input data-tour="page-filters"
               placeholder="Buscar hotel..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -407,7 +408,7 @@ export default function HotelsPage() {
       {/* Table */}
       <Card>
         {/* Mobile/tablet: stacked cards (no horizontal scroll) */}
-        <div className="lg:hidden divide-y divide-gray-200 dark:divide-gray-800">
+        <div data-tour="page-list" className="lg:hidden divide-y divide-gray-200 dark:divide-gray-800">
           {filtered.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">No hay hoteles registrados</div>
           ) : (
@@ -421,14 +422,7 @@ export default function HotelsPage() {
                     </div>
                     <Badge variant="outline" className="mt-1">{hotel.destination?.name}</Badge>
                   </div>
-                  {hotel.creatorName && (
-                    <span
-                      className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 text-white text-xs font-semibold shrink-0"
-                      title={hotel.creatorName}
-                    >
-                      {hotel.creatorName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
-                    </span>
-                  )}
+                  <CreatorHistoryButton entity="hotels" entityId={hotel.id} creatorName={hotel.creatorName} size="sm" />
                 </div>
                 <div className="flex items-center gap-3 text-sm text-muted-foreground flex-wrap">
                   {(hotel.stars > 0 || hotel.diamonds > 0) && (
@@ -468,7 +462,7 @@ export default function HotelsPage() {
         </div>
 
         {/* Desktop/tablet-landscape: full table */}
-        <div className="hidden lg:block">
+        <div data-tour="page-list" className="hidden lg:block">
         <Table>
           <TableHeader>
             <TableRow>
@@ -537,20 +531,7 @@ export default function HotelsPage() {
                     </TooltipProvider>
                   </TableCell>
                   <TableCell className="text-center">
-                    {hotel.creatorName ? (
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 text-white text-xs font-semibold cursor-default">
-                              {hotel.creatorName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent><p>{hotel.creatorName}</p></TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    ) : (
-                      <span className="text-sm text-gray-400">—</span>
-                    )}
+                    <CreatorHistoryButton entity="hotels" entityId={hotel.id} creatorName={hotel.creatorName} />
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">

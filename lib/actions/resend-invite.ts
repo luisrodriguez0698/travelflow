@@ -3,6 +3,7 @@
 import { prisma } from '@/lib/prisma';
 import { requirePermission, getSessionUser } from '@/lib/get-tenant';
 import { logAudit } from '@/lib/audit';
+import { sendInviteEmail } from '@/lib/emails/invite-email';
 
 export async function resendInvite(invitationId: string) {
   const tenantId = await requirePermission('usuarios');
@@ -10,7 +11,7 @@ export async function resendInvite(invitationId: string) {
 
   const invitation = await prisma.invitation.findFirst({
     where: { id: invitationId, tenantId, status: 'PENDING' },
-    include: { role: { select: { name: true } } },
+    include: { role: { select: { name: true } }, tenant: { select: { name: true } } },
   });
 
   if (!invitation) {
@@ -24,31 +25,13 @@ export async function resendInvite(invitationId: string) {
     data: { expiresAt },
   });
 
-  // Resend email via Brevo
-  const BASE_URL = process.env.NEXTAUTH_URL || 'http://localhost:3000';
-  const INVITE_LINK = `${BASE_URL}/auth/accept-invite?token=${invitation.token}`;
-
-  try {
-    const brevoResponse = await fetch('https://api.brevo.com/v3/smtp/email', {
-      method: 'POST',
-      headers: {
-        'api-key': process.env.BREVO_API_KEY!,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        templateId: parseInt(process.env.BREVO_TEMPLATE_ID || '1'),
-        to: [{ email: invitation.email }],
-        sender: { name: 'TravelFlow', email: process.env.BREVO_SENDER_EMAIL || '' },
-        params: { INVITE_LINK },
-      }),
-    });
-
-    if (!brevoResponse.ok) {
-      console.error('Brevo error on resend:', await brevoResponse.text());
-    }
-  } catch (err) {
-    console.error('Error resending email via Brevo:', err);
-  }
+  await sendInviteEmail({
+    to: invitation.email,
+    token: invitation.token,
+    tenantName: invitation.tenant.name,
+    roleName: invitation.role.name,
+    inviterName: sessionUser?.name,
+  });
 
   if (sessionUser) {
     await logAudit({

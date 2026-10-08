@@ -6,7 +6,13 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Plane, Loader2, CheckCircle, XCircle } from 'lucide-react';
+import { Plane, Loader2, CheckCircle, XCircle, Eye, EyeOff } from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+// Esta pantalla es siempre oscura (no sigue el tema), asi que se fijan los
+// colores de foco y autocompletado para que no hereden bg-background (blanco en tema claro).
+const darkInputClass =
+  'bg-[#0f172a] border-slate-600 text-white placeholder:text-slate-500 focus-visible:bg-[#0f172a] focus-visible:border-blue-500 focus-visible:ring-blue-500/40 focus-visible:ring-offset-0 [&:-webkit-autofill]:shadow-[inset_0_0_0_1000px_#0f172a] [&:-webkit-autofill]:[-webkit-text-fill-color:#fff] [&:-webkit-autofill]:[caret-color:#fff]';
 
 export default function AcceptInvitePage() {
   return (
@@ -42,6 +48,8 @@ function AcceptInviteContent() {
     password: '',
     confirmPassword: '',
   });
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
   const [success, setSuccess] = useState(false);
@@ -85,7 +93,7 @@ function AcceptInviteContent() {
     }
 
     if (formData.password.length < 12) {
-      setFormError('La contraseña debe tener al menos 6 caracteres');
+      setFormError('La contraseña debe tener al menos 12 caracteres');
       return;
     }
 
@@ -200,7 +208,7 @@ function AcceptInviteContent() {
                 id="email"
                 value={inviteData?.email || ''}
                 disabled
-                className="bg-[#0f172a] border-slate-600 text-slate-400"
+                className={cn(darkInputClass, 'text-slate-400 disabled:opacity-70')}
               />
             </div>
 
@@ -214,7 +222,7 @@ function AcceptInviteContent() {
                 onChange={handleChange}
                 required
                 disabled={submitting}
-                className="bg-[#0f172a] border-slate-600 text-white placeholder:text-slate-500"
+                className={darkInputClass}
               />
             </div>
 
@@ -227,38 +235,63 @@ function AcceptInviteContent() {
                 value={formData.phone}
                 onChange={handleChange}
                 disabled={submitting}
-                className="bg-[#0f172a] border-slate-600 text-white placeholder:text-slate-500"
+                className={darkInputClass}
               />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="password" className="text-slate-300">Contraseña *</Label>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                placeholder="••••••••"
-                value={formData.password}
-                onChange={handleChange}
-                required
-                disabled={submitting}
-                className="bg-[#0f172a] border-slate-600 text-white placeholder:text-slate-500"
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="Mínimo 12 caracteres"
+                  value={formData.password}
+                  onChange={handleChange}
+                  required
+                  minLength={12}
+                  autoComplete="new-password"
+                  disabled={submitting}
+                  className={cn(darkInputClass, 'pr-10')}
+                />
+                <button
+                  type="button"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
+                  onClick={() => setShowPassword(!showPassword)}
+                  tabIndex={-1}
+                  aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="confirmPassword" className="text-slate-300">Confirmar contraseña *</Label>
-              <Input
-                id="confirmPassword"
-                name="confirmPassword"
-                type="password"
-                placeholder="••••••••"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                required
-                disabled={submitting}
-                className="bg-[#0f172a] border-slate-600 text-white placeholder:text-slate-500"
-              />
+              <div className="relative">
+                <Input
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  placeholder="••••••••"
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  required
+                  autoComplete="new-password"
+                  disabled={submitting}
+                  className={cn(darkInputClass, 'pr-10')}
+                />
+                <button
+                  type="button"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  tabIndex={-1}
+                  aria-label={showConfirmPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                >
+                  {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
 
             <Button

@@ -48,6 +48,8 @@ model Tenant {
   hotels           Hotel[]
   salesGoals       SalesGoal[]
   testimonials     Testimonial[]
+  services         ServiceCatalog[]
+  packageTemplates PackageTemplate[]
 
   @@map("tenants")
 }
@@ -66,6 +68,11 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Soft delete / desactivacion: el registro se conserva para no perder
+  // la trazabilidad de quien hizo cada venta, pago, etc.
+  isActive  Boolean   @default(true)
+  deletedAt DateTime?
+
   passwordResetToken   String?   @unique
   passwordResetExpires DateTime?
 
@@ -76,6 +83,7 @@ model User {
 
   @@index([tenantId])
   @@index([roleId])
+  @@index([tenantId, deletedAt])
   @@map("users")
 }
 
@@ -350,6 +358,9 @@ model BookingItem {
   supplierId       String?
   supplierDeadline DateTime?
 
+  // ── Catalog service (FLIGHT / TOUR / TRANSFER) del que se tomaron los datos ──
+  serviceId        String?
+
   // ── Transport fields (type = TRANSFER) ──
   transportType    String?   // SPRINTER, BUS, COMBI, AUTO, OTRO (free text)
 
@@ -369,11 +380,13 @@ model BookingItem {
   hotel       Hotel?                 @relation(fields: [hotelId], references: [id], onDelete: SetNull)
   destination Destination?           @relation(fields: [destinationId], references: [id], onDelete: SetNull)
   supplier    Supplier?              @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  service     ServiceCatalog?        @relation(fields: [serviceId], references: [id], onDelete: SetNull)
   passengers  BookingItemPassenger[]
 
   @@index([bookingId])
   @@index([destinationId])
   @@index([supplierId])
+  @@index([serviceId])
   @@map("booking_items")
 }
 
@@ -425,12 +438,79 @@ model Supplier {
   bookings         Booking[]
   supplierPayments SupplierPayment[]
   bookingItems     BookingItem[]
+  services         ServiceCatalog[]
 
   @@index([tenantId])
   @@map("suppliers")
 }
 
 // ========== SUPPLIER PAYMENTS ==========
+
+// Catalogo de vuelos, tours y transportes (equivalente a Hotel para habitaciones).
+// Al agregarlo a una venta/cotizacion los datos se copian al BookingItem, asi que
+// editar el catalogo no altera ventas pasadas.
+model ServiceCatalog {
+  id              String   @id @default(cuid())
+  tenantId        String
+  type            String   // FLIGHT, TOUR, TRANSFER
+  name            String
+  supplierId      String?
+  isInternational Boolean  @default(false)
+  cost            Float    @default(0) // Costo neto: FLIGHT = por vuelo; TOUR/TRANSFER = por persona
+  notes           String?  @db.Text
+
+  // ── Flight / Transfer ──
+  origin          String?
+  destination     String?
+  direction       String?  // IDA, REGRESO, IDA_Y_VUELTA
+  departureTime   String?  // "HH:MM"
+  arrivalTime     String?  // "HH:MM"
+  returnDepartureTime String? // "HH:MM"
+  returnArrivalTime   String? // "HH:MM"
+
+  // ── Flight ──
+  airline            String?
+  flightNumber       String?
+  flightClass        String?
+  returnFlightNumber String?
+
+  // ── Transfer ──
+  transportType   String?
+
+  createdBy       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  supplier     Supplier?     @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  bookingItems BookingItem[]
+
+  @@index([tenantId, type])
+  @@index([supplierId])
+  @@map("service_catalog")
+}
+
+// Plantilla reutilizable para ventas y cotizaciones: guarda los servicios del
+// paquete (habitaciones, vuelos, tours, transporte) y precio sugerido. Al usarla
+// se copian al formulario, donde todo sigue siendo editable.
+model PackageTemplate {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?  @db.Text
+  totalPrice  Float    @default(0) // Precio de venta sugerido
+  notes       String?  @db.Text
+  items       Json     // BookingItemData[] sin fechas ni pasajeros
+  createdBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("package_templates")
+}
 
 model SupplierPayment {
   id                String   @id @default(cuid())

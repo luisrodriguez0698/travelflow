@@ -37,7 +37,8 @@ export const authOptions: NextAuthOptions = {
           include: { tenant: true, roleRef: true },
         });
 
-        if (!user) {
+        // Usuarios eliminados (borrado logico) se tratan como inexistentes
+        if (!user || user.deletedAt) {
           return null;
         }
 
@@ -48,6 +49,10 @@ export const authOptions: NextAuthOptions = {
 
         if (!isPasswordValid) {
           return null;
+        }
+
+        if (!user.isActive) {
+          throw new Error('Tu usuario está desactivado. Contacta al administrador de tu agencia.');
         }
 
         // Get permissions from role, fallback to all for legacy ADMIN users
@@ -80,7 +85,17 @@ export const authOptions: NextAuthOptions = {
           where: { id: token.id as string },
           include: { roleRef: true },
         });
-        if (dbUser) {
+        if (!dbUser || dbUser.deletedAt || !dbUser.isActive) {
+          // Desactivado o eliminado: se invalida la sesion sin esperar a que expire
+          token.disabled = true;
+          token.permissions = [];
+          delete token.tenantId;
+        } else {
+          token.disabled = false;
+          token.tenantId = dbUser.tenantId;
+          // Nombre/correo pueden cambiar desde Mi perfil
+          token.name = dbUser.name;
+          token.email = dbUser.email;
           token.role = dbUser.role;
           token.permissions = resolvePermissions(dbUser);
         }
@@ -94,6 +109,7 @@ export const authOptions: NextAuthOptions = {
         (session.user as any).tenantName = token.tenantName;
         (session.user as any).role = token.role;
         (session.user as any).permissions = token.permissions;
+        (session.user as any).disabled = token.disabled ?? false;
       }
       return session;
     },

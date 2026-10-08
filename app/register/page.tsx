@@ -37,7 +37,7 @@ export default function RegisterPage() {
     }
 
     if (formData.password.length < 12) {
-      setError('La contraseña debe tener al menos 6 caracteres');
+      setError('La contraseña debe tener al menos 12 caracteres');
       return;
     }
 

@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { HistoryButton } from '@/components/record-history';
 import {
   ResponsiveDialog as Dialog,
   ResponsiveDialogContent as DialogContent,
@@ -322,6 +323,7 @@ export default function QuotationDetailPage() {
                   Creado por {quotation.creatorName}
                 </span>
               )}
+              <HistoryButton entity="quotations" entityId={quotation.id} title={`Folio ${quotation.id.slice(-8).toUpperCase()}`} />
             </div>
           </div>
         </div>

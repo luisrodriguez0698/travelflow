@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePermission } from '@/lib/get-tenant';
 import { prisma } from '@/lib/prisma';
+import { isProtectedRole } from '@/lib/permissions';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,6 +30,13 @@ export async function PUT(
       return NextResponse.json({ error: 'Rol no encontrado' }, { status: 404 });
     }
 
+    if (isProtectedRole(role)) {
+      return NextResponse.json(
+        { error: 'El rol Admin no se puede modificar' },
+        { status: 400 }
+      );
+    }
+
     // Check name uniqueness (exclude self)
     const duplicate = await prisma.role.findFirst({
       where: { tenantId, name, NOT: { id } },
@@ -44,7 +52,7 @@ export async function PUT(
     const updated = await prisma.role.update({
       where: { id },
       data: { name, permissions },
-      include: { _count: { select: { users: true, invitations: true } } },
+      include: { _count: { select: { users: { where: { deletedAt: null } }, invitations: true } } },
     });
 
     // Update the role name string on all users with this role
@@ -73,16 +81,16 @@ export async function DELETE(
 
     const role = await prisma.role.findFirst({
       where: { id, tenantId },
-      include: { _count: { select: { users: true } } },
+      include: { _count: { select: { users: { where: { deletedAt: null } } } } },
     });
 
     if (!role) {
       return NextResponse.json({ error: 'Rol no encontrado' }, { status: 404 });
     }
 
-    if (role.isDefault) {
+    if (isProtectedRole(role)) {
       return NextResponse.json(
-        { error: 'No se puede eliminar un rol predeterminado' },
+        { error: 'El rol Admin no se puede eliminar' },
         { status: 400 }
       );
     }

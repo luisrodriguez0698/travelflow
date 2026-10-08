@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { signIn } from 'next-auth/react';
+import { useState, useEffect } from 'react';
+import { signIn, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -17,6 +17,14 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
+  // Llega aqui desde el dashboard cuando su usuario fue desactivado o eliminado
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('disabled')) {
+      setError('Tu usuario está desactivado. Contacta al administrador de tu agencia.');
+      signOut({ redirect: false });
+    }
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -30,7 +38,9 @@ export default function LoginPage() {
       });
 
       if (result?.error) {
-        setError('Credenciales inválidas');
+        // 'CredentialsSignin' = email/contraseña incorrectos; otros son mensajes
+        // propios lanzados en authorize (usuario desactivado, rate limit)
+        setError(result.error === 'CredentialsSignin' ? 'Credenciales inválidas' : result.error);
       } else {
         router.push('/dashboard');
         router.refresh();
