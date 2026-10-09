@@ -40,6 +40,7 @@ import { toast } from 'sonner';
 import { useCan } from '@/hooks/use-can';
 import { PageSkeleton } from '@/components/skeletons';
 import { EmptyState } from '@/components/empty-state';
+import { useLiveList } from '@/hooks/use-live-list';
 
 interface Client {
   id: string;
@@ -104,6 +105,9 @@ export default function ClientsPage() {
       setLoading(false);
     }
   }, []);
+
+  // Tiempo real: si otro usuario cambia algo, la lista se actualiza sola
+  const live = useLiveList('clients', () => { fetchClients(currentPage, searchTerm); });
 
   useEffect(() => {
     fetchClients(currentPage, searchTerm);
@@ -361,7 +365,7 @@ export default function ClientsPage() {
         <div data-tour="page-list" className="lg:hidden divide-y divide-border">
           {paginatedClients.length > 0 ? (
             paginatedClients.map((client) => (
-              <div key={client.id} className="p-4 space-y-2">
+              <div key={client.id} className={`p-4 space-y-2 ${live.isHighlighted(client.id) ? 'live-highlight' : ''}`}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="font-medium truncate">{client.fullName}</p>
@@ -410,7 +414,7 @@ export default function ClientsPage() {
             <TableBody>
               {paginatedClients.length > 0 ? (
                 paginatedClients.map((client) => (
-                  <TableRow key={client.id}>
+                  <TableRow key={client.id} className={live.isHighlighted(client.id) ? 'live-highlight' : undefined}>
                     <TableCell className="font-medium">{client.fullName}</TableCell>
                     <TableCell>{client.phone || '-'}</TableCell>
                     <TableCell className="hidden md:table-cell">{client.email || '-'}</TableCell>

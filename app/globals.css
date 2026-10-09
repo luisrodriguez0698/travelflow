@@ -220,3 +220,15 @@ label {
     background: transparent;
   }
 }
+
+/* ── Tiempo real: fila que cambio por otro usuario ── */
+@keyframes tf-live-highlight {
+  0%, 25% { background-color: hsl(var(--primary) / 0.16); box-shadow: inset 3px 0 0 hsl(var(--primary)); }
+  100% { background-color: transparent; box-shadow: inset 3px 0 0 transparent; }
+}
+.live-highlight {
+  animation: tf-live-highlight 3.5s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .live-highlight { animation-duration: 0.01s; }
+}

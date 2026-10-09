@@ -63,6 +63,7 @@ import { sendInvite, type PendingInvite } from '@/lib/actions/send-invite';
 import { resendInvite } from '@/lib/actions/resend-invite';
 import { useCan } from '@/hooks/use-can';
 import { UserAvatar } from '@/components/user-avatar';
+import { usePresence } from '@/components/realtime-provider';
 import { CreatorHistoryButton } from '@/components/record-history';
 
 const MAX_USERS = 5;
@@ -132,6 +133,7 @@ type TabType = 'users' | 'roles' | 'invitations';
 
 export default function UsersPage() {
   const can = useCan();
+  const { isOnline } = usePresence();
   const { data: session } = useSession();
   const currentUserId = (session?.user as any)?.id;
 
@@ -710,7 +712,7 @@ export default function UsersPage() {
                 <div key={user.id} className={`p-4 space-y-2 ${!user.isActive ? 'opacity-60' : ''}`}>
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-3 min-w-0">
-                      <UserAvatar name={user.name || user.email} src={user.avatar} className="w-10 h-10 text-sm" />
+                      <UserAvatar name={user.name || user.email} src={user.avatar} className="w-10 h-10 text-sm" online={isOnline(user.id)} />
                       <div className="min-w-0">
                         <p className="font-medium truncate">
                           {user.name || 'Sin nombre'}
@@ -762,7 +764,7 @@ export default function UsersPage() {
                     <TableRow key={user.id} className={!user.isActive ? 'opacity-60' : undefined}>
                       <TableCell className="font-medium">
                         <div className="flex items-center gap-3">
-                          <UserAvatar name={user.name || user.email} src={user.avatar} className="w-9 h-9" />
+                          <UserAvatar name={user.name || user.email} src={user.avatar} className="w-9 h-9" online={isOnline(user.id)} />
                           <span>
                             {user.name || 'Sin nombre'}
                             {renderUserBadges(user)}

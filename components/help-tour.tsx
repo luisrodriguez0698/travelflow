@@ -1,11 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { driver, type DriveStep } from 'driver.js';
 import 'driver.js/dist/driver.css';
-import { HelpCircle, PlayCircle, Compass, BookOpen } from 'lucide-react';
+import { PlayCircle, Compass, BookOpen } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { PlaneMascot } from './plane-mascot';
 import { Button } from './ui/button';
 import {
   DropdownMenu,
@@ -87,6 +89,25 @@ export function HelpMenu() {
   const user = session?.user as any;
   const permissions: string[] | undefined = user?.permissions;
   const autoStarted = useRef(false);
+  const [hover, setHover] = useState(false);
+  const [bubble, setBubble] = useState(false);
+
+  // Pilo saluda una vez por sesion (no en el primer ingreso: ahi corre el recorrido)
+  useEffect(() => {
+    if (!user?.id || !storageGet(seenKey(user.id))) return;
+    try {
+      if (window.sessionStorage.getItem('tf-pilo-hello')) return;
+      window.sessionStorage.setItem('tf-pilo-hello', '1');
+    } catch {
+      return;
+    }
+    const show = setTimeout(() => setBubble(true), 1200);
+    const hide = setTimeout(() => setBubble(false), 7500);
+    return () => {
+      clearTimeout(show);
+      clearTimeout(hide);
+    };
+  }, [user?.id]);
 
   const canSee = useCallback(
     (tour: TourDef) => !tour.module || !permissions || permissions.includes(tour.module),
@@ -126,14 +147,48 @@ export function HelpMenu() {
   const sections = SECTION_TOURS.filter(canSee);
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button data-tour="navbar-help" variant="ghost" size="icon" aria-label="Ayuda">
-          <HelpCircle className="h-5 w-5" />
-        </Button>
-      </DropdownMenuTrigger>
+    <DropdownMenu modal={false} onOpenChange={(o) => o && setBubble(false)}>
+      <div className="relative">
+        <DropdownMenuTrigger asChild>
+          <Button
+            data-tour="navbar-help"
+            variant="ghost"
+            size="icon"
+            aria-label="Ayuda"
+            className="group"
+            onMouseEnter={() => setHover(true)}
+            onMouseLeave={() => setHover(false)}
+          >
+            <PlaneMascot size={30} mood={hover || bubble ? 'wave' : 'idle'} />
+          </Button>
+        </DropdownMenuTrigger>
+        {/* Globo de saludo de Pilo (una vez por sesion) */}
+        <AnimatePresence>
+          {bubble && (
+            <motion.button
+              type="button"
+              onClick={() => setBubble(false)}
+              initial={{ opacity: 0, scale: 0.6, y: -6 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.6, y: -6 }}
+              transition={{ type: 'spring', stiffness: 420, damping: 22 }}
+              style={{ originX: 1, originY: 0 }}
+              className="absolute right-0 top-full mt-2 z-50 w-56 rounded-2xl rounded-tr-sm bg-primary px-3.5 py-2.5 text-left text-xs leading-snug text-primary-foreground shadow-xl"
+            >
+              <span className="font-semibold block text-sm">¡Hola! Soy Pilo ✈️</span>
+              Si algo se te olvida, toca aquí y te guío paso a paso.
+            </motion.button>
+          )}
+        </AnimatePresence>
+      </div>
       <DropdownMenuContent align="end" className="w-64 max-h-[70vh] overflow-y-auto">
-        <DropdownMenuLabel>Ayuda</DropdownMenuLabel>
+        <DropdownMenuLabel className="flex items-center gap-2.5 py-2">
+          <PlaneMascot size={36} mood="happy" />
+          <span className="leading-tight">
+            <span className="block">Hola, soy Pilo</span>
+            <span className="block text-xs font-normal text-muted-foreground">¿En qué te ayudo?</span>
+          </span>
+        </DropdownMenuLabel>
         {current && canSee(current) && (
           <DropdownMenuItem className="cursor-pointer" onClick={() => startTour(current)}>
             <PlayCircle className="mr-2 h-4 w-4 text-blue-500" />

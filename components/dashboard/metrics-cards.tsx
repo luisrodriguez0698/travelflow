@@ -3,6 +3,7 @@
 import { DollarSign, ShoppingCart, Users, AlertCircle, Clock } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { motion } from 'framer-motion';
+import { AnimatedNumber } from '@/components/animated-number';
 
 interface MetricsCardsProps {
   metrics: {
@@ -18,31 +19,36 @@ export function MetricsCards({ metrics }: MetricsCardsProps) {
   const cards = [
     {
       title: 'Ventas del Mes',
-      value: `$${metrics.monthlySales?.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`,
+      value: metrics.monthlySales ?? 0,
+      format: (n: number) => `$${n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
       icon: DollarSign,
       color: 'from-green-500 to-emerald-500',
     },
     {
       title: 'Número de Ventas',
-      value: metrics.salesCount?.toString() ?? '0',
+      value: metrics.salesCount ?? 0,
+      format: undefined as ((n: number) => string) | undefined,
       icon: ShoppingCart,
       color: 'from-blue-500 to-cyan-500',
     },
     {
       title: 'Clientes Activos',
-      value: metrics.activeClients?.toString() ?? '0',
+      value: metrics.activeClients ?? 0,
+      format: undefined as ((n: number) => string) | undefined,
       icon: Users,
       color: 'from-purple-500 to-pink-500',
     },
     {
       title: 'Pagos Próximos (7 días)',
-      value: metrics.upcomingPaymentsCount?.toString() ?? '0',
+      value: metrics.upcomingPaymentsCount ?? 0,
+      format: undefined as ((n: number) => string) | undefined,
       icon: Clock,
       color: 'from-orange-500 to-yellow-500',
     },
     {
       title: 'Pagos Vencidos',
-      value: metrics.overduePaymentsCount?.toString() ?? '0',
+      value: metrics.overduePaymentsCount ?? 0,
+      format: undefined as ((n: number) => string) | undefined,
       icon: AlertCircle,
       color: 'from-red-500 to-rose-500',
     },
@@ -66,7 +72,7 @@ export function MetricsCards({ metrics }: MetricsCardsProps) {
                   {card.title}
                 </p>
                 <h3 className="text-lg sm:text-2xl font-bold text-foreground truncate">
-                  {card.value}
+                  <AnimatedNumber value={card.value} format={card.format} />
                 </h3>
               </div>
               <div

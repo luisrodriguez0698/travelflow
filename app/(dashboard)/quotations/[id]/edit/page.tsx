@@ -27,6 +27,7 @@ import Link from 'next/link';
 import { BookingItemsForm, BookingItemData } from '@/components/booking-items-form';
 import { useToast } from '@/hooks/use-toast';
 import { PageSkeleton } from '@/components/skeletons';
+import { EditingPresence } from '@/components/editing-presence';
 
 interface Client { id: string; fullName: string; phone: string | null; email?: string; }
 interface Season { id: string; name: string; color: string; }
@@ -246,6 +247,11 @@ export default function EditQuotationPage() {
           Guardar Cambios
         </Button>
       </div>
+
+      {/* Tiempo real: avisa si alguien mas edita este registro */}
+
+      <EditingPresence resource={`quotations:${quotationId}`} noun="esta cotización" />
+
 
       {/* Two-column layout */}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_440px] gap-6 items-start">

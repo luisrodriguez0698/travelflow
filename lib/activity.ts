@@ -5,12 +5,13 @@ import { publishToUser } from './realtime';
 // Avisos de actividad para el equipo ("nueva venta", "abono", "ingreso").
 // Cada evento exige el acceso de su apartado: solo lo recibe quien puede verlo.
 
-export type ActivityType = 'SALE_CREATED' | 'PAYMENT_RECEIVED' | 'BANK_INCOME';
+export type ActivityType = 'SALE_CREATED' | 'PAYMENT_RECEIVED' | 'BANK_INCOME' | 'GOAL_REACHED';
 
 const EVENT_MODULE: Record<ActivityType, string> = {
   SALE_CREATED: 'ventas',
   PAYMENT_RECEIVED: 'ventas',
   BANK_INCOME: 'bancos',
+  GOAL_REACHED: 'ventas',
 };
 
 /**
@@ -73,7 +74,7 @@ export async function notifyActivity(input: ActivityInput): Promise<void> {
     });
 
     // Tiempo real: a cada destinatario conectado por SSE le llega al instante
-    for (const { userId, ...item } of created) publishToUser(userId, item);
+    for (const { userId, ...item } of created) publishToUser(userId, 'activity', item);
 
     // Push al celular/PC aunque la app este cerrada. Import dinamico: web-push
     // falla al cargar si faltan las llaves VAPID y no debe afectar lo demas.

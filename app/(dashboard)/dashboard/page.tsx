@@ -4,6 +4,8 @@ import { MetricsCards } from '@/components/dashboard/metrics-cards';
 import { PaymentAlerts } from '@/components/dashboard/payment-alerts';
 import { RecentSales } from '@/components/dashboard/recent-sales';
 import { SalesChart, type MonthlySalesPoint } from '@/components/dashboard/sales-chart';
+import { LiveRefresh } from '@/components/live-refresh';
+import { DashboardGreeting } from '@/components/dashboard/greeting';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,6 +16,8 @@ const CHART_MONTHS = 12;
 
 const monthKeyFormat = new Intl.DateTimeFormat('en-CA', { timeZone: TIME_ZONE, year: 'numeric', month: '2-digit' });
 const monthKey = (d: Date) => monthKeyFormat.format(d).slice(0, 7); // "2026-10"
+const dayKeyFormat = new Intl.DateTimeFormat('en-CA', { timeZone: TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit' });
+const dayKey = (d: Date) => dayKeyFormat.format(d); // "2026-10-09"
 
 function lastMonths(now: Date, count: number) {
   const [year, month] = monthKey(now).split('-').map(Number);
@@ -131,6 +135,30 @@ export default async function DashboardPage() {
   const chartData = [...byMonth.values()];
   const currentMonth = chartData[chartData.length - 1];
 
+  // ─── Saludo: nombre y lo de hoy ───
+  const todayKey = dayKey(now);
+  const [me, departuresSoon] = await Promise.all([
+    prisma.user.findUnique({ where: { id: access.userId }, select: { name: true, tenant: { select: { name: true } } } }),
+    prisma.booking.findMany({
+      where: {
+        ...access.bookingScope,
+        type: 'SALE',
+        status: { not: 'CANCELLED' },
+        departureDate: { gte: new Date(now.getTime() - 36 * 3600_000), lte: new Date(now.getTime() + 36 * 3600_000) },
+      },
+      select: { departureDate: true },
+    }),
+  ]);
+  // El propietario suele llamarse igual que la agencia: en ese caso no se usa como nombre
+  const rawName = me?.name?.trim() || '';
+  const firstName =
+    rawName && rawName.toLowerCase() !== (me?.tenant.name || '').trim().toLowerCase()
+      ? rawName.split(/\s+/)[0].replace(/^./, (c) => c.toUpperCase())
+      : null;
+  const paymentsDueToday = [...upcomingPayments, ...overduePayments].filter((p) => dayKey(p.dueDate) === todayKey).length;
+  const departuresToday = departuresSoon.filter((b) => b.departureDate && dayKey(b.departureDate) === todayKey).length;
+  const overdueBeforeToday = overduePayments.filter((p) => dayKey(p.dueDate) !== todayKey).length;
+
   const metrics = {
     monthlySales: currentMonth.sales,
     salesCount: currentMonth.count,
@@ -141,14 +169,15 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">
-          Dashboard
-        </h1>
-        <p className="text-muted-foreground mt-1">
-          Vista general de tu agencia
-        </p>
-      </div>
+      <DashboardGreeting
+        firstName={firstName}
+        paymentsDueToday={paymentsDueToday}
+        departuresToday={departuresToday}
+        overdueCount={overdueBeforeToday}
+      />
+
+      {/* Tiempo real: si alguien vende o registra un abono, el Dashboard se actualiza solo */}
+      <LiveRefresh entities={['sales', 'clients']} />
 
       <div data-tour="dash-metrics">
         <MetricsCards metrics={metrics} />

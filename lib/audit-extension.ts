@@ -1,4 +1,5 @@
 import { Prisma, PrismaClient } from '@prisma/client';
+import { publishToTenant, publishToUser } from './realtime';
 
 // Bitacora automatica: cada create/update/delete de los modelos de abajo genera
 // un AuditLog con quien lo hizo y que cambio (valor anterior -> nuevo).
@@ -121,6 +122,8 @@ async function writeLog(
   const user = await currentUser();
   if (!user) return; // altas sin sesion (registro, aceptar invitacion)
 
+  await emitRealtime(base, model, action, before, after, user);
+
   try {
     await base.auditLog.create({
       data: {
@@ -135,6 +138,44 @@ async function writeLog(
     });
   } catch (error) {
     console.error('Audit log error:', error);
+  }
+}
+
+/**
+ * Tiempo real a partir de los mismos cambios que registra la bitacora:
+ *  - data-changed: listas y Dashboard se actualizan solos (ventas, cotizaciones, clientes)
+ *  - session: el usuario afectado reacciona al instante (desactivado / cambio de permisos)
+ */
+async function emitRealtime(
+  base: PrismaClient,
+  model: string,
+  action: 'CREATE' | 'UPDATE' | 'DELETE',
+  before: AuditRecord | null,
+  after: AuditRecord | null,
+  actor: { id: string; tenantId: string }
+) {
+  try {
+    const record = after || before;
+    if (!record) return;
+
+    if (model === 'Booking' || model === 'Client' || model === 'PaymentPlan') {
+      const entity =
+        model === 'Client' ? 'clients' : model === 'PaymentPlan' ? 'sales' : record.type === 'QUOTATION' ? 'quotations' : 'sales';
+      const id = model === 'PaymentPlan' ? record.bookingId : record.id;
+      publishToTenant(actor.tenantId, 'data-changed', { entity, id, action, actorId: actor.id });
+    }
+
+    if (model === 'User' && after) {
+      if (!after.isActive || after.deletedAt) publishToUser(after.id, 'session', { reason: 'revoked' });
+      else if (before && before.roleId !== after.roleId) publishToUser(after.id, 'session', { reason: 'permissions' });
+    }
+
+    if (model === 'Role' && action === 'UPDATE' && after) {
+      const members = await base.user.findMany({ where: { roleId: after.id, deletedAt: null }, select: { id: true } });
+      for (const m of members) publishToUser(m.id, 'session', { reason: 'permissions' });
+    }
+  } catch (error) {
+    console.error('Realtime emit error:', error);
   }
 }
 

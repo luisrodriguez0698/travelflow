@@ -38,6 +38,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useCan } from '@/hooks/use-can';
 import { PageSkeleton } from '@/components/skeletons';
 import { EmptyState } from '@/components/empty-state';
+import { useLiveList } from '@/hooks/use-live-list';
 
 interface Client {
   id: string;
@@ -229,6 +230,9 @@ export default function SalesPage() {
       toast({ title: 'Error', description: 'No se pudieron cargar las ventas', variant: 'destructive' });
     }
   }, [dateRange, filterClientId, folioSearch, toast]);
+
+  // Tiempo real: si otro usuario cambia algo, la lista se actualiza sola
+  const live = useLiveList('sales', () => { fetchSales(); });
 
   const fetchCatalogs = useCallback(async () => {
     try {
@@ -741,7 +745,7 @@ export default function SalesPage() {
           {/* Mobile/tablet: stacked cards (no horizontal scroll) */}
           <div data-tour="page-list" className="lg:hidden divide-y divide-border">
             {paginatedSales.map((sale) => (
-              <div key={sale.id} className="p-4 space-y-3">
+              <div key={sale.id} className={`p-4 space-y-3 ${live.isHighlighted(sale.id) ? 'live-highlight' : ''}`}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -808,7 +812,7 @@ export default function SalesPage() {
             </TableHeader>
             <TableBody>
               {paginatedSales.map((sale) => (
-                <TableRow key={sale.id}>
+                <TableRow key={sale.id} className={live.isHighlighted(sale.id) ? 'live-highlight' : undefined}>
                   <TableCell>
                     <span className="font-mono text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
                       {sale.id.slice(-8).toUpperCase()}

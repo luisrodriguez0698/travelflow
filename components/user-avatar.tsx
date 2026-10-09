@@ -15,16 +15,19 @@ export function UserAvatar({
   name,
   src,
   className,
+  online,
 }: {
   name?: string | null;
   src?: string | null;
   className?: string;
+  /** Punto verde de "en linea" (presencia en tiempo real) */
+  online?: boolean;
 }) {
   const [failed, setFailed] = useState(false);
   useEffect(() => setFailed(false), [src]);
 
   const showImage = !!src && !failed;
-  return (
+  const avatar = (
     <span
       className={cn(
         'relative inline-flex items-center justify-center shrink-0 overflow-hidden rounded-full font-semibold text-white',
@@ -37,6 +40,19 @@ export function UserAvatar({
         <img src={src} alt={name || 'Foto de perfil'} className="w-full h-full object-cover" onError={() => setFailed(true)} />
       ) : (
         <span aria-hidden>{initialsOf(name)}</span>
+      )}
+    </span>
+  );
+
+  if (online === undefined) return avatar;
+  return (
+    <span className="relative inline-flex shrink-0">
+      {avatar}
+      {online && (
+        <span className="absolute bottom-0 right-0 flex h-3 w-3" aria-label="En línea" title="En línea">
+          <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60 animate-ping" />
+          <span className="relative inline-flex h-3 w-3 rounded-full bg-emerald-500 ring-2 ring-card" />
+        </span>
       )}
     </span>
   );

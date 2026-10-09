@@ -6,6 +6,8 @@ import { Navbar } from '@/components/navbar';
 import { BottomNav } from '@/components/bottom-nav';
 import { SidebarProvider } from '@/components/sidebar-context';
 import { DashboardContent } from './dashboard-content';
+import { RealtimeProvider } from '@/components/realtime-provider';
+import { Celebrations } from '@/components/celebrations';
 
 export default async function DashboardLayout({
   children,
@@ -24,6 +26,8 @@ export default async function DashboardLayout({
   }
 
   return (
+    // Una sola conexion de tiempo real (SSE) para todo el sistema
+    <RealtimeProvider>
     <SidebarProvider>
       {/* Fondo de pagina: gris muy claro / el tono mas oscuro del tema (las tarjetas resaltan encima) */}
       <div className="min-h-screen bg-muted/50 dark:bg-background relative">
@@ -35,7 +39,10 @@ export default async function DashboardLayout({
           <main className="px-3 py-4 sm:p-4 lg:p-6 pb-[calc(5.5rem+env(safe-area-inset-bottom))] lg:pb-6">{children}</main>
         </DashboardContent>
         <BottomNav />
+        {/* Confeti y felicitaciones en vivo (metas alcanzadas) */}
+        <Celebrations />
       </div>
     </SidebarProvider>
+    </RealtimeProvider>
   );
 }

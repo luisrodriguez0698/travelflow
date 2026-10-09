@@ -16,6 +16,12 @@ const withPWA = require('@ducanh2912/next-pwa').default({
         handler: 'NetworkOnly',
         method: 'GET',
       },
+      {
+        // Indicador de conexion: nunca desde cache (si no, sin internet diria "todo bien")
+        urlPattern: ({ url }) => url.pathname === '/api/health',
+        handler: 'NetworkOnly',
+        method: 'GET',
+      },
     ],
   },
 });

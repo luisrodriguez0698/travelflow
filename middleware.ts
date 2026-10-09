@@ -32,6 +32,8 @@ const PUBLIC_PATHS = [
   '/api/auth',
   '/api/signup',
   '/manifest.json', // el navegador lo pide sin cookies; si redirige al login la app no es instalable
+  '/api/health', // indicador de conexion (tambien en login)
+  '/~offline', // pantalla sin conexion que guarda el service worker
 ];
 
 function isPublicPath(pathname: string): boolean {

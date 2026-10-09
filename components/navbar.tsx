@@ -19,6 +19,7 @@ import { HelpMenu } from './help-tour';
 import { useSidebar } from './sidebar-context';
 import { useCan } from '@/hooks/use-can';
 import { UserAvatar } from './user-avatar';
+import { OnlineStack } from './online-stack';
 
 export function Navbar() {
   const { data: session } = useSession() || {};
@@ -52,6 +53,9 @@ export function Navbar() {
         </div>
 
         <div className="flex items-center gap-0.5 sm:gap-2 lg:gap-3 shrink-0">
+          {/* Compañeros conectados ahora (presencia en tiempo real) */}
+          <OnlineStack />
+
           {/* Calendario: en movil vive dentro del menu de perfil */}
           {can('ventas') && (
             <Link href="/calendar" className="hidden sm:inline-flex">

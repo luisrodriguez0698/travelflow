@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAccess, accessErrorResponse } from '@/lib/access';
 import { hasPermission, getSessionUser } from '@/lib/get-tenant';
 import { notifyActivity, formatMoney } from '@/lib/activity';
+import { checkGoalReached } from '@/lib/goals';
 import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
@@ -129,6 +130,10 @@ export async function POST(
         body: `${actor.name} convirtió una cotización en venta: ${booking.client?.fullName || 'un cliente'} por ${formatMoney(booking.totalPrice)}`,
         url: `/sales/${id}`,
       });
+    }
+    // La venta cuenta para quien hizo la cotizacion
+    if (booking.createdBy) {
+      await checkGoalReached({ tenantId, sellerId: booking.createdBy, saleDate: new Date(), saleAmount: booking.totalPrice });
     }
 
     return NextResponse.json({ success: true, id });

@@ -13,12 +13,13 @@ import {
 } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
-  Bell, X, CheckCheck, Truck, Clock, AlertTriangle, ShoppingCart, Wallet, Landmark, Volume2, VolumeX, Activity,
+  Bell, X, CheckCheck, Truck, Clock, AlertTriangle, ShoppingCart, Wallet, Landmark, Volume2, VolumeX, Activity, Trophy,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { isSoundEnabled, setSoundEnabled, playChime, unlockAudio, SOUND_CHANGE_EVENT } from '@/lib/notify-sound';
+import { useRealtimeEvent } from './realtime-provider';
 import { RowsSkeleton } from '@/components/skeletons';
 
 // ─── Avisos de proveedores (fechas limite) ───────────
@@ -57,6 +58,7 @@ const ACTIVITY_STYLE: Record<string, { icon: typeof ShoppingCart; className: str
   SALE_CREATED: { icon: ShoppingCart, className: 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400' },
   PAYMENT_RECEIVED: { icon: Wallet, className: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-400' },
   BANK_INCOME: { icon: Landmark, className: 'bg-violet-100 text-violet-600 dark:bg-violet-900/40 dark:text-violet-400' },
+  GOAL_REACHED: { icon: Trophy, className: 'bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400' },
 };
 
 function relativeTime(date: string) {
@@ -172,17 +174,6 @@ export function NotificationPanel() {
     fetchNotifications();
     fetchActivity();
 
-    // Tiempo real por Server-Sent Events (sin polling). EventSource reconecta
-    // solo; en cada (re)conexion se sincroniza la lista por si algo se perdio.
-    const source = new EventSource('/api/activity/stream');
-    source.addEventListener('ready', () => fetchActivity());
-    source.addEventListener('activity', (event) => {
-      try {
-        handleIncoming(JSON.parse((event as MessageEvent).data));
-      } catch {
-        /* evento mal formado: se ignora */
-      }
-    });
     // El navegador solo deja sonar despues de una interaccion del usuario
     const unlock = () => unlockAudio();
     // Si se cambia el sonido desde Mi perfil, el icono 🔊/🔇 se actualiza aqui
@@ -191,12 +182,16 @@ export function NotificationPanel() {
     window.addEventListener('pointerdown', unlock, { once: true });
     window.addEventListener('keydown', unlock, { once: true });
     return () => {
-      source.close();
       window.removeEventListener(SOUND_CHANGE_EVENT, syncSound);
       window.removeEventListener('pointerdown', unlock);
       window.removeEventListener('keydown', unlock);
     };
-  }, [fetchActivity, handleIncoming]);
+  }, [fetchActivity]);
+
+  // Tiempo real (conexion SSE compartida): avisos al instante y, al (re)conectar,
+  // sincroniza la lista por si llego algo mientras estaba desconectado
+  useRealtimeEvent<ActivityItem>('activity', handleIncoming);
+  useRealtimeEvent('ready', () => fetchActivity());
 
   useEffect(() => {
     if (open) {
@@ -207,6 +202,13 @@ export function NotificationPanel() {
 
   const supplierUnread = notifications.filter((n) => !n.read).length;
   const unreadCount = activityUnread + supplierUnread;
+
+  // Numerito en el icono de la app instalada (PC / iPhone / Android), como WhatsApp
+  useEffect(() => {
+    const nav = navigator as Navigator & { setAppBadge?: (n?: number) => Promise<void>; clearAppBadge?: () => Promise<void> };
+    if (!nav.setAppBadge) return;
+    (unreadCount > 0 ? nav.setAppBadge(unreadCount) : nav.clearAppBadge?.())?.catch(() => {});
+  }, [unreadCount]);
 
   const toggleSound = () => {
     const next = !soundOn;
