@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { UserCircle, Mail, KeyRound, Save, Loader2, Eye, EyeOff, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { PASSWORD_MIN_LENGTH, PASSWORD_MIN_MESSAGE } from '@/lib/password';
+import { PageSkeleton } from '@/components/skeletons';
 
 interface Profile {
   id: string;
@@ -56,7 +57,7 @@ function PasswordInput({
       />
       <button
         type="button"
-        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
         onClick={() => setShow(!show)}
         tabIndex={-1}
         aria-label={show ? 'Ocultar contraseña' : 'Mostrar contraseña'}
@@ -163,9 +164,7 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="flex justify-center py-20">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-      </div>
+      <PageSkeleton variant="form" />
     );
   }
 
@@ -183,7 +182,7 @@ export default function ProfilePage() {
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold">Mi perfil</h1>
-        <p className="text-gray-600 dark:text-gray-400 mt-1">
+        <p className="text-muted-foreground mt-1">
           Administra tus datos personales y la seguridad de tu cuenta
         </p>
       </div>
@@ -196,12 +195,12 @@ export default function ProfilePage() {
           </div>
           <div className="min-w-0">
             <p className="text-lg font-semibold truncate">{profile.name || 'Sin nombre'}</p>
-            <p className="text-sm text-gray-600 dark:text-gray-400 truncate">{profile.email}</p>
+            <p className="text-sm text-muted-foreground truncate">{profile.email}</p>
             <div className="flex flex-wrap items-center gap-2 mt-2">
               <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
                 {profile.roleName}
               </Badge>
-              <span className="flex items-center gap-1 text-xs text-gray-500">
+              <span className="flex items-center gap-1 text-xs text-muted-foreground">
                 <Building2 className="w-3 h-3" />
                 {profile.tenantName}
               </span>
@@ -259,7 +258,7 @@ export default function ProfilePage() {
           <Mail className="w-5 h-5 text-blue-500" />
           <h2 className="text-xl font-semibold">Correo electrónico</h2>
         </div>
-        <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+        <p className="text-sm text-muted-foreground mb-6">
           Tu correo actual es <strong>{profile.email}</strong>. Es el que usas para iniciar sesión.
         </p>
         <form onSubmit={handleSaveEmail} className="space-y-4">

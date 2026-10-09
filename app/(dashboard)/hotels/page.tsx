@@ -34,6 +34,8 @@ import { PaginationFooter } from '@/components/ui/pagination-footer';
 import { CreatorHistoryButton } from '@/components/record-history';
 import { toast } from 'sonner';
 import { useCan } from '@/hooks/use-can';
+import { PageSkeleton } from '@/components/skeletons';
+import { EmptyState } from '@/components/empty-state';
 
 interface Destination {
   id: string;
@@ -361,9 +363,7 @@ export default function HotelsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-      </div>
+      <PageSkeleton variant="list" />
     );
   }
 
@@ -373,7 +373,7 @@ export default function HotelsPage() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold">Hoteles</h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">Gestiona los hoteles por destino</p>
+          <p className="text-muted-foreground mt-1">Gestiona los hoteles por destino</p>
         </div>
         {can('destinos', 'create') && (<Button data-tour="page-action" onClick={openCreate} variant="gradient">
           <Plus className="w-4 h-4 mr-2" />
@@ -385,7 +385,7 @@ export default function HotelsPage() {
       <Card className="p-4">
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
             <Input data-tour="page-filters"
               placeholder="Buscar hotel..."
               value={search}
@@ -410,9 +410,9 @@ export default function HotelsPage() {
       {/* Table */}
       <Card>
         {/* Mobile/tablet: stacked cards (no horizontal scroll) */}
-        <div data-tour="page-list" className="lg:hidden divide-y divide-gray-200 dark:divide-gray-800">
+        <div data-tour="page-list" className="lg:hidden divide-y divide-border">
           {filtered.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">No hay hoteles registrados</div>
+            <EmptyState icon={HotelIcon} title={search ? 'Sin resultados' : 'Aún no hay hoteles'} description={search ? `No hay hoteles que coincidan con "${search}".` : 'Captura cada hotel una vez y elígelo al vender, con su plan, habitaciones y fotos.'} action={search ? <Button variant="outline" onClick={() => setSearch('')}>Limpiar búsqueda</Button> : can('destinos', 'create') ? <Button variant="gradient" onClick={openCreate}><Plus className="w-4 h-4 mr-2" />Nuevo hotel</Button> : undefined} />
           ) : (
             filtered.map((hotel) => (
               <div key={hotel.id} className="p-4 space-y-2">
@@ -481,9 +481,7 @@ export default function HotelsPage() {
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                  No hay hoteles registrados
-                </TableCell>
+                <TableCell colSpan={8}><EmptyState icon={HotelIcon} title={search ? 'Sin resultados' : 'Aún no hay hoteles'} description={search ? `No hay hoteles que coincidan con "${search}".` : 'Captura cada hotel una vez y elígelo al vender, con su plan, habitaciones y fotos.'} action={search ? <Button variant="outline" onClick={() => setSearch('')}>Limpiar búsqueda</Button> : can('destinos', 'create') ? <Button variant="gradient" onClick={openCreate}><Plus className="w-4 h-4 mr-2" />Nuevo hotel</Button> : undefined} /></TableCell>
               </TableRow>
             ) : (
               filtered.map((hotel) => (
@@ -771,7 +769,7 @@ export default function HotelsPage() {
                 <div className="flex items-center gap-3">
                   {formData.showInWeb
                     ? <Globe className="w-4 h-4 text-blue-500 flex-shrink-0" />
-                    : <GlobeLock className="w-4 h-4 text-gray-400 flex-shrink-0" />}
+                    : <GlobeLock className="w-4 h-4 text-muted-foreground flex-shrink-0" />}
                   <div>
                     <p className="text-sm font-semibold leading-tight">
                       {formData.showInWeb ? 'Visible en la web' : 'Oculto en la web'}

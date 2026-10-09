@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { ArrowLeft, Save, Loader2, Trash2 } from 'lucide-react';
 import Link from 'next/link';
+import { PageSkeleton } from '@/components/skeletons';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -116,9 +117,7 @@ export default function EditClientPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-      </div>
+      <PageSkeleton variant="detail" />
     );
   }
 
@@ -132,10 +131,10 @@ export default function EditClientPage() {
             </Button>
           </Link>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+            <h1 className="text-3xl font-bold text-foreground">
               Editar Cliente
             </h1>
-            <p className="text-gray-600 dark:text-gray-400 mt-1">
+            <p className="text-muted-foreground mt-1">
               Actualiza la información del cliente
             </p>
           </div>

@@ -44,6 +44,7 @@ import { Plus, Package as PackageIcon, Edit, Trash2, ChevronLeft, ChevronRight, 
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toast } from 'sonner';
+import { PageSkeleton } from '@/components/skeletons';
 
 interface Season {
   id: string;
@@ -420,7 +421,7 @@ export default function PackagesPage() {
         {/* Departures Table */}
         {departures.length === 0 ? (
           <div className="text-center py-6 border rounded-lg border-dashed">
-            <Calendar className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+            <Calendar className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
             <p className="text-sm text-muted-foreground">No hay salidas programadas</p>
             <p className="text-xs text-muted-foreground">Agrega salidas con fechas y precios</p>
           </div>
@@ -655,9 +656,7 @@ export default function PackagesPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-      </div>
+      <PageSkeleton variant="list" />
     );
   }
 
@@ -665,8 +664,8 @@ export default function PackagesPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Paquetes Turísticos</h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">Gestiona tus destinos y fechas de salida</p>
+          <h1 className="text-3xl font-bold text-foreground">Paquetes Turísticos</h1>
+          <p className="text-muted-foreground mt-1">Gestiona tus destinos y fechas de salida</p>
         </div>
         <Button
           onClick={openCreateModal}
@@ -680,7 +679,7 @@ export default function PackagesPage() {
       {/* Search */}
       <Card className="p-4">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             placeholder="Buscar por nombre o descripción..."
             value={searchTerm}
@@ -696,11 +695,11 @@ export default function PackagesPage() {
       {/* Table */}
       <Card>
         {/* Mobile/tablet: stacked cards (no horizontal scroll) */}
-        <div className="lg:hidden divide-y divide-gray-200 dark:divide-gray-800">
+        <div className="lg:hidden divide-y divide-border">
           {paginatedPackages.length === 0 ? (
             <div className="text-center py-12">
-              <PackageIcon className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-              <p className="text-gray-600 dark:text-gray-400">
+              <PackageIcon className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+              <p className="text-muted-foreground">
                 {searchTerm ? 'No se encontraron paquetes' : 'No hay paquetes registrados'}
               </p>
             </div>
@@ -778,8 +777,8 @@ export default function PackagesPage() {
             {paginatedPackages.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="text-center py-12">
-                  <PackageIcon className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                  <p className="text-gray-600 dark:text-gray-400">
+                  <PackageIcon className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+                  <p className="text-muted-foreground">
                     {searchTerm ? 'No se encontraron paquetes' : 'No hay paquetes registrados'}
                   </p>
                 </TableCell>

@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { History, Loader2 } from 'lucide-react';
 import { AuditTimeline, type AuditEntry } from '@/components/record-history';
 import { AUDIT_ENTITIES } from '@/lib/audit-labels';
+import { RowsSkeleton } from '@/components/skeletons';
 
 interface UserOption { id: string; name: string | null; email: string; }
 
@@ -97,11 +98,11 @@ export default function AuditPage() {
   return (
     <div className="space-y-6 max-w-4xl">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
           <History className="w-6 h-6 text-blue-500" />
           Bitácora
         </h1>
-        <p className="text-gray-600 dark:text-gray-400">
+        <p className="text-muted-foreground">
           Quién creó, modificó o eliminó información en la agencia
         </p>
       </div>
@@ -140,7 +141,7 @@ export default function AuditPage() {
 
       {loading ? (
         <div className="flex justify-center py-12">
-          <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+          <RowsSkeleton rows={3} />
         </div>
       ) : error ? (
         <Card className="p-8 text-center text-sm text-red-500">{error}</Card>
@@ -155,7 +156,7 @@ export default function AuditPage() {
           <p className="text-xs text-muted-foreground">{total.toLocaleString('es-MX')} movimientos</p>
           {groups.map((group) => (
             <div key={group.day}>
-              <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 sticky top-0 bg-gray-50/95 dark:bg-gray-950/95 backdrop-blur py-1 z-10">
+              <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 sticky top-0 bg-muted/95 dark:bg-background/95 backdrop-blur py-1 z-10">
                 {group.day}
               </h2>
               <Card className="p-5">

@@ -51,6 +51,7 @@ import { generateReceiptPdf } from '@/lib/generate-receipt-pdf';
 import { DatePicker } from '@/components/ui/date-picker';
 import { HistoryButton } from '@/components/record-history';
 import { useCan } from '@/hooks/use-can';
+import { PageSkeleton } from '@/components/skeletons';
 
 interface PaymentPlan {
   id: string;
@@ -371,16 +372,14 @@ export default function SaleDetailPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-      </div>
+      <PageSkeleton variant="detail" />
     );
   }
 
   if (!sale) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-500">Venta no encontrada</p>
+        <p className="text-muted-foreground">Venta no encontrada</p>
         <Link href="/sales">
           <Button className="mt-4">Volver a Ventas</Button>
         </Link>
@@ -401,11 +400,11 @@ export default function SaleDetailPage() {
           <div>
             <h1 className="text-3xl font-bold">Detalle de Venta</h1>
             <div className="flex items-center gap-3 mt-1">
-              <p className="text-gray-600 dark:text-gray-400">
+              <p className="text-muted-foreground">
                 Folio: {sale.id.slice(-8).toUpperCase()}
               </p>
               {sale.creatorName && (
-                <span className="inline-flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+                <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
                   <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 text-white text-[10px] font-semibold">
                     {sale.creatorName.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)}
                   </span>
@@ -439,16 +438,16 @@ export default function SaleDetailPage() {
           </div>
           <div className="space-y-3">
             <div>
-              <p className="text-sm text-gray-500">Nombre</p>
+              <p className="text-sm text-muted-foreground">Nombre</p>
               <p className="font-medium">{sale.client?.fullName}</p>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <p className="text-sm text-gray-500">Teléfono</p>
+                <p className="text-sm text-muted-foreground">Teléfono</p>
                 <p className="font-medium">{sale.client?.phone}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Email</p>
+                <p className="text-sm text-muted-foreground">Email</p>
                 <p className="font-medium">{sale.client?.email || '-'}</p>
               </div>
             </div>
@@ -473,17 +472,17 @@ export default function SaleDetailPage() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <p className="text-sm text-gray-500">Salida</p>
+                <p className="text-sm text-muted-foreground">Salida</p>
                 <p className="font-medium">{sale.departureDate ? formatDate(sale.departureDate) : '—'}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Regreso</p>
+                <p className="text-sm text-muted-foreground">Regreso</p>
                 <p className="font-medium">{sale.returnDate ? formatDate(sale.returnDate) : '—'}</p>
               </div>
             </div>
             {sale.destination?.season && (
               <div>
-                <p className="text-sm text-gray-500">Temporada</p>
+                <p className="text-sm text-muted-foreground">Temporada</p>
                 <p className="font-medium">{sale.destination.season.name}</p>
               </div>
             )}
@@ -500,19 +499,19 @@ export default function SaleDetailPage() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
-              <p className="text-sm text-gray-500">Nombre</p>
+              <p className="text-sm text-muted-foreground">Nombre</p>
               <p className="font-medium">{sale.supplier.name}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-500">Tipo de Servicio</p>
+              <p className="text-sm text-muted-foreground">Tipo de Servicio</p>
               <Badge variant="secondary">{sale.supplier.serviceType}</Badge>
             </div>
             <div>
-              <p className="text-sm text-gray-500">Teléfono</p>
+              <p className="text-sm text-muted-foreground">Teléfono</p>
               <p className="font-medium">{sale.supplier.phone}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-500">Fecha Limite</p>
+              <p className="text-sm text-muted-foreground">Fecha Limite</p>
               {editingDeadline ? (
                 <div className="flex items-center gap-2">
                   <DatePicker
@@ -758,13 +757,13 @@ export default function SaleDetailPage() {
               {otherItems.length > 0 && (
                 <div>
                   <div className="flex items-center gap-2 mb-2">
-                    <Package className="w-4 h-4 text-gray-500" />
-                    <h4 className="font-medium text-gray-700 dark:text-gray-400">Otros</h4>
+                    <Package className="w-4 h-4 text-muted-foreground" />
+                    <h4 className="font-medium text-foreground/80">Otros</h4>
                   </div>
                   {/* Mobile/tablet: stacked cards */}
                   <div className="lg:hidden space-y-2">
                     {otherItems.map((item) => (
-                      <div key={item.id} className="p-3 rounded-lg border bg-gray-50/50 dark:bg-gray-950/20 flex justify-between items-start gap-2">
+                      <div key={item.id} className="p-3 rounded-lg border bg-muted/40 flex justify-between items-start gap-2">
                         <p className="font-medium">{item.description || '-'}</p>
                         <p className="font-semibold shrink-0">${item.cost.toLocaleString('es-MX')}</p>
                       </div>
@@ -774,7 +773,7 @@ export default function SaleDetailPage() {
                   <div className="hidden lg:block rounded-lg border overflow-hidden">
                     <Table>
                       <TableHeader>
-                        <TableRow className="bg-gray-50 dark:bg-gray-950/30">
+                        <TableRow className="bg-muted/50">
                           <TableHead>Descripción</TableHead>
                           <TableHead className="text-right">Costo</TableHead>
                         </TableRow>
@@ -795,7 +794,7 @@ export default function SaleDetailPage() {
               {/* Total */}
               <div className="flex justify-end pt-2 border-t">
                 <div className="text-right">
-                  <p className="text-sm text-gray-500">Costo Neto Total de Servicios</p>
+                  <p className="text-sm text-muted-foreground">Costo Neto Total de Servicios</p>
                   <p className="text-xl font-bold">${totalItemsCost.toLocaleString('es-MX')}</p>
                 </div>
               </div>
@@ -807,9 +806,9 @@ export default function SaleDetailPage() {
       {/* Profit Summary */}
       {sale.netCost > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          <Card className="p-4 bg-gray-50 dark:bg-gray-950/20 border-gray-200 dark:border-gray-800">
-            <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">Costo Neto</p>
-            <p className="text-2xl font-bold text-gray-700 dark:text-gray-300 mt-1">
+          <Card className="p-4 bg-muted/50 border-border">
+            <p className="text-sm text-muted-foreground font-medium">Costo Neto</p>
+            <p className="text-2xl font-bold text-foreground/80 mt-1">
               ${sale.netCost?.toLocaleString('es-MX')}
             </p>
           </Card>
@@ -881,7 +880,7 @@ export default function SaleDetailPage() {
               <span className="text-sm font-medium">Progreso de pago</span>
               <span className="text-sm font-medium">{progress}%</span>
             </div>
-            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
+            <div className="w-full bg-muted rounded-full h-3">
               <div
                 className="bg-gradient-to-r from-blue-500 to-cyan-500 h-3 rounded-full transition-all duration-500"
                 style={{ width: `${progress}%` }}
@@ -1000,7 +999,7 @@ export default function SaleDetailPage() {
       {sale.notes && (
         <Card className="p-6">
           <h3 className="text-lg font-semibold mb-2">Notas</h3>
-          <p className="text-gray-600 dark:text-gray-400">{sale.notes}</p>
+          <p className="text-muted-foreground">{sale.notes}</p>
         </Card>
       )}
 
@@ -1052,7 +1051,7 @@ export default function SaleDetailPage() {
                 onChange={(e) => setPaymentAmount(e.target.value)}
                 placeholder="Ingresa el monto"
               />
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-muted-foreground">
                 Mínimo: $1 | Máximo: ${remaining.toLocaleString('es-MX')} (para liquidar)
               </p>
             </div>

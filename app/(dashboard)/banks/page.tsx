@@ -71,6 +71,7 @@ import { es } from 'date-fns/locale';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
 import { useCan } from '@/hooks/use-can';
+import { PageSkeleton, RowsSkeleton } from '@/components/skeletons';
 
 const MEXICAN_BANKS = [
   'BBVA', 'Banorte', 'Santander', 'HSBC', 'Scotiabank', 'Citibanamex',
@@ -495,7 +496,7 @@ export default function BanksPage() {
   const totalBalance = accounts.reduce((sum, a) => sum + a.currentBalance, 0);
 
   const getTxTypeBadge = (type: string, status?: string) => {
-    if (status === 'CANCELLED') return <Badge className="bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 line-through">Cancelado</Badge>;
+    if (status === 'CANCELLED') return <Badge className="bg-muted text-muted-foreground line-through">Cancelado</Badge>;
     if (type === 'INCOME') return <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">Ingreso</Badge>;
     if (type === 'EXPENSE') return <Badge className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300">Egreso</Badge>;
     return <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300">Transferencia</Badge>;
@@ -508,9 +509,7 @@ export default function BanksPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-      </div>
+      <PageSkeleton variant="list" />
     );
   }
 
@@ -529,13 +528,13 @@ export default function BanksPage() {
             </Button>
             <div>
               <h1 className="text-3xl font-bold">{selectedAccount.referenceName}</h1>
-              <p className="text-gray-600 dark:text-gray-400">
+              <p className="text-muted-foreground">
                 {selectedAccount.bankName} - {selectedAccount.accountNumber}
               </p>
             </div>
           </div>
           <div className="text-right">
-            <p className="text-sm text-gray-500">Saldo Actual</p>
+            <p className="text-sm text-muted-foreground">Saldo Actual</p>
             <p className="text-3xl font-bold text-green-600">{formatCurrency(selectedAccount.currentBalance)}</p>
           </div>
         </div>
@@ -573,9 +572,9 @@ export default function BanksPage() {
 
         {/* Action Buttons */}
         {selectedAccount.isActive === false ? (
-          <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-900/40 p-3">
-            <Archive className="w-4 h-4 text-gray-500" />
-            <p className="text-sm text-gray-600 dark:text-gray-400">
+          <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/50 p-3">
+            <Archive className="w-4 h-4 text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">
               Cuenta archivada: solo lectura. Restáurala desde la lista de cuentas archivadas para volver a registrar movimientos.
             </p>
           </div>
@@ -622,7 +621,7 @@ export default function BanksPage() {
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <div className="relative w-56">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
                 <Input
                   placeholder="Buscar descripción..."
                   value={txSearch}
@@ -678,12 +677,12 @@ export default function BanksPage() {
         <Card>
           {txLoading ? (
             <div className="flex justify-center py-8">
-              <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
+              <RowsSkeleton rows={3} />
             </div>
           ) : transactions.length > 0 ? (
             <>
               {/* Mobile/tablet: stacked cards (no horizontal scroll) */}
-              <div className="lg:hidden divide-y divide-gray-200 dark:divide-gray-800">
+              <div className="lg:hidden divide-y divide-border">
                 {transactions.map((tx) => {
                   const isCancelled = tx.status === 'CANCELLED';
                   return (
@@ -692,7 +691,7 @@ export default function BanksPage() {
                         <div className="min-w-0">
                           <p className={`font-medium truncate ${isCancelled ? 'line-through' : ''}`}>{tx.description}</p>
                           {tx.booking?.client && (
-                            <p className="text-xs text-gray-500">Cliente: {tx.booking.client.fullName}</p>
+                            <p className="text-xs text-muted-foreground">Cliente: {tx.booking.client.fullName}</p>
                           )}
                         </div>
                         {getTxTypeBadge(tx.type, tx.status)}
@@ -702,7 +701,7 @@ export default function BanksPage() {
                         <span>{tx.reference || '-'}</span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className={`text-lg font-semibold ${isCancelled ? 'text-gray-400 line-through' : tx.type === 'INCOME' ? 'text-green-600' : 'text-red-600'}`}>
+                        <span className={`text-lg font-semibold ${isCancelled ? 'text-muted-foreground line-through' : tx.type === 'INCOME' ? 'text-green-600' : 'text-red-600'}`}>
                           {tx.type === 'INCOME' ? '+' : '-'}{formatCurrency(tx.amount)}
                         </span>
                         <div className="flex gap-1">
@@ -752,12 +751,12 @@ export default function BanksPage() {
                           <div>
                             <p className={isCancelled ? 'line-through' : ''}>{tx.description}</p>
                             {tx.booking?.client && (
-                              <p className="text-xs text-gray-500">Cliente: {tx.booking.client.fullName}</p>
+                              <p className="text-xs text-muted-foreground">Cliente: {tx.booking.client.fullName}</p>
                             )}
                           </div>
                         </TableCell>
-                        <TableCell className="text-gray-500">{tx.reference || '-'}</TableCell>
-                        <TableCell className={`text-right font-semibold ${isCancelled ? 'text-gray-400 line-through' : tx.type === 'INCOME' ? 'text-green-600' : 'text-red-600'}`}>
+                        <TableCell className="text-muted-foreground">{tx.reference || '-'}</TableCell>
+                        <TableCell className={`text-right font-semibold ${isCancelled ? 'text-muted-foreground line-through' : tx.type === 'INCOME' ? 'text-green-600' : 'text-red-600'}`}>
                           {tx.type === 'INCOME' ? '+' : '-'}{formatCurrency(tx.amount)}
                         </TableCell>
                         <TableCell className="text-right">
@@ -792,7 +791,7 @@ export default function BanksPage() {
               </div>
               {txTotalPages > 1 && (
                 <div className="flex justify-between items-center p-4 border-t">
-                  <p className="text-sm text-gray-500">{txTotal} movimientos</p>
+                  <p className="text-sm text-muted-foreground">{txTotal} movimientos</p>
                   <div className="flex gap-2">
                     <Button size="sm" variant="outline" disabled={txPage === 1} onClick={() => { setTxPage(txPage - 1); fetchTransactions(selectedAccount.id, txPage - 1, txFilter); }}>
                       Anterior
@@ -806,8 +805,8 @@ export default function BanksPage() {
             </>
           ) : (
             <div className="text-center py-12">
-              <Landmark className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-              <p className="text-gray-500">No hay movimientos registrados</p>
+              <Landmark className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+              <p className="text-muted-foreground">No hay movimientos registrados</p>
             </div>
           )}
         </Card>
@@ -945,7 +944,7 @@ export default function BanksPage() {
               <DialogTitle className="flex items-center gap-2">
                 Detalle de Movimiento
                 {selectedTx && (
-                  <span className="font-mono text-xs text-gray-500 bg-gray-100 dark:bg-gray-800 dark:text-gray-400 px-1.5 py-0.5 rounded">
+                  <span className="font-mono text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
                     {selectedTx.id.slice(-8).toUpperCase()}
                   </span>
                 )}
@@ -992,7 +991,7 @@ export default function BanksPage() {
                         <Badge variant="outline" className="text-xs">
                           {selectedTx.booking.type === 'SALE' ? 'Venta' : 'Cotización'}
                         </Badge>
-                        <span className="font-mono text-xs text-gray-500 bg-gray-100 dark:bg-gray-800 dark:text-gray-400 px-1.5 py-0.5 rounded">
+                        <span className="font-mono text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
                           {selectedTx.booking.id.slice(-8).toUpperCase()}
                         </span>
                       </div>
@@ -1097,7 +1096,7 @@ export default function BanksPage() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold">Bancos</h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">Gestiona tus cuentas bancarias y movimientos</p>
+          <p className="text-muted-foreground mt-1">Gestiona tus cuentas bancarias y movimientos</p>
         </div>
         {can('bancos', 'create') && (<Button data-tour="page-action"
           onClick={openCreateAccount}
@@ -1117,7 +1116,7 @@ export default function BanksPage() {
             <p className="text-4xl font-bold text-blue-700 dark:text-blue-300">
               {formatCurrency(totalBalance)}
             </p>
-            <p className="text-sm text-gray-500 mt-1">{accounts.length} cuenta{accounts.length !== 1 ? 's' : ''}</p>
+            <p className="text-sm text-muted-foreground mt-1">{accounts.length} cuenta{accounts.length !== 1 ? 's' : ''}</p>
           </div>
         </div>
       </Card>
@@ -1130,18 +1129,18 @@ export default function BanksPage() {
               <div className="flex justify-between items-start mb-4">
                 <div>
                   <h3 className="font-semibold text-lg">{account.referenceName}</h3>
-                  <p className="text-sm text-gray-500">{account.bankName}</p>
+                  <p className="text-sm text-muted-foreground">{account.bankName}</p>
                 </div>
                 {getAccountTypeBadge(account.accountType)}
               </div>
-              <p className="text-sm text-gray-500 mb-1">
+              <p className="text-sm text-muted-foreground mb-1">
                 {account.accountNumber}
               </p>
               <p className="text-2xl font-bold text-green-600 mb-3">
                 {formatCurrency(account.currentBalance)}
               </p>
               {account.creatorName && (
-                <div className="flex items-center gap-2 mb-3 text-sm text-gray-500">
+                <div className="flex items-center gap-2 mb-3 text-sm text-muted-foreground">
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -1177,9 +1176,9 @@ export default function BanksPage() {
         </div>
       ) : (
         <Card className="p-12 text-center">
-          <Landmark className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+          <Landmark className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-lg font-semibold mb-2">No hay cuentas bancarias</h3>
-          <p className="text-gray-600 dark:text-gray-400 mb-6">
+          <p className="text-muted-foreground mb-6">
             Comienza agregando tu primera cuenta bancaria
           </p>
           {can('bancos', 'create') && (<Button onClick={openCreateAccount}>
@@ -1197,8 +1196,8 @@ export default function BanksPage() {
             onClick={() => setShowArchived((v) => !v)}
           >
             {showArchived ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-            <Archive className="w-4 h-4 text-gray-500" />
-            <span className="font-medium text-gray-700 dark:text-gray-300">
+            <Archive className="w-4 h-4 text-muted-foreground" />
+            <span className="font-medium text-foreground/80">
               Cuentas archivadas ({archivedAccounts.length})
             </span>
           </button>
@@ -1209,12 +1208,12 @@ export default function BanksPage() {
                   <div className="flex justify-between items-start mb-4">
                     <div>
                       <h3 className="font-semibold text-lg">{account.referenceName}</h3>
-                      <p className="text-sm text-gray-500">{account.bankName}</p>
+                      <p className="text-sm text-muted-foreground">{account.bankName}</p>
                     </div>
                     <Badge variant="secondary">Archivada</Badge>
                   </div>
-                  <p className="text-sm text-gray-500 mb-1">{account.accountNumber}</p>
-                  <p className="text-2xl font-bold text-gray-500 mb-3">
+                  <p className="text-sm text-muted-foreground mb-1">{account.accountNumber}</p>
+                  <p className="text-2xl font-bold text-muted-foreground mb-3">
                     {formatCurrency(account.currentBalance)}
                   </p>
                   <div className="flex gap-2">

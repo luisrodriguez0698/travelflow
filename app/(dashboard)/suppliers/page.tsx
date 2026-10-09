@@ -43,6 +43,8 @@ import { CreatorHistoryButton } from '@/components/record-history';
 import { Plus, Truck, Edit, Trash2, ChevronLeft, ChevronRight, Search, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useCan } from '@/hooks/use-can';
+import { PageSkeleton } from '@/components/skeletons';
+import { EmptyState } from '@/components/empty-state';
 
 interface Supplier {
   id: string;
@@ -66,7 +68,7 @@ const SERVICE_COLORS: Record<string, string> = {
   TRANSPORTE: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
   TOUR: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300',
   RESTAURANTE: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300',
-  OTRO: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300',
+  OTRO: 'bg-muted text-foreground',
 };
 
 const ITEMS_PER_PAGE = 10;
@@ -290,9 +292,7 @@ export default function SuppliersPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-      </div>
+      <PageSkeleton variant="list" />
     );
   }
 
@@ -300,8 +300,8 @@ export default function SuppliersPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Proveedores</h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">Gestiona tus proveedores de servicios</p>
+          <h1 className="text-3xl font-bold text-foreground">Proveedores</h1>
+          <p className="text-muted-foreground mt-1">Gestiona tus proveedores de servicios</p>
         </div>
         {can('proveedores', 'create') && (<Button data-tour="page-action"
           onClick={openCreateModal}
@@ -314,7 +314,7 @@ export default function SuppliersPage() {
 
       <Card className="p-4">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
           <Input data-tour="page-filters"
             type="search"
             autoComplete="off"
@@ -328,7 +328,7 @@ export default function SuppliersPage() {
 
       <Card>
         {/* Mobile/tablet: stacked cards (no horizontal scroll) */}
-        <div data-tour="page-list" className="lg:hidden divide-y divide-gray-200 dark:divide-gray-800">
+        <div data-tour="page-list" className="lg:hidden divide-y divide-border">
           {suppliers.length > 0 ? (
             suppliers.map((supplier) => (
               <div key={supplier.id} className="p-4 space-y-2">
@@ -360,15 +360,7 @@ export default function SuppliersPage() {
               </div>
             ))
           ) : (
-            <div className="text-center py-12">
-              <Truck className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500">No se encontraron proveedores</p>
-              {searchTerm && (
-                <Button variant="link" onClick={() => setSearchTerm('')} className="mt-2">
-                  Limpiar busqueda
-                </Button>
-              )}
-            </div>
+            <EmptyState icon={Truck} title={searchTerm ? 'Sin resultados' : 'Aún no hay proveedores'} description={searchTerm ? `No hay proveedores que coincidan con "${searchTerm}".` : 'Registra hoteles, aerolíneas y transportistas para controlar lo que les debes por cada venta.'} action={searchTerm ? <Button variant="outline" onClick={() => setSearchTerm('')}>Limpiar búsqueda</Button> : can('proveedores', 'create') ? <Button variant="gradient" onClick={openCreateModal}><Plus className="w-4 h-4 mr-2" />Nuevo proveedor</Button> : undefined} />
           )}
         </div>
 
@@ -423,19 +415,7 @@ export default function SuppliersPage() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-12">
-                    <Truck className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-500">No se encontraron proveedores</p>
-                    {searchTerm && (
-                      <Button
-                        variant="link"
-                        onClick={() => setSearchTerm('')}
-                        className="mt-2"
-                      >
-                        Limpiar busqueda
-                      </Button>
-                    )}
-                  </TableCell>
+                  <TableCell colSpan={6}><EmptyState icon={Truck} title={searchTerm ? 'Sin resultados' : 'Aún no hay proveedores'} description={searchTerm ? `No hay proveedores que coincidan con "${searchTerm}".` : 'Registra hoteles, aerolíneas y transportistas para controlar lo que les debes por cada venta.'} action={searchTerm ? <Button variant="outline" onClick={() => setSearchTerm('')}>Limpiar búsqueda</Button> : can('proveedores', 'create') ? <Button variant="gradient" onClick={openCreateModal}><Plus className="w-4 h-4 mr-2" />Nuevo proveedor</Button> : undefined} /></TableCell>
                 </TableRow>
               )}
             </TableBody>
@@ -444,7 +424,7 @@ export default function SuppliersPage() {
 
         {totalPages > 1 && (
           <div className="flex items-center justify-between px-4 py-4 border-t">
-            <p className="text-sm text-gray-600 dark:text-gray-400">
+            <p className="text-sm text-muted-foreground">
               Mostrando {((currentPage - 1) * ITEMS_PER_PAGE) + 1} a{' '}
               {Math.min(currentPage * ITEMS_PER_PAGE, totalSuppliers)} de{' '}
               {totalSuppliers} proveedores
@@ -469,7 +449,7 @@ export default function SuppliersPage() {
                   .map((page, idx, arr) => (
                     <span key={page}>
                       {idx > 0 && arr[idx - 1] !== page - 1 && (
-                        <span className="px-2 text-gray-400">...</span>
+                        <span className="px-2 text-muted-foreground">...</span>
                       )}
                       <Button
                         variant={currentPage === page ? 'default' : 'outline'}

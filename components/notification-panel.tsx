@@ -19,6 +19,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { isSoundEnabled, setSoundEnabled, playChime, unlockAudio } from '@/lib/notify-sound';
+import { RowsSkeleton } from '@/components/skeletons';
 
 // ─── Avisos de proveedores (fechas limite) ───────────
 
@@ -298,7 +299,7 @@ export function NotificationPanel() {
           )}
         </Button>
       </SheetTrigger>
-      <SheetContent side="right" className="w-[400px] sm:w-[440px] p-0 flex flex-col">
+      <SheetContent side="right" className="w-full sm:w-[440px] sm:max-w-[440px] p-0 flex flex-col" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
         <SheetHeader className="p-4 pb-3 border-b space-y-3">
           <div className="flex items-center justify-between gap-2 pr-6">
             <SheetTitle className="flex items-center gap-2">
@@ -344,14 +345,14 @@ export function NotificationPanel() {
           {tab === 'activity' ? (
             activity.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 px-4">
-                <Activity className="w-12 h-12 text-gray-300 dark:text-gray-600 mb-3" />
-                <p className="text-gray-500 dark:text-gray-400 text-sm text-center">Sin actividad reciente</p>
+                <Activity className="w-12 h-12 text-muted-foreground/50 mb-3" />
+                <p className="text-muted-foreground text-sm text-center">Sin actividad reciente</p>
                 <p className="text-xs text-muted-foreground text-center mt-1 max-w-[260px]">
                   Aquí verás al momento las ventas, abonos e ingresos que registre tu equipo.
                 </p>
               </div>
             ) : (
-              <div className="divide-y divide-gray-100 dark:divide-gray-800">
+              <div className="divide-y divide-border">
                 {activity.map((item) => {
                   const style = ACTIVITY_STYLE[item.type] || ACTIVITY_STYLE.SALE_CREATED;
                   const Icon = style.icon;
@@ -360,7 +361,7 @@ export function NotificationPanel() {
                       type="button"
                       key={item.id}
                       onClick={() => handleActivityClick(item)}
-                      className={`w-full text-left p-4 flex gap-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors ${
+                      className={`w-full text-left p-4 flex gap-3 hover:bg-muted/50 transition-colors ${
                         !item.read ? 'bg-blue-50/50 dark:bg-blue-950/20' : ''
                       }`}
                     >
@@ -382,17 +383,17 @@ export function NotificationPanel() {
             )
           ) : loading && notifications.length === 0 ? (
             <div className="flex items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500" />
+              <RowsSkeleton rows={4} className="px-4" />
             </div>
           ) : notifications.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 px-4">
-              <Bell className="w-12 h-12 text-gray-300 dark:text-gray-600 mb-3" />
-              <p className="text-gray-500 dark:text-gray-400 text-sm text-center">
+              <Bell className="w-12 h-12 text-muted-foreground/50 mb-3" />
+              <p className="text-muted-foreground text-sm text-center">
                 No hay notificaciones pendientes
               </p>
             </div>
           ) : (
-            <div className="divide-y divide-gray-100 dark:divide-gray-800">
+            <div className="divide-y divide-border">
               {notifications.map((notification) => {
                 const daysRemaining = getDaysRemaining(notification.dueDate);
                 const semaphore = getSemaphore(daysRemaining);
@@ -401,7 +402,7 @@ export function NotificationPanel() {
                 return (
                   <div
                     key={notification.id}
-                    className={`p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors ${
+                    className={`p-4 cursor-pointer hover:bg-muted/50 transition-colors ${
                       !notification.read ? 'bg-blue-50/50 dark:bg-blue-950/20' : ''
                     }`}
                     onClick={() => handleClick(notification)}
@@ -419,7 +420,7 @@ export function NotificationPanel() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-6 w-6 flex-shrink-0 text-gray-400 hover:text-red-500"
+                            className="h-6 w-6 flex-shrink-0 text-muted-foreground hover:text-red-500"
                             onClick={(e) => handleDismiss(notification.id, e)}
                           >
                             <X className="w-3.5 h-3.5" />
@@ -432,7 +433,7 @@ export function NotificationPanel() {
 
                         {/* Supplier */}
                         <div className="flex items-center gap-1 mt-1.5">
-                          <Truck className="w-3.5 h-3.5 text-gray-400" />
+                          <Truck className="w-3.5 h-3.5 text-muted-foreground" />
                           <span className="text-xs text-muted-foreground">
                             {notification.booking.supplier?.name || '—'}
                           </span>

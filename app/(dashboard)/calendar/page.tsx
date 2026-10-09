@@ -36,6 +36,7 @@ import {
   startOfDay,
 } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { PageSkeleton } from '@/components/skeletons';
 
 // ─── Types ───────────────────────────────────────────
 
@@ -235,9 +236,7 @@ export default function CalendarPage() {
 
       {/* Calendar Views */}
       {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-        </div>
+        <PageSkeleton variant="list" />
       ) : (
         <>
           {viewMode === 'month' && (

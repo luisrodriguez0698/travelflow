@@ -9,7 +9,9 @@ export function DashboardContent({ children }: { children: React.ReactNode }) {
   return (
     <div
       className={cn(
-        'transition-all duration-300',
+        // overflow-x-clip: nada puede ensanchar la pagina hacia los lados en movil
+        // (clip, no hidden, para no romper la barra superior sticky)
+        'transition-all duration-300 min-w-0 overflow-x-clip',
         collapsed ? 'lg:pl-16' : 'lg:pl-64'
       )}
     >

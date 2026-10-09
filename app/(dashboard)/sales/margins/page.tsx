@@ -26,6 +26,7 @@ import {
 import Link from 'next/link';
 import { format, startOfMonth, endOfMonth, subMonths, startOfYear } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { PageSkeleton } from '@/components/skeletons';
 import {
   BarChart,
   Bar,
@@ -156,9 +157,7 @@ export default function MarginsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-      </div>
+      <PageSkeleton variant="list" />
     );
   }
 
@@ -211,12 +210,12 @@ export default function MarginsPage() {
           <p className="text-xs text-blue-500 mt-1">{metrics.count} ventas</p>
         </Card>
 
-        <Card className="p-4 bg-gray-50 dark:bg-gray-950/20 border-gray-200 dark:border-gray-800">
+        <Card className="p-4 bg-muted/50 border-border">
           <div className="flex items-center gap-2 mb-1">
-            <BarChart3 className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-            <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Costo Neto Total</p>
+            <BarChart3 className="w-4 h-4 text-muted-foreground" />
+            <p className="text-sm font-medium text-muted-foreground">Costo Neto Total</p>
           </div>
-          <p className="text-2xl font-bold text-gray-700 dark:text-gray-300">
+          <p className="text-2xl font-bold text-foreground/80">
             {formatCurrency(metrics.totalCost)}
           </p>
         </Card>
@@ -300,7 +299,7 @@ export default function MarginsPage() {
       {/* Detail Table */}
       <Card>
         {/* Mobile/tablet: stacked cards (no horizontal scroll) */}
-        <div className="lg:hidden divide-y divide-gray-200 dark:divide-gray-800">
+        <div className="lg:hidden divide-y divide-border">
           {filteredSales.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">No hay ventas en el período seleccionado</div>
           ) : (

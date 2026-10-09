@@ -30,6 +30,7 @@ html, body {
  
 @layer base {
   :root {
+    /* Tema TravelFlow: color principal = azul del logo (contraste WCAG AA verificado) */
     /* Graficas: paleta categorica validada (CVD + contraste) sobre --card */
     --chart-series-1: #2a78d6;
     --chart-series-2: #eb6834;
@@ -42,8 +43,8 @@ html, body {
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
  
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 221.2 83.2% 53.3%;
+    --primary-foreground: 0 0% 100%;
  
     --secondary: 210 40% 96.1%;
     --secondary-foreground: 222.2 47.4% 11.2%;
@@ -51,20 +52,28 @@ html, body {
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
  
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 214 95% 96%;
+    --accent-foreground: 224 76% 33%;
  
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 72.2% 50.6%;
+    --destructive-foreground: 0 0% 100%;
 
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --ring: 221.2 83.2% 53.3%;
  
+    --success: 161.4 93.5% 24.1%;
+    --success-foreground: 0 0% 100%;
+    --warning: 37.7 92.1% 50.2%;
+    --warning-foreground: 20 14.3% 4.1%;
     --radius: 0.75rem;
   }
  
   .dark {
+    --warning-foreground: 20 14.3% 4.1%;
+    --warning: 37.7 92.1% 50.2%;
+    --success-foreground: 166 91% 9%;
+    --success: 160.1 84.1% 39.4%;
     --chart-series-1: #3987e5;
     --chart-series-2: #d95926;
     --background: 222.2 84% 4.9%;
@@ -79,8 +88,8 @@ html, body {
     --popover: 222.2 47.4% 11.2%;
     --popover-foreground: 210 40% 98%;
  
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 221.2 83.2% 53.3%;
+    --primary-foreground: 0 0% 100%;
  
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 98%;
@@ -88,15 +97,15 @@ html, body {
     --muted: 217.2 32.6% 17.5%;
     --muted-foreground: 215 20.2% 65.1%;
  
-    --accent: 217.2 32.6% 17.5%;
+    --accent: 217.2 32.6% 20%;
     --accent-foreground: 210 40% 98%;
  
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 72.2% 50.6%;
+    --destructive-foreground: 0 0% 100%;
  
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    --ring: 213.1 93.9% 67.8%;
   }
 }
  
@@ -158,3 +167,56 @@ html, body {
 .driver-popover.travelflow-tour .driver-popover-arrow-side-right.driver-popover-arrow { border-right-color: hsl(var(--card)); }
 .driver-popover.travelflow-tour .driver-popover-arrow-side-top.driver-popover-arrow { border-top-color: hsl(var(--card)); }
 .driver-popover.travelflow-tour .driver-popover-arrow-side-bottom.driver-popover-arrow { border-bottom-color: hsl(var(--card)); }
+
+/* ── Sensacion de app nativa en celular / tablet ── */
+html {
+  -webkit-tap-highlight-color: transparent; /* sin destello gris al tocar en iOS */
+  -webkit-text-size-adjust: 100%;
+}
+/* OJO: no usar overscroll-behavior en body. Como html/body tienen overflow-x:hidden,
+   el body es un contenedor de scroll y esa propiedad bloquea el scroll de la pagina. */
+a,
+button,
+[role='button'],
+input,
+select,
+textarea,
+label {
+  touch-action: manipulation; /* respuesta inmediata al toque (sin espera de doble toque) */
+}
+@media (max-width: 639px) {
+  /* Titulos de pagina mas proporcionados en celular */
+  main h1.text-3xl {
+    font-size: 1.5rem;
+    line-height: 2rem;
+  }
+}
+
+/* ── Detalles de marca ── */
+::selection {
+  background-color: hsl(var(--primary) / 0.2);
+}
+
+/* Barras de desplazamiento delgadas en PC (en movil el sistema las oculta) */
+@media (hover: hover) and (pointer: fine) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--muted-foreground) / 0.35) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  *::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--muted-foreground) / 0.3);
+    border-radius: 9999px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(var(--muted-foreground) / 0.5);
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}

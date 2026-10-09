@@ -11,6 +11,7 @@ import {
   DialogFooter,
 } from './ui/dialog';
 import { Upload, X, Loader2, ImageIcon, Trash2, AlertTriangle } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const ACCEPTED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
 const ACCEPTED_EXTENSIONS = '.jpg, .jpeg, .png, .webp, .gif';
@@ -242,7 +243,7 @@ export function PackageImageUpload({ images, onImagesChange, folder = 'uploads' 
       {images?.length > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           {images.map((imagePath, index) => (
-            <div key={index} className="relative group aspect-video bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden">
+            <div key={index} className="relative group aspect-video bg-muted rounded-lg overflow-hidden">
               <ImageDisplay cloudPath={imagePath} alt={`Package image ${index + 1}`} />
               <button
                 type="button"
@@ -275,7 +276,7 @@ export function PackageImageUpload({ images, onImagesChange, folder = 'uploads' 
 
           {/* Preview de la imagen a eliminar */}
           {imageToConfirm && (
-            <div className="rounded-lg overflow-hidden aspect-video bg-gray-100 dark:bg-gray-800 w-full">
+            <div className="rounded-lg overflow-hidden aspect-video bg-muted w-full">
               <img
                 src={imageToConfirm}
                 alt="Imagen a eliminar"
@@ -326,16 +327,14 @@ function ImageDisplay({ cloudPath, alt }: { cloudPath: string; alt: string }) {
 
   if (loading) {
     return (
-      <div className="w-full h-full flex items-center justify-center">
-        <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
-      </div>
+      <Skeleton className="w-full h-full rounded-lg" />
     );
   }
 
   if (error || !imageUrl) {
     return (
-      <div className="w-full h-full flex items-center justify-center bg-gray-200 dark:bg-gray-700">
-        <span className="text-gray-500 text-sm">Error</span>
+      <div className="w-full h-full flex items-center justify-center bg-muted">
+        <span className="text-muted-foreground text-sm">Error</span>
       </div>
     );
   }

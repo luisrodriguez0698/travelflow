@@ -45,6 +45,7 @@ import { es } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import { generateQuotationPdf } from '@/lib/generate-quotation-pdf';
 import { useCan } from '@/hooks/use-can';
+import { PageSkeleton } from '@/components/skeletons';
 
 interface PaymentPlan {
   id: string;
@@ -281,16 +282,14 @@ export default function QuotationDetailPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
-      </div>
+      <PageSkeleton variant="detail" />
     );
   }
 
   if (!quotation) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-500">Cotización no encontrada</p>
+        <p className="text-muted-foreground">Cotización no encontrada</p>
         <Link href="/quotations">
           <Button className="mt-4">Volver a Cotizaciones</Button>
         </Link>
@@ -314,11 +313,11 @@ export default function QuotationDetailPage() {
               {getExpirationBadge()}
             </div>
             <div className="flex items-center gap-3 mt-1">
-              <p className="text-gray-600 dark:text-gray-400">
+              <p className="text-muted-foreground">
                 Folio: {quotation.id.slice(-8).toUpperCase()}
               </p>
               {quotation.creatorName && (
-                <span className="inline-flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+                <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
                   <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 text-white text-[10px] font-semibold">
                     {quotation.creatorName.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)}
                   </span>
@@ -362,16 +361,16 @@ export default function QuotationDetailPage() {
           </div>
           <div className="space-y-3">
             <div>
-              <p className="text-sm text-gray-500">Nombre</p>
+              <p className="text-sm text-muted-foreground">Nombre</p>
               <p className="font-medium">{quotation.client?.fullName}</p>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <p className="text-sm text-gray-500">Teléfono</p>
+                <p className="text-sm text-muted-foreground">Teléfono</p>
                 <p className="font-medium">{quotation.client?.phone}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Email</p>
+                <p className="text-sm text-muted-foreground">Email</p>
                 <p className="font-medium">{quotation.client?.email || '-'}</p>
               </div>
             </div>
@@ -396,17 +395,17 @@ export default function QuotationDetailPage() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <p className="text-sm text-gray-500">Salida</p>
+                <p className="text-sm text-muted-foreground">Salida</p>
                 <p className="font-medium">{quotation.departureDate ? formatDate(quotation.departureDate) : '—'}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Regreso</p>
+                <p className="text-sm text-muted-foreground">Regreso</p>
                 <p className="font-medium">{quotation.returnDate ? formatDate(quotation.returnDate) : '—'}</p>
               </div>
             </div>
             {quotation.expirationDate && (
               <div>
-                <p className="text-sm text-gray-500">Fecha de Expiración</p>
+                <p className="text-sm text-muted-foreground">Fecha de Expiración</p>
                 <p className="font-medium flex items-center gap-1">
                   <CalendarClock className="w-4 h-4" />
                   {formatDate(quotation.expirationDate)}
@@ -415,7 +414,7 @@ export default function QuotationDetailPage() {
             )}
             {quotation.destination?.season && (
               <div>
-                <p className="text-sm text-gray-500">Temporada</p>
+                <p className="text-sm text-muted-foreground">Temporada</p>
                 <p className="font-medium">{quotation.destination.season.name}</p>
               </div>
             )}
@@ -432,20 +431,20 @@ export default function QuotationDetailPage() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
-              <p className="text-sm text-gray-500">Nombre</p>
+              <p className="text-sm text-muted-foreground">Nombre</p>
               <p className="font-medium">{quotation.supplier.name}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-500">Tipo de Servicio</p>
+              <p className="text-sm text-muted-foreground">Tipo de Servicio</p>
               <Badge variant="secondary">{quotation.supplier.serviceType}</Badge>
             </div>
             <div>
-              <p className="text-sm text-gray-500">Teléfono</p>
+              <p className="text-sm text-muted-foreground">Teléfono</p>
               <p className="font-medium">{quotation.supplier.phone}</p>
             </div>
             {quotation.supplierDeadline && (
               <div>
-                <p className="text-sm text-gray-500">Fecha Limite</p>
+                <p className="text-sm text-muted-foreground">Fecha Limite</p>
                 <p className="font-medium flex items-center gap-1">
                   <CalendarClock className="w-4 h-4" />
                   {formatDate(quotation.supplierDeadline)}
@@ -744,13 +743,13 @@ export default function QuotationDetailPage() {
               {otherItems.length > 0 && (
                 <div>
                   <div className="flex items-center gap-2 mb-2">
-                    <Package className="w-4 h-4 text-gray-500" />
-                    <h4 className="font-medium text-gray-700 dark:text-gray-400">Otros</h4>
+                    <Package className="w-4 h-4 text-muted-foreground" />
+                    <h4 className="font-medium text-foreground/80">Otros</h4>
                   </div>
                   {/* Mobile/tablet: stacked cards */}
                   <div className="lg:hidden space-y-2">
                     {otherItems.map((item) => (
-                      <div key={item.id} className="p-3 rounded-lg border bg-gray-50/50 dark:bg-gray-950/20 flex justify-between items-start gap-2">
+                      <div key={item.id} className="p-3 rounded-lg border bg-muted/40 flex justify-between items-start gap-2">
                         <p className="font-medium">{item.description || '-'}</p>
                         <p className="font-semibold shrink-0">${item.cost.toLocaleString('es-MX')}</p>
                       </div>
@@ -760,7 +759,7 @@ export default function QuotationDetailPage() {
                   <div className="hidden lg:block rounded-lg border overflow-hidden">
                     <Table>
                       <TableHeader>
-                        <TableRow className="bg-gray-50 dark:bg-gray-950/30">
+                        <TableRow className="bg-muted/50">
                           <TableHead>Descripción</TableHead>
                           <TableHead className="text-right">Costo</TableHead>
                         </TableRow>
@@ -781,7 +780,7 @@ export default function QuotationDetailPage() {
               {/* Total */}
               <div className="flex justify-end pt-2 border-t">
                 <div className="text-right">
-                  <p className="text-sm text-gray-500">Costo Neto Total de Servicios</p>
+                  <p className="text-sm text-muted-foreground">Costo Neto Total de Servicios</p>
                   <p className="text-xl font-bold">${totalItemsCost.toLocaleString('es-MX')}</p>
                 </div>
               </div>
@@ -897,7 +896,7 @@ export default function QuotationDetailPage() {
       {quotation.notes && (
         <Card className="p-6">
           <h3 className="text-lg font-semibold mb-2">Notas</h3>
-          <p className="text-gray-600 dark:text-gray-400">{quotation.notes}</p>
+          <p className="text-muted-foreground">{quotation.notes}</p>
         </Card>
       )}
 

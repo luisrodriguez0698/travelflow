@@ -17,6 +17,7 @@ import { LayoutTemplate, BookmarkPlus, Loader2, Search, Hotel, Plane, MapPin, Bu
 import { toast } from 'sonner';
 import type { BookingItemData } from '@/components/booking-items-form';
 import { templateItemsToFormItems, type PackageTemplateSummary, type TemplateItem } from '@/lib/package-template';
+import { RowsSkeleton } from '@/components/skeletons';
 
 export interface AppliedTemplate {
   items: BookingItemData[];
@@ -131,10 +132,10 @@ export function TemplateActions({
 
   return (
     <>
-      <div className="flex gap-2">
-        <Button type="button" variant="outline" size="sm" onClick={() => setPickerOpen(true)} className="gap-1.5">
-          <LayoutTemplate className="w-4 h-4" />
-          Usar plantilla
+      <div className="grid grid-cols-2 sm:flex gap-2 w-full sm:w-auto">
+        <Button type="button" variant="outline" size="sm" onClick={() => setPickerOpen(true)} className="gap-1.5 min-w-0">
+          <LayoutTemplate className="w-4 h-4 shrink-0" />
+          <span className="truncate">Usar plantilla</span>
         </Button>
         <Button
           type="button"
@@ -143,10 +144,12 @@ export function TemplateActions({
           onClick={() => setSaveOpen(true)}
           disabled={items.length === 0}
           title={items.length === 0 ? 'Agrega al menos un servicio' : undefined}
-          className="gap-1.5"
+          className="gap-1.5 min-w-0"
         >
-          <BookmarkPlus className="w-4 h-4" />
-          Guardar como plantilla
+          <BookmarkPlus className="w-4 h-4 shrink-0" />
+          {/* En celular no cabe el texto largo */}
+          <span className="truncate sm:hidden">Guardar plantilla</span>
+          <span className="hidden sm:inline">Guardar como plantilla</span>
         </Button>
       </div>
 
@@ -169,7 +172,7 @@ export function TemplateActions({
           <div className="space-y-2">
             {loading ? (
               <div className="flex justify-center py-8">
-                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                <RowsSkeleton rows={3} />
               </div>
             ) : filtered.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-8">

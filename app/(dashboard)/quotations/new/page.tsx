@@ -28,6 +28,7 @@ import Link from 'next/link';
 import { BookingItemsForm, BookingItemData } from '@/components/booking-items-form';
 import { useToast } from '@/hooks/use-toast';
 import { TemplateActions, applyTemplate, type AppliedTemplate } from '@/components/template-actions';
+import { PageSkeleton } from '@/components/skeletons';
 
 interface Client { id: string; fullName: string; phone: string | null; email?: string; }
 interface Season { id: string; name: string; color: string; }
@@ -209,9 +210,7 @@ export default function NewQuotationPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
-      </div>
+      <PageSkeleton variant="form" />
     );
   }
 
@@ -228,9 +227,9 @@ export default function NewQuotationPage() {
             <p className="text-xs text-muted-foreground">Completa la informacion y los servicios del paquete</p>
           </div>
         </div>
-        <div data-tour="form-actions" className="flex flex-wrap items-center justify-end gap-2">
+        <div data-tour="form-actions" className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center justify-end gap-2 w-full sm:w-auto">
           <TemplateActions items={bookingItems} totalPrice={formData.totalPrice} notes={formData.notes} onApply={handleApplyTemplate} />
-          <Button onClick={handleSave} disabled={saving} className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600">
+          <Button onClick={handleSave} disabled={saving} className="w-full sm:w-auto bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600">
             {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
             Crear Cotizacion
           </Button>
@@ -287,7 +286,7 @@ export default function NewQuotationPage() {
             </div>
 
             {/* Dates */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Fecha de Salida</Label>
                 <DatePicker

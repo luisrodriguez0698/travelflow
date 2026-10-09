@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Plus, Pencil, Trash2, Star, Facebook, Globe, X, Loader2 } from 'lucide-react';
+import { RowsSkeleton } from '@/components/skeletons';
 
 interface Testimonial {
   id: string;
@@ -84,7 +85,7 @@ export default function TestimonialsPage() {
 
       {/* List */}
       {loading ? (
-        <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
+        <div className="flex justify-center py-12"><RowsSkeleton rows={3} /></div>
       ) : testimonials.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground border-2 border-dashed rounded-xl">
           <p className="font-medium">Sin testimonios aún</p>
@@ -104,7 +105,7 @@ export default function TestimonialsPage() {
                     <p className="font-semibold text-sm">{t.name}</p>
                     <div className="flex items-center gap-1">
                       {Array.from({ length: 5 }).map((_, i) => (
-                        <Star key={i} className={`w-3 h-3 ${i < t.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`} />
+                        <Star key={i} className={`w-3 h-3 ${i < t.rating ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground/40'}`} />
                       ))}
                     </div>
                   </div>
@@ -157,7 +158,7 @@ export default function TestimonialsPage() {
                 <span className="text-sm text-muted-foreground mr-1">Calificación:</span>
                 {Array.from({ length: 5 }).map((_, i) => (
                   <button key={i} onClick={() => setForm((f) => ({ ...f, rating: i + 1 }))}>
-                    <Star className={`w-5 h-5 ${i < form.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`} />
+                    <Star className={`w-5 h-5 ${i < form.rating ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground/40'}`} />
                   </button>
                 ))}
               </div>

@@ -76,6 +76,7 @@ import {
   toStoredPermissions,
 } from '@/lib/permissions';
 import type { ModulePermission, PermissionAction } from '@/lib/permissions';
+import { RowsSkeleton } from '@/components/skeletons';
 
 const MATRIX_ACTIONS: PermissionAction[] = ['view', 'create', 'edit', 'delete', 'payments'];
 
@@ -340,7 +341,7 @@ export default function UsersPage() {
     const styles: Record<string, string> = {
       PENDING: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
       ACCEPTED: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
-      EXPIRED: 'bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
+      EXPIRED: 'bg-muted text-foreground/80',
     };
     const labels: Record<string, string> = { PENDING: 'Pendiente', ACCEPTED: 'Aceptada', EXPIRED: 'Expirada' };
     return (
@@ -470,7 +471,7 @@ export default function UsersPage() {
         </Badge>
       )}
       {!user.isActive && (
-        <Badge className="ml-2 text-xs bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-300">
+        <Badge className="ml-2 text-xs bg-muted text-foreground/80">
           Inactivo
         </Badge>
       )}
@@ -629,7 +630,7 @@ export default function UsersPage() {
     `px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
       activeTab === tab
         ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-        : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+        : 'border-transparent text-muted-foreground hover:text-foreground'
     }`;
 
   return (
@@ -637,8 +638,8 @@ export default function UsersPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Usuarios</h1>
-          <p className="text-gray-600 dark:text-gray-400">
+          <h1 className="text-2xl font-bold text-foreground">Usuarios</h1>
+          <p className="text-muted-foreground">
             Gestiona los usuarios, roles y permisos de tu agencia
           </p>
         </div>
@@ -661,7 +662,7 @@ export default function UsersPage() {
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-gray-200 dark:border-gray-700">
+      <div className="border-b border-border">
         <nav data-tour="page-tabs" className="flex space-x-4">
           <button onClick={() => setActiveTab('users')} className={tabClasses('users')}>
             <Users className="w-4 h-4 inline mr-1.5" />
@@ -682,7 +683,7 @@ export default function UsersPage() {
       {activeTab === 'users' && (
         <div className="space-y-4">
           <div className="relative max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               type="search"
               name="user-search"
@@ -698,10 +699,10 @@ export default function UsersPage() {
           <div className="lg:hidden bg-card rounded-lg border divide-y divide-border">
             {usersLoading ? (
               <div className="text-center py-8">
-                <Loader2 className="w-6 h-6 animate-spin mx-auto text-gray-400" />
+                <RowsSkeleton rows={3} />
               </div>
             ) : users.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">No se encontraron usuarios</div>
+              <div className="text-center py-8 text-muted-foreground">No se encontraron usuarios</div>
             ) : (
               users.map((user) => (
                 <div key={user.id} className={`p-4 space-y-2 ${!user.isActive ? 'opacity-60' : ''}`}>
@@ -711,14 +712,14 @@ export default function UsersPage() {
                         {user.name || 'Sin nombre'}
                         {renderUserBadges(user)}
                       </p>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 truncate">{user.email}</p>
+                      <p className="text-sm text-muted-foreground truncate">{user.email}</p>
                     </div>
                     <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 shrink-0">
                       {user.roleRef?.name || user.role}
                     </Badge>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-500">{formatDate(user.createdAt)}</span>
+                    <span className="text-sm text-muted-foreground">{formatDate(user.createdAt)}</span>
                     {renderUserActions(user)}
                   </div>
                 </div>
@@ -742,12 +743,12 @@ export default function UsersPage() {
                 {usersLoading ? (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center py-8">
-                      <Loader2 className="w-6 h-6 animate-spin mx-auto text-gray-400" />
+                      <RowsSkeleton rows={3} />
                     </TableCell>
                   </TableRow>
                 ) : users.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8 text-gray-500">
+                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                       No se encontraron usuarios
                     </TableCell>
                   </TableRow>
@@ -758,7 +759,7 @@ export default function UsersPage() {
                         {user.name || 'Sin nombre'}
                         {renderUserBadges(user)}
                       </TableCell>
-                      <TableCell className="text-gray-600 dark:text-gray-400">
+                      <TableCell className="text-muted-foreground">
                         {user.email}
                       </TableCell>
                       <TableCell className="hidden md:table-cell">
@@ -766,7 +767,7 @@ export default function UsersPage() {
                           {user.roleRef?.name || user.role}
                         </Badge>
                       </TableCell>
-                      <TableCell className="hidden md:table-cell text-gray-500">
+                      <TableCell className="hidden md:table-cell text-muted-foreground">
                         {formatDate(user.createdAt)}
                       </TableCell>
                       <TableCell className="text-right">
@@ -782,7 +783,7 @@ export default function UsersPage() {
           {/* Pagination */}
           {totalPages > 1 && (
             <div className="flex items-center justify-between">
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-muted-foreground">
                 Mostrando {(currentPage - 1) * 15 + 1} a {Math.min(currentPage * 15, total)} de {total}
               </p>
               <div className="flex gap-2">
@@ -829,10 +830,10 @@ export default function UsersPage() {
           <div className="lg:hidden bg-card rounded-lg border divide-y divide-border">
             {rolesLoading ? (
               <div className="text-center py-8">
-                <Loader2 className="w-6 h-6 animate-spin mx-auto text-gray-400" />
+                <RowsSkeleton rows={3} />
               </div>
             ) : roles.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">No hay roles creados</div>
+              <div className="text-center py-8 text-muted-foreground">No hay roles creados</div>
             ) : (
               roles.map((role) => (
                 <div key={role.id} className="p-4 space-y-2">
@@ -886,7 +887,7 @@ export default function UsersPage() {
                       </Badge>
                     ))}
                   </div>
-                  <p className="text-sm text-gray-500">{role._count.users} usuario{role._count.users !== 1 ? 's' : ''}</p>
+                  <p className="text-sm text-muted-foreground">{role._count.users} usuario{role._count.users !== 1 ? 's' : ''}</p>
                 </div>
               ))
             )}
@@ -907,12 +908,12 @@ export default function UsersPage() {
                 {rolesLoading ? (
                   <TableRow>
                     <TableCell colSpan={4} className="text-center py-8">
-                      <Loader2 className="w-6 h-6 animate-spin mx-auto text-gray-400" />
+                      <RowsSkeleton rows={3} />
                     </TableCell>
                   </TableRow>
                 ) : roles.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center py-8 text-gray-500">
+                    <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
                       No hay roles creados
                     </TableCell>
                   </TableRow>
@@ -944,7 +945,7 @@ export default function UsersPage() {
                           ))}
                         </div>
                       </TableCell>
-                      <TableCell className="hidden md:table-cell text-gray-500">
+                      <TableCell className="hidden md:table-cell text-muted-foreground">
                         {role._count.users}
                       </TableCell>
                       <TableCell className="text-right">
@@ -1000,11 +1001,11 @@ export default function UsersPage() {
         <div className="lg:hidden bg-card rounded-lg border divide-y divide-border">
           {invitationsLoading ? (
             <div className="text-center py-8">
-              <Loader2 className="w-6 h-6 animate-spin mx-auto text-gray-400" />
+              <RowsSkeleton rows={3} />
             </div>
           ) : invitations.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              <Mail className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+            <div className="text-center py-8 text-muted-foreground">
+              <Mail className="w-8 h-8 mx-auto mb-2 text-muted-foreground/50" />
               No hay invitaciones enviadas
             </div>
           ) : (
@@ -1020,7 +1021,7 @@ export default function UsersPage() {
                 {inv.status === 'PENDING' && inv.blockedReason && (
                   <p className="text-xs text-red-600 dark:text-red-400">{inv.blockedReason}. Cancélala.</p>
                 )}
-                <div className="flex items-center justify-between text-sm text-gray-500">
+                <div className="flex items-center justify-between text-sm text-muted-foreground">
                   <span>Enviada: {formatDate(inv.createdAt)}</span>
                   <span>Expira: {formatDate(inv.expiresAt)}</span>
                 </div>
@@ -1047,13 +1048,13 @@ export default function UsersPage() {
               {invitationsLoading ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-8">
-                    <Loader2 className="w-6 h-6 animate-spin mx-auto text-gray-400" />
+                    <RowsSkeleton rows={3} />
                   </TableCell>
                 </TableRow>
               ) : invitations.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-gray-500">
-                    <Mail className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    <Mail className="w-8 h-8 mx-auto mb-2 text-muted-foreground/50" />
                     No hay invitaciones enviadas
                   </TableCell>
                 </TableRow>
@@ -1070,8 +1071,8 @@ export default function UsersPage() {
                       <Badge variant="secondary">{inv.role.name}</Badge>
                     </TableCell>
                     <TableCell>{renderInvitationStatus(inv)}</TableCell>
-                    <TableCell className="text-gray-500">{formatDate(inv.createdAt)}</TableCell>
-                    <TableCell className="text-gray-500">{formatDate(inv.expiresAt)}</TableCell>
+                    <TableCell className="text-muted-foreground">{formatDate(inv.createdAt)}</TableCell>
+                    <TableCell className="text-muted-foreground">{formatDate(inv.expiresAt)}</TableCell>
                     <TableCell className="text-right">{renderInvitationActions(inv)}</TableCell>
                   </TableRow>
                 ))
@@ -1347,7 +1348,7 @@ export default function UsersPage() {
                                 checked={hasPerm(mod, action)}
                                 onChange={() => togglePermission(mod, action)}
                                 disabled={isSubmitting}
-                                className="h-4 w-4 rounded border-gray-300 accent-blue-600 cursor-pointer"
+                                className="h-4 w-4 rounded border-border accent-blue-600 cursor-pointer"
                                 aria-label={`${MODULE_LABELS[mod]}: ${action === 'payments' ? PAYMENTS_LABEL[mod] : ACTION_LABELS[action]}`}
                                 title={action === 'payments' ? PAYMENTS_LABEL[mod] : undefined}
                               />

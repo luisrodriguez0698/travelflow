@@ -32,7 +32,7 @@ export function PaymentAlerts({
     <Card className="p-6">
       <div className="flex items-center space-x-2 mb-6">
         <AlertCircle className="w-5 h-5 text-orange-500" />
-        <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+        <h2 className="text-xl font-bold text-foreground">
           Alertas de Cobranza
         </h2>
       </div>
@@ -53,10 +53,10 @@ export function PaymentAlerts({
                 >
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
-                      <p className="font-medium text-gray-900 dark:text-white text-sm">
+                      <p className="font-medium text-foreground text-sm">
                         {payment?.booking?.client?.fullName}
                       </p>
-                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                      <p className="text-xs text-muted-foreground mt-1">
                         Venció: {format(new Date(payment?.dueDate), "d 'de' MMMM, yyyy", { locale: es })}
                       </p>
                     </div>
@@ -90,10 +90,10 @@ export function PaymentAlerts({
                 >
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
-                      <p className="font-medium text-gray-900 dark:text-white text-sm">
+                      <p className="font-medium text-foreground text-sm">
                         {payment?.booking?.client?.fullName}
                       </p>
-                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                      <p className="text-xs text-muted-foreground mt-1">
                         Vence: {format(new Date(payment?.dueDate), "d 'de' MMMM, yyyy", { locale: es })}
                       </p>
                     </div>
@@ -115,8 +115,8 @@ export function PaymentAlerts({
 
         {upcomingPayments?.length === 0 && overduePayments?.length === 0 && (
           <div className="text-center py-8">
-            <Clock className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-            <p className="text-gray-600 dark:text-gray-400">
+            <Clock className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+            <p className="text-muted-foreground">
               No hay pagos pendientes próximos
             </p>
           </div>

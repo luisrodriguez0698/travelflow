@@ -28,6 +28,7 @@ import Link from 'next/link';
 import { BookingItemsForm, BookingItemData } from '@/components/booking-items-form';
 import { useToast } from '@/hooks/use-toast';
 import { TemplateActions, applyTemplate, type AppliedTemplate } from '@/components/template-actions';
+import { PageSkeleton } from '@/components/skeletons';
 
 interface Client { id: string; fullName: string; phone: string | null; email?: string; }
 interface Season { id: string; name: string; color: string; }
@@ -211,9 +212,7 @@ export default function NewSalePage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-      </div>
+      <PageSkeleton variant="form" />
     );
   }
 
@@ -230,9 +229,9 @@ export default function NewSalePage() {
             <p className="text-xs text-muted-foreground">Completa la informacion y los servicios del paquete</p>
           </div>
         </div>
-        <div data-tour="form-actions" className="flex flex-wrap items-center justify-end gap-2">
+        <div data-tour="form-actions" className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center justify-end gap-2 w-full sm:w-auto">
           <TemplateActions items={bookingItems} totalPrice={formData.totalPrice} notes={formData.notes} onApply={handleApplyTemplate} />
-          <Button onClick={handleSave} disabled={saving} variant="gradient">
+          <Button onClick={handleSave} disabled={saving} variant="gradient" className="w-full sm:w-auto">
             {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
             Crear Venta
           </Button>
@@ -289,7 +288,7 @@ export default function NewSalePage() {
             </div>
 
             {/* Dates */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Fecha de Salida</Label>
                 <DatePicker

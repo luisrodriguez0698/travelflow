@@ -154,7 +154,7 @@ export function Sidebar() {
           'flex items-center space-x-3 px-3 py-2.5 rounded-lg',
           isActive
             ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-md'
-            : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800',
+            : 'text-foreground/80 hover:bg-accent',
           collapsed && !isMobile && 'justify-center px-2',
         )}
         title={collapsed && !isMobile ? item.title : undefined}
@@ -164,17 +164,6 @@ export function Sidebar() {
       </Link>
     );
   };
-
-  const MobileMenuButton = () => (
-    <Button
-      variant="ghost"
-      size="icon"
-      onClick={() => setMobileOpen(!mobileOpen)}
-      className="lg:hidden fixed top-3 left-3 z-50 bg-card shadow-md rounded-lg"
-    >
-      {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-    </Button>
-  );
 
   const SidebarContent = ({ isMobile = false }: { isMobile?: boolean }) => {
     const showExpanded = !collapsed || isMobile;
@@ -228,7 +217,7 @@ export function Sidebar() {
               if (!showExpanded) {
                 return (
                   <div key={group.label}>
-                    <div className="h-px bg-gray-200 dark:bg-gray-800 mx-1 my-1.5" />
+                    <div className="h-px bg-muted mx-1 my-1.5" />
                     <div className="space-y-0.5">
                       {group.items.map((item) => (
                         <NavItem key={item.href} item={item} isMobile={isMobile} />
@@ -244,14 +233,14 @@ export function Sidebar() {
                 <div key={group.label} data-tour={`nav-group-${group.label}`} className="mt-3 first:mt-0">
                   <button
                     onClick={() => toggleGroup(group.label!)}
-                    className="w-full flex items-center justify-between px-3 py-1.5 mb-0.5 rounded-md group/header hover:bg-gray-100 dark:hover:bg-gray-800/60"
+                    className="w-full flex items-center justify-between px-3 py-1.5 mb-0.5 rounded-md group/header hover:bg-accent"
                   >
-                    <span className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 group-hover/header:text-gray-700 dark:group-hover/header:text-gray-300">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground group-hover/header:text-gray-700 dark:group-hover/header:text-gray-300">
                       {group.label}
                     </span>
                     <ChevronDown
                       className={cn(
-                        'w-3.5 h-3.5 text-gray-400 dark:text-gray-500 group-hover/header:text-gray-600 dark:group-hover/header:text-gray-400',
+                        'w-3.5 h-3.5 text-muted-foreground group-hover/header:text-gray-600 dark:group-hover/header:text-gray-400',
                         !isOpen && '-rotate-90',
                       )}
                     />
@@ -275,7 +264,7 @@ export function Sidebar() {
 
   return (
     <>
-      <MobileMenuButton />
+      {/* El boton para abrir el menu en movil vive en la barra superior (Navbar) */}
 
       {/* Mobile overlay */}
       {mobileOpen && (
@@ -288,9 +277,11 @@ export function Sidebar() {
       {/* Mobile Sidebar */}
       <aside
         className={cn(
-          'fixed left-0 top-0 z-40 h-screen bg-card border-r border-border lg:hidden w-64',
+          // 100dvh: en iOS, h-screen queda detras de la barra de Safari
+          'fixed left-0 top-0 z-50 h-[100dvh] w-72 max-w-[85vw] bg-card border-r border-border lg:hidden shadow-2xl transition-transform duration-300 ease-out',
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
         )}
+        style={{ paddingTop: 'env(safe-area-inset-top, 0px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
       >
         <SidebarContent isMobile={true} />
       </aside>

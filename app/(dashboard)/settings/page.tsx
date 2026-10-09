@@ -31,6 +31,7 @@ import { InstallAppCard } from '@/components/install-app-card';
 import { PushNotificationsToggle } from '@/components/push-notifications-toggle';
 import { DangerZone } from '@/components/danger-zone';
 import { useCan } from '@/hooks/use-can';
+import { PageSkeleton } from '@/components/skeletons';
 
 interface AgencySettings {
   id: string;
@@ -257,9 +258,7 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-      </div>
+      <PageSkeleton variant="form" />
     );
   }
 
@@ -268,7 +267,7 @@ export default function SettingsPage() {
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold">Configuración</h1>
-        <p className="text-gray-600 dark:text-gray-400 mt-1">
+        <p className="text-muted-foreground mt-1">
           Configura los datos de tu agencia
         </p>
       </div>
@@ -286,7 +285,7 @@ export default function SettingsPage() {
             <Label>Logo de la Agencia</Label>
             <div className="flex items-start gap-4">
               {/* Logo Preview */}
-              <div className="w-32 h-32 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg flex items-center justify-center overflow-hidden bg-gray-50 dark:bg-gray-800">
+              <div className="w-32 h-32 border-2 border-dashed border-border rounded-lg flex items-center justify-center overflow-hidden bg-muted/50">
                 {formData.logo ? (
                   <div className="relative w-full h-full">
                     <Image
@@ -304,7 +303,7 @@ export default function SettingsPage() {
                     />
                   </div>
                 ) : (
-                  <ImageIcon className="w-10 h-10 text-gray-400" />
+                  <ImageIcon className="w-10 h-10 text-muted-foreground" />
                 )}
               </div>
 
@@ -346,7 +345,7 @@ export default function SettingsPage() {
                   </Button>
                 )}
                 {!formData.logo && (
-                  <p className="text-xs text-gray-500">PNG, JPG o SVG. Máximo 2MB.</p>
+                  <p className="text-xs text-muted-foreground">PNG, JPG o SVG. Máximo 2MB.</p>
                 )}
               </div>
             </div>
@@ -418,7 +417,7 @@ export default function SettingsPage() {
               placeholder="Escribe aquí las políticas de cancelación, condiciones de pago, términos del servicio, etc."
               rows={6}
             />
-            <p className="text-xs text-gray-500 dark:text-gray-400">
+            <p className="text-xs text-muted-foreground">
               Este texto aparecerá al final de los PDFs de ventas y cotizaciones.
             </p>
           </div>

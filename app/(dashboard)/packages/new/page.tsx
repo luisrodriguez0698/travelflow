@@ -56,7 +56,7 @@ export default function NewPackagePage() {
         </Link>
         <div>
           <h1 className="text-3xl font-bold">Nuevo Paquete</h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">
+          <p className="text-muted-foreground mt-1">
             Crea un nuevo paquete turístico
           </p>
         </div>

@@ -38,6 +38,8 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { useCan } from '@/hooks/use-can';
+import { PageSkeleton } from '@/components/skeletons';
+import { EmptyState } from '@/components/empty-state';
 
 interface Client {
   id: string;
@@ -318,9 +320,7 @@ export default function ClientsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-      </div>
+      <PageSkeleton variant="list" />
     );
   }
 
@@ -328,8 +328,8 @@ export default function ClientsPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Clientes</h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">Gestiona tu directorio de clientes</p>
+          <h1 className="text-3xl font-bold text-foreground">Clientes</h1>
+          <p className="text-muted-foreground mt-1">Gestiona tu directorio de clientes</p>
         </div>
         {can('clientes', 'create') && (<Button data-tour="page-action"
           onClick={openCreateModal}
@@ -343,7 +343,7 @@ export default function ClientsPage() {
       {/* Search */}
       <Card className="p-4">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
           <Input data-tour="page-filters"
             type="search"
             autoComplete="off"
@@ -358,7 +358,7 @@ export default function ClientsPage() {
       {/* Table */}
       <Card>
         {/* Mobile/tablet: stacked cards (no horizontal scroll) */}
-        <div data-tour="page-list" className="lg:hidden divide-y divide-gray-200 dark:divide-gray-800">
+        <div data-tour="page-list" className="lg:hidden divide-y divide-border">
           {paginatedClients.length > 0 ? (
             paginatedClients.map((client) => (
               <div key={client.id} className="p-4 space-y-2">
@@ -388,15 +388,7 @@ export default function ClientsPage() {
               </div>
             ))
           ) : (
-            <div className="text-center py-12">
-              <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500">No se encontraron clientes</p>
-              {searchTerm && (
-                <Button variant="link" onClick={() => setSearchTerm('')} className="mt-2">
-                  Limpiar búsqueda
-                </Button>
-              )}
-            </div>
+            <EmptyState icon={Users} title={searchTerm ? 'Sin resultados' : 'Aún no hay clientes'} description={searchTerm ? `No hay clientes que coincidan con "${searchTerm}".` : 'Da de alta a tus clientes para venderles, cotizarles y dar seguimiento a sus pagos.'} action={searchTerm ? <Button variant="outline" onClick={() => setSearchTerm('')}>Limpiar búsqueda</Button> : can('clientes', 'create') ? <Button variant="gradient" onClick={openCreateModal}><Plus className="w-4 h-4 mr-2" />Nuevo cliente</Button> : undefined} />
           )}
         </div>
 
@@ -455,19 +447,7 @@ export default function ClientsPage() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-12">
-                    <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-500">No se encontraron clientes</p>
-                    {searchTerm && (
-                      <Button
-                        variant="link"
-                        onClick={() => setSearchTerm('')}
-                        className="mt-2"
-                      >
-                        Limpiar búsqueda
-                      </Button>
-                    )}
-                  </TableCell>
+                  <TableCell colSpan={8}><EmptyState icon={Users} title={searchTerm ? 'Sin resultados' : 'Aún no hay clientes'} description={searchTerm ? `No hay clientes que coincidan con "${searchTerm}".` : 'Da de alta a tus clientes para venderles, cotizarles y dar seguimiento a sus pagos.'} action={searchTerm ? <Button variant="outline" onClick={() => setSearchTerm('')}>Limpiar búsqueda</Button> : can('clientes', 'create') ? <Button variant="gradient" onClick={openCreateModal}><Plus className="w-4 h-4 mr-2" />Nuevo cliente</Button> : undefined} /></TableCell>
                 </TableRow>
               )}
             </TableBody>
@@ -477,7 +457,7 @@ export default function ClientsPage() {
         {/* Pagination */}
         {totalPages > 1 && (
           <div className="flex items-center justify-between px-4 py-4 border-t">
-            <p className="text-sm text-gray-600 dark:text-gray-400">
+            <p className="text-sm text-muted-foreground">
               Mostrando {((currentPage - 1) * ITEMS_PER_PAGE) + 1} a{' '}
               {Math.min(currentPage * ITEMS_PER_PAGE, totalClients)} de{' '}
               {totalClients} clientes
@@ -502,7 +482,7 @@ export default function ClientsPage() {
                   .map((page, idx, arr) => (
                     <span key={page}>
                       {idx > 0 && arr[idx - 1] !== page - 1 && (
-                        <span className="px-2 text-gray-400">...</span>
+                        <span className="px-2 text-muted-foreground">...</span>
                       )}
                       <Button
                         variant={currentPage === page ? 'default' : 'outline'}

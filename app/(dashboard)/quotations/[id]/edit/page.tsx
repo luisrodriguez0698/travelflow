@@ -26,6 +26,7 @@ import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { BookingItemsForm, BookingItemData } from '@/components/booking-items-form';
 import { useToast } from '@/hooks/use-toast';
+import { PageSkeleton } from '@/components/skeletons';
 
 interface Client { id: string; fullName: string; phone: string | null; email?: string; }
 interface Season { id: string; name: string; color: string; }
@@ -223,9 +224,7 @@ export default function EditQuotationPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
-      </div>
+      <PageSkeleton variant="form" />
     );
   }
 

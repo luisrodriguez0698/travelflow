@@ -21,6 +21,7 @@ import { PermissionGate } from '@/components/permission-gate';
 import { TemplateItemsSummary, templateNetCost } from '@/components/template-actions';
 import type { PackageTemplateSummary } from '@/lib/package-template';
 import { CreatorHistoryButton } from '@/components/record-history';
+import { RowsSkeleton } from '@/components/skeletons';
 
 const formatCurrency = (n: number) =>
   new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n);
@@ -69,8 +70,8 @@ export default function TemplatesPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Plantillas</h1>
-          <p className="text-gray-600 dark:text-gray-400">
+          <h1 className="text-2xl font-bold text-foreground">Plantillas</h1>
+          <p className="text-muted-foreground">
             Paquetes armados para crear ventas y cotizaciones sin capturar todo de nuevo
           </p>
         </div>
@@ -83,13 +84,13 @@ export default function TemplatesPage() {
       </div>
 
       <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <Input data-tour="page-filters" placeholder="Buscar plantilla..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" />
       </div>
 
       {loading ? (
         <div className="flex justify-center py-12">
-          <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+          <RowsSkeleton rows={3} />
         </div>
       ) : templates.length === 0 ? (
         <Card className="p-10 text-center">

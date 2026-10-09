@@ -31,6 +31,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { CreatorHistoryButton } from '@/components/record-history';
 import { useCan } from '@/hooks/use-can';
+import { RowsSkeleton } from '@/components/skeletons';
 
 type ServiceType = 'FLIGHT' | 'TOUR' | 'TRANSFER';
 type Direction = 'IDA' | 'REGRESO' | 'IDA_Y_VUELTA';
@@ -223,7 +224,7 @@ export default function ServicesPage() {
       'px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5',
       activeType === type
         ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-        : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+        : 'border-transparent text-muted-foreground hover:text-foreground'
     );
 
   const isRoundTrip = form.direction === 'IDA_Y_VUELTA';
@@ -234,8 +235,8 @@ export default function ServicesPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Servicios</h1>
-          <p className="text-gray-600 dark:text-gray-400">
+          <h1 className="text-2xl font-bold text-foreground">Servicios</h1>
+          <p className="text-muted-foreground">
             Vuelos, tours y transportes listos para agregar a ventas y cotizaciones
           </p>
         </div>
@@ -246,7 +247,7 @@ export default function ServicesPage() {
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-gray-200 dark:border-gray-700">
+      <div className="border-b border-border">
         <nav data-tour="page-tabs" className="flex space-x-2 overflow-x-auto">
           {(Object.keys(TYPE_CONFIG) as ServiceType[]).map((type) => {
             const TabIcon = TYPE_CONFIG[type].icon;
@@ -262,7 +263,7 @@ export default function ServicesPage() {
 
       {/* Search */}
       <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <Input
           data-tour="page-filters"
           placeholder={`Buscar ${config.tab.toLowerCase()}...`}
@@ -275,7 +276,7 @@ export default function ServicesPage() {
       {/* List */}
       {loading ? (
         <div className="flex justify-center py-12">
-          <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+          <RowsSkeleton rows={3} />
         </div>
       ) : services.length === 0 ? (
         <Card className="p-10 text-center">

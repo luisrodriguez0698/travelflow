@@ -23,6 +23,8 @@ import { CreatorHistoryButton } from '@/components/record-history';
 import { Plus, Search, Pencil, Trash2, MapPin, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useCan } from '@/hooks/use-can';
+import { PageSkeleton } from '@/components/skeletons';
+import { EmptyState } from '@/components/empty-state';
 
 interface Season {
   id: string;
@@ -171,9 +173,7 @@ export default function DestinationsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-      </div>
+      <PageSkeleton variant="list" />
     );
   }
 
@@ -182,7 +182,7 @@ export default function DestinationsPage() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold">Destinos</h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">Gestiona tus destinos de viaje</p>
+          <p className="text-muted-foreground mt-1">Gestiona tus destinos de viaje</p>
         </div>
         {can('destinos', 'create') && (<Button data-tour="page-action" onClick={openCreate} variant="gradient">
           <Plus className="w-4 h-4 mr-2" />
@@ -192,7 +192,7 @@ export default function DestinationsPage() {
 
       <Card className="p-4">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
           <Input data-tour="page-filters"
             placeholder="Buscar destino..."
             value={search}
@@ -204,9 +204,9 @@ export default function DestinationsPage() {
 
       <Card>
         {/* Mobile/tablet: stacked cards (no horizontal scroll) */}
-        <div data-tour="page-list" className="lg:hidden divide-y divide-gray-200 dark:divide-gray-800">
+        <div data-tour="page-list" className="lg:hidden divide-y divide-border">
           {filtered.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">No hay destinos registrados</div>
+            <EmptyState icon={MapPin} title={search ? 'Sin resultados' : 'Aún no hay destinos'} description={search ? `No hay destinos que coincidan con "${search}".` : 'Crea tus destinos (Cancún, Europa...). Los hoteles y las ventas se organizan por destino.'} action={search ? <Button variant="outline" onClick={() => setSearch('')}>Limpiar búsqueda</Button> : can('destinos', 'create') ? <Button variant="gradient" onClick={openCreate}><Plus className="w-4 h-4 mr-2" />Nuevo destino</Button> : undefined} />
           ) : (
             filtered.map((dest) => (
               <div key={dest.id} className="p-4 space-y-2">
@@ -263,9 +263,7 @@ export default function DestinationsPage() {
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                  No hay destinos registrados
-                </TableCell>
+                <TableCell colSpan={6}><EmptyState icon={MapPin} title={search ? 'Sin resultados' : 'Aún no hay destinos'} description={search ? `No hay destinos que coincidan con "${search}".` : 'Crea tus destinos (Cancún, Europa...). Los hoteles y las ventas se organizan por destino.'} action={search ? <Button variant="outline" onClick={() => setSearch('')}>Limpiar búsqueda</Button> : can('destinos', 'create') ? <Button variant="gradient" onClick={openCreate}><Plus className="w-4 h-4 mr-2" />Nuevo destino</Button> : undefined} /></TableCell>
               </TableRow>
             ) : (
               filtered.map((dest) => (

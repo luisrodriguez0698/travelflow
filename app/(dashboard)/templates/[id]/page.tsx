@@ -12,6 +12,7 @@ import { ArrowLeft, Loader2, Save, LayoutTemplate } from 'lucide-react';
 import { toast } from 'sonner';
 import { BookingItemsForm, BookingItemData } from '@/components/booking-items-form';
 import { templateItemsToFormItems } from '@/lib/package-template';
+import { PageSkeleton } from '@/components/skeletons';
 
 interface Season { id: string; name: string; color: string; }
 interface Destination { id: string; name: string; description: string; season?: Season | null; }
@@ -84,9 +85,7 @@ export default function TemplateEditorPage({ params }: { params: { id: string } 
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-      </div>
+      <PageSkeleton variant="form" />
     );
   }
 

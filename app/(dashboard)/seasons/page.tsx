@@ -36,6 +36,8 @@ import {
 import { Plus, Calendar, Edit, Trash2, ChevronLeft, ChevronRight, Search, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useCan } from '@/hooks/use-can';
+import { PageSkeleton } from '@/components/skeletons';
+import { EmptyState } from '@/components/empty-state';
 
 interface Season {
   id: string;
@@ -239,7 +241,7 @@ export default function SeasonsPage() {
               type="button"
               className={`w-8 h-8 rounded-full border-2 transition-all ${
                 formData.color === color.value
-                  ? 'border-gray-900 dark:border-white scale-110'
+                  ? 'border-foreground scale-110'
                   : 'border-transparent hover:scale-105'
               }`}
               style={{ backgroundColor: color.value }}
@@ -254,9 +256,7 @@ export default function SeasonsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
+      <PageSkeleton variant="list" />
     );
   }
 
@@ -294,27 +294,11 @@ export default function SeasonsPage() {
 
         {/* Table */}
         {filteredSeasons.length === 0 ? (
-          <div className="text-center py-12">
-            <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">
-              {searchTerm ? 'No se encontraron temporadas' : 'No hay temporadas'}
-            </h3>
-            <p className="text-muted-foreground mb-4">
-              {searchTerm
-                ? 'Intenta con otro término de búsqueda'
-                : 'Crea tu primera temporada para organizar salidas'}
-            </p>
-            {!searchTerm && (
-              <Button onClick={openCreateModal}>
-                <Plus className="w-4 h-4 mr-2" />
-                Crear Temporada
-              </Button>
-            )}
-          </div>
+          <EmptyState icon={Calendar} title={searchTerm ? 'Sin resultados' : 'Aún no hay temporadas'} description={searchTerm ? `No hay temporadas que coincidan con "${searchTerm}".` : 'Crea temporadas como Semana Santa o Verano para organizar tus destinos y salidas.'} action={searchTerm ? <Button variant="outline" onClick={() => setSearchTerm('')}>Limpiar búsqueda</Button> : can('temporadas', 'create') ? <Button variant="gradient" onClick={openCreateModal}><Plus className="w-4 h-4 mr-2" />Nueva temporada</Button> : undefined} />
         ) : (
           <>
             {/* Mobile/tablet: stacked cards (no horizontal scroll) */}
-            <div data-tour="page-list" className="lg:hidden rounded-md border divide-y divide-gray-200 dark:divide-gray-800">
+            <div data-tour="page-list" className="lg:hidden rounded-md border divide-y divide-border">
               {paginatedSeasons.map((season) => (
                 <div key={season.id} className="p-4 space-y-2">
                   <div className="flex items-start justify-between gap-2">

@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
 import { ArrowLeft, Save, Loader2 } from 'lucide-react';
 import Link from 'next/link';
+import { PageSkeleton } from '@/components/skeletons';
 
 export default function EditPackagePage() {
   const router = useRouter();
@@ -52,7 +53,7 @@ export default function EditPackagePage() {
     }
   };
 
-  if (loading) return <div className="flex justify-center p-12"><Loader2 className="w-8 h-8 animate-spin" /></div>;
+  if (loading) return <PageSkeleton variant="detail" />;
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">

@@ -36,6 +36,8 @@ import { format, startOfMonth, endOfMonth, subMonths, startOfYear } from 'date-f
 import { es } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import { useCan } from '@/hooks/use-can';
+import { PageSkeleton } from '@/components/skeletons';
+import { EmptyState } from '@/components/empty-state';
 
 interface Client {
   id: string;
@@ -631,9 +633,7 @@ export default function SalesPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-      </div>
+      <PageSkeleton variant="list" />
     );
   }
 
@@ -643,7 +643,7 @@ export default function SalesPage() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold">Ventas</h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">Gestiona tus ventas y pagos</p>
+          <p className="text-muted-foreground mt-1">Gestiona tus ventas y pagos</p>
         </div>
         <div className="flex gap-2">
           <Link href="/sales/goals">
@@ -685,7 +685,7 @@ export default function SalesPage() {
           <div className="flex flex-wrap items-center gap-3">
             {/* Folio search */}
             <div className="relative w-44">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
               <Input data-tour="page-filters"
                 placeholder="Buscar folio..."
                 value={folioSearch}
@@ -739,13 +739,13 @@ export default function SalesPage() {
       {sales.length > 0 ? (
         <Card>
           {/* Mobile/tablet: stacked cards (no horizontal scroll) */}
-          <div data-tour="page-list" className="lg:hidden divide-y divide-gray-200 dark:divide-gray-800">
+          <div data-tour="page-list" className="lg:hidden divide-y divide-border">
             {paginatedSales.map((sale) => (
               <div key={sale.id} className="p-4 space-y-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
-                      <span className="font-mono text-xs text-gray-500 bg-gray-100 dark:bg-gray-800 dark:text-gray-400 px-1.5 py-0.5 rounded">
+                      <span className="font-mono text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
                         {sale.id.slice(-8).toUpperCase()}
                       </span>
                       <Badge variant={sale.paymentType === 'CASH' ? 'default' : 'secondary'}>
@@ -810,7 +810,7 @@ export default function SalesPage() {
               {paginatedSales.map((sale) => (
                 <TableRow key={sale.id}>
                   <TableCell>
-                    <span className="font-mono text-xs text-gray-500 bg-gray-100 dark:bg-gray-800 dark:text-gray-400 px-1.5 py-0.5 rounded">
+                    <span className="font-mono text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
                       {sale.id.slice(-8).toUpperCase()}
                     </span>
                   </TableCell>
@@ -821,14 +821,14 @@ export default function SalesPage() {
                   <TableCell>
                     {(() => {
                       const types = [...new Set((sale.items || []).map((i) => i.type))];
-                      if (types.length === 0) return <span className="text-sm text-gray-400">—</span>;
+                      if (types.length === 0) return <span className="text-sm text-muted-foreground">—</span>;
                       return (
                         <div className="flex items-center gap-1">
                           {types.map((t) => (
                             <TooltipProvider key={t}>
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
+                                  <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-muted text-muted-foreground">
                                     {t === 'HOTEL' && <Hotel className="w-3.5 h-3.5" />}
                                     {t === 'FLIGHT' && <Plane className="w-3.5 h-3.5" />}
                                     {t === 'TOUR' && <MapPin className="w-3.5 h-3.5" />}
@@ -880,7 +880,7 @@ export default function SalesPage() {
           </div>
           {totalPages > 1 && (
             <div className="flex justify-between items-center p-4 border-t">
-              <p className="text-sm text-gray-600 dark:text-gray-400">
+              <p className="text-sm text-muted-foreground">
                 Mostrando {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, sales.length)} de {sales.length}
               </p>
               <div className="flex gap-2">
@@ -891,12 +891,7 @@ export default function SalesPage() {
           )}
         </Card>
       ) : (
-        <Card className="p-12 text-center">
-          <ShoppingCart className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold mb-2">No hay ventas registradas</h3>
-          <p className="text-gray-600 dark:text-gray-400 mb-6">Comienza registrando tu primera venta</p>
-          <Link href="/sales/new"><Button><Plus className="w-4 h-4 mr-2" />Nueva Venta</Button></Link>
-        </Card>
+        <Card><EmptyState icon={ShoppingCart} title="Aún no hay ventas" description="Registra tu primera venta: elige al cliente, agrega los servicios y define la forma de pago." action={can('ventas', 'create') ? <Link href="/sales/new"><Button variant="gradient"><Plus className="w-4 h-4 mr-2" />Nueva venta</Button></Link> : undefined} /></Card>
       )}
 
       {/* ===== CREATE/EDIT SALE MODAL ===== */}
@@ -1082,7 +1077,7 @@ export default function SalesPage() {
 
             {/* ── Servicios (Items) ── */}
             <div className="border-t pt-4 mt-2">
-              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-foreground/80 mb-3 flex items-center gap-2">
                 <Plane className="w-4 h-4" />
                 Servicios del Paquete
               </h3>
@@ -1303,7 +1298,7 @@ export default function SalesPage() {
 
             {/* Passengers */}
             <div className="border-t pt-4 mt-2">
-              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-foreground/80 mb-3 flex items-center gap-2">
                 <UserPlus className="w-4 h-4" />
                 Pasajeros
               </h3>
@@ -1390,7 +1385,7 @@ export default function SalesPage() {
 
             {/* Supplier */}
             <div className="border-t pt-4 mt-2">
-              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Proveedor (opcional)</h3>
+              <h3 className="text-sm font-semibold text-foreground/80 mb-3">Proveedor (opcional)</h3>
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label>Proveedor</Label>

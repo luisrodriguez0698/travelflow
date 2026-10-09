@@ -44,6 +44,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
+import { PageSkeleton } from '@/components/skeletons';
 import {
   BarChart,
   Bar,
@@ -428,9 +429,7 @@ export default function SalesGoalsPage() {
       </Card>
 
       {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-        </div>
+        <PageSkeleton variant="list" />
       ) : viewMode === 'monthly' ? (
         <MonthlyView
           userCards={userCards}
@@ -520,7 +519,7 @@ function MonthlyView({
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Meta Total</p>
-                <p className="text-3xl font-bold text-gray-700 dark:text-gray-300">
+                <p className="text-3xl font-bold text-foreground/80">
                   {formatCurrency(globalSummary.totalGoal)}
                 </p>
               </div>
@@ -539,7 +538,7 @@ function MonthlyView({
                 {globalSummary.progress.toFixed(1)}%
               </span>
             </div>
-            <div className="h-4 bg-white/50 dark:bg-gray-800/50 rounded-full overflow-hidden">
+            <div className="h-4 bg-background/60 rounded-full overflow-hidden">
               <div
                 className={`h-full rounded-full transition-all duration-500 ${
                   globalSummary.progress >= 100
@@ -623,7 +622,7 @@ function MonthlyView({
         ) : (
           <>
             {/* Mobile/tablet: stacked cards (no horizontal scroll) */}
-            <div className="lg:hidden divide-y divide-gray-200 dark:divide-gray-800">
+            <div className="lg:hidden divide-y divide-border">
               {paginatedSales.map((sale) => {
                 const folio = sale.id.slice(-8).toUpperCase();
                 const saleDate = new Date(sale.saleDate);
@@ -746,7 +745,7 @@ function MonthlyView({
                               </Tooltip>
                             </TooltipProvider>
                           ) : (
-                            <span className="text-sm text-gray-400">—</span>
+                            <span className="text-sm text-muted-foreground">—</span>
                           )}
                         </TableCell>
                         <TableCell className="text-right text-sm font-medium">
@@ -996,7 +995,7 @@ function AnnualView({
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Meta Anual Acumulada</p>
-                <p className="text-3xl font-bold text-gray-700 dark:text-gray-300">
+                <p className="text-3xl font-bold text-foreground/80">
                   {formatCurrency(totals.totalGoal)}
                 </p>
               </div>
@@ -1013,7 +1012,7 @@ function AnnualView({
                 {totals.progress.toFixed(1)}%
               </span>
             </div>
-            <div className="h-4 bg-white/50 dark:bg-gray-800/50 rounded-full overflow-hidden">
+            <div className="h-4 bg-background/60 rounded-full overflow-hidden">
               <div
                 className={`h-full rounded-full transition-all duration-500 ${
                   totals.progress >= 100
@@ -1073,7 +1072,7 @@ function AnnualView({
         <h3 className="text-sm font-semibold mb-4">Desglose Mensual</h3>
 
         {/* Mobile/tablet: stacked cards (no horizontal scroll) */}
-        <div className="lg:hidden divide-y divide-gray-200 dark:divide-gray-800">
+        <div className="lg:hidden divide-y divide-border">
           {lineData.map((row, i) => {
             const diff = row.Ventas - row.Meta;
             const pct = row.Meta > 0 ? (row.Ventas / row.Meta) * 100 : 0;

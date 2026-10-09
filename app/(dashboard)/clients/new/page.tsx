@@ -62,10 +62,10 @@ export default function NewClientPage() {
           </Button>
         </Link>
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+          <h1 className="text-3xl font-bold text-foreground">
             Nuevo Cliente
           </h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">
+          <p className="text-muted-foreground mt-1">
             Agrega un nuevo cliente a tu directorio
           </p>
         </div>

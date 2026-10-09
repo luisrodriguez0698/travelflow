@@ -51,7 +51,7 @@ export function BottomNav() {
               href={item.href}
               className={cn(
                 'flex flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-medium',
-                active ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400',
+                active ? 'text-blue-600 dark:text-blue-400' : 'text-muted-foreground',
               )}
             >
               <item.icon className="w-5 h-5" />
@@ -61,7 +61,7 @@ export function BottomNav() {
         })}
         <button
           onClick={() => setMobileOpen(true)}
-          className="flex flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-medium text-gray-500 dark:text-gray-400"
+          className="flex flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-medium text-muted-foreground"
         >
           <Menu className="w-5 h-5" />
           <span>Más</span>

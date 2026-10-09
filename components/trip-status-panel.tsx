@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { RowsSkeleton } from '@/components/skeletons';
 import {
   Sheet,
   SheetContent,
@@ -96,7 +97,7 @@ export function TripStatusPanel() {
           )}
         </Button>
       </SheetTrigger>
-      <SheetContent side="right" className="w-[440px] sm:w-[500px] p-0">
+      <SheetContent side="right" className="w-full sm:w-[500px] sm:max-w-[500px] p-0" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
         <SheetHeader className="p-4 pb-3 border-b">
           <SheetTitle className="flex items-center gap-2">
             <Plane className="w-5 h-5 text-blue-500" />
@@ -144,9 +145,7 @@ export function TripStatusPanel() {
         {/* Content */}
         <div className="overflow-y-auto h-[calc(100vh-140px)]">
           {loading ? (
-            <div className="flex items-center justify-center py-20">
-              <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
-            </div>
+            <RowsSkeleton rows={5} className="px-4 py-4" />
           ) : activeTab === 'active' ? (
             <>
               {/* In Transit Section */}

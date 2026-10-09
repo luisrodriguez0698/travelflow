@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { History, Plus, Pencil, Trash2, Loader2, ArrowRight, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { actionTitle, fieldLabel, formatAuditValue } from '@/lib/audit-labels';
+import { RowsSkeleton } from '@/components/skeletons';
 
 export interface AuditEntry {
   id: string;
@@ -185,7 +186,7 @@ export function RecordHistorySheet({
 
         {loading ? (
           <div className="flex justify-center py-12">
-            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+            <RowsSkeleton rows={3} />
           </div>
         ) : error ? (
           <p className="text-sm text-red-500 text-center py-8">{error}</p>

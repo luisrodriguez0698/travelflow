@@ -49,28 +49,30 @@ export function MetricsCards({ metrics }: MetricsCardsProps) {
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+    <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4">
       {cards.map((card, index) => (
         <motion.div
           key={card.title}
+          // 5 tarjetas en 2 columnas: la ultima ocupa la fila completa en movil
+          className={index === cards.length - 1 ? 'col-span-2 lg:col-span-1' : undefined}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: index * 0.1 }}
         >
-          <Card className="p-6 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200">
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+          <Card className="h-full p-3.5 sm:p-6 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200">
+            <div className="flex flex-col-reverse sm:flex-row items-start justify-between gap-2">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs sm:text-sm text-muted-foreground mb-1 sm:mb-2 leading-tight">
                   {card.title}
                 </p>
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
+                <h3 className="text-lg sm:text-2xl font-bold text-foreground truncate">
                   {card.value}
                 </h3>
               </div>
               <div
-                className={`w-12 h-12 rounded-xl bg-gradient-to-br ${card.color} flex items-center justify-center shadow-md`}
+                className={`w-9 h-9 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br ${card.color} flex items-center justify-center shadow-md shrink-0`}
               >
-                <card.icon className="w-6 h-6 text-white" />
+                <card.icon className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
               </div>
             </div>
           </Card>

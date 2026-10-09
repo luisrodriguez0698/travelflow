@@ -17,7 +17,9 @@ export const metadata: Metadata = {
   },
   appleWebApp: {
     capable: true,
-    statusBarStyle: 'black-translucent',
+    // 'default': hora y bateria en negro sobre fondo claro. Con 'black-translucent'
+    // quedaban en blanco sobre la barra blanca de la app (ilegibles).
+    statusBarStyle: 'default',
     title: 'TravelFlow',
   },
   openGraph: {
@@ -28,7 +30,11 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: '#1E88E5',
+  // Color de la barra del sistema (Android / app instalada) = color de la barra superior
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#0f172a' },
+  ],
   viewportFit: 'cover',
 };
 

@@ -82,7 +82,7 @@ function PasswordField({ value, onChange }: { value: string; onChange: (v: strin
       />
       <button
         type="button"
-        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
         onClick={() => setShow(!show)}
         tabIndex={-1}
         aria-label={show ? 'Ocultar contraseña' : 'Mostrar contraseña'}

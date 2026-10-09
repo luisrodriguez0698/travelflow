@@ -25,12 +25,14 @@ export default async function DashboardLayout({
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 relative">
+      {/* Fondo de pagina: gris muy claro / el tono mas oscuro del tema (las tarjetas resaltan encima) */}
+      <div className="min-h-screen bg-muted/50 dark:bg-background relative">
         <div className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(59,130,246,0.08),transparent)] dark:bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(59,130,246,0.15),transparent)]" />
         <Sidebar />
         <DashboardContent>
           <Navbar />
-          <main className="p-4 lg:p-6 pt-16 lg:pt-6 pb-24 lg:pb-6">{children}</main>
+          {/* pb: barra inferior (64px) + zona del gesto de inicio del iPhone */}
+          <main className="px-3 py-4 sm:p-4 lg:p-6 pb-[calc(5.5rem+env(safe-area-inset-bottom))] lg:pb-6">{children}</main>
         </DashboardContent>
         <BottomNav />
       </div>

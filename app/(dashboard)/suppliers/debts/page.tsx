@@ -66,6 +66,7 @@ import { es } from 'date-fns/locale';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { useCan } from '@/hooks/use-can';
+import { PageSkeleton, RowsSkeleton } from '@/components/skeletons';
 
 // ─── Types ───────────────────────────────────────────────
 
@@ -134,7 +135,7 @@ const SERVICE_COLORS: Record<string, string> = {
   TRANSPORTE: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
   TOUR: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300',
   RESTAURANTE: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300',
-  OTRO: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300',
+  OTRO: 'bg-muted text-foreground',
 };
 
 const SERVICE_LABELS: Record<string, string> = {
@@ -149,7 +150,7 @@ const TRAFFIC_LIGHT_STYLES: Record<string, { bg: string; label: string }> = {
   green: { bg: 'bg-emerald-500', label: 'Al día' },
   yellow: { bg: 'bg-yellow-500', label: 'Por vencer' },
   red: { bg: 'bg-red-500', label: 'Vencido' },
-  gray: { bg: 'bg-gray-400', label: 'Sin plazo' },
+  gray: { bg: 'bg-muted-foreground/60', label: 'Sin plazo' },
 };
 
 // ─── Component ───────────────────────────────────────────
@@ -345,9 +346,7 @@ export default function SupplierDebtsPage() {
 
   if (loading && !selectedSupplier) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-      </div>
+      <PageSkeleton variant="list" />
     );
   }
 
@@ -381,7 +380,7 @@ export default function SupplierDebtsPage() {
 
         {detailLoading ? (
           <div className="flex items-center justify-center h-32">
-            <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
+            <RowsSkeleton rows={3} />
           </div>
         ) : (
           <>
@@ -421,7 +420,7 @@ export default function SupplierDebtsPage() {
             {/* Sales Table */}
             <Card>
               {/* Mobile/tablet: stacked cards (no horizontal scroll) */}
-              <div className="lg:hidden divide-y divide-gray-200 dark:divide-gray-800">
+              <div className="lg:hidden divide-y divide-border">
                 {sales.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     No hay ventas con deuda para este proveedor
@@ -850,8 +849,8 @@ export default function SupplierDebtsPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Deudas a Proveedores</h1>
-        <p className="text-gray-600 dark:text-gray-400 mt-1">
+        <h1 className="text-3xl font-bold text-foreground">Deudas a Proveedores</h1>
+        <p className="text-muted-foreground mt-1">
           Control de pagos pendientes a proveedores por venta
         </p>
       </div>
@@ -892,11 +891,11 @@ export default function SupplierDebtsPage() {
       {/* Suppliers Table */}
       <Card>
         {/* Mobile/tablet: stacked cards (no horizontal scroll) */}
-        <div className="lg:hidden divide-y divide-gray-200 dark:divide-gray-800">
+        <div className="lg:hidden divide-y divide-border">
           {suppliers.length === 0 ? (
             <div className="text-center py-12">
-              <Truck className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500">No hay proveedores con deudas pendientes</p>
+              <Truck className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground">No hay proveedores con deudas pendientes</p>
             </div>
           ) : (
             suppliers.map((supplier) => (
@@ -961,8 +960,8 @@ export default function SupplierDebtsPage() {
             {suppliers.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={8} className="text-center py-12">
-                  <Truck className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-500">No hay proveedores con deudas pendientes</p>
+                  <Truck className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground">No hay proveedores con deudas pendientes</p>
                 </TableCell>
               </TableRow>
             ) : (

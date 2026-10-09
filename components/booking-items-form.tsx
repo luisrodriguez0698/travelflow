@@ -644,8 +644,8 @@ function ItemCard({
     FLIGHT: 'text-cyan-500',
     TOUR: 'text-amber-500',
     TRANSFER: 'text-emerald-500',
-    OTHER: 'text-gray-500',
-  }[item.type] ?? 'text-gray-500';
+    OTHER: 'text-muted-foreground',
+  }[item.type] ?? 'text-muted-foreground';
 
   const directionLabel = item.direction === 'IDA' ? 'Ida' : item.direction === 'REGRESO' ? 'Regreso' : 'Ida y Vuelta';
 
@@ -1167,7 +1167,7 @@ function HotelForm({
               )}
               {p.name}
             </span>
-            <span className={`text-xs px-2 py-0.5 rounded-full ${p.type === 'ADULT' ? 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300' : 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400'}`}>
+            <span className={`text-xs px-2 py-0.5 rounded-full ${p.type === 'ADULT' ? 'bg-muted text-muted-foreground' : 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400'}`}>
               {p.type === 'ADULT' ? 'Adulto' : `Menor${p.age ? ` (${p.age} años)` : ''}`}
             </span>
             <button

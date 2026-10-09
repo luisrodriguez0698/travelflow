@@ -36,6 +36,8 @@ import { format, isPast, differenceInDays, startOfMonth, endOfMonth, subMonths, 
 import { es } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import { useCan } from '@/hooks/use-can';
+import { PageSkeleton } from '@/components/skeletons';
+import { EmptyState } from '@/components/empty-state';
 
 interface Client { id: string; fullName: string; phone: string | null; email?: string; }
 interface Season { id: string; name: string; color: string; }
@@ -603,7 +605,7 @@ export default function QuotationsPage() {
   const formatDateStr = (date: string) => format(new Date(date), "d 'de' MMM, yyyy", { locale: es });
 
   const getExpirationBadge = (expirationDate?: string) => {
-    if (!expirationDate) return <span className="text-sm text-gray-400">Sin fecha</span>;
+    if (!expirationDate) return <span className="text-sm text-muted-foreground">Sin fecha</span>;
     const expDate = new Date(expirationDate);
     const expired = isPast(expDate);
     const daysLeft = differenceInDays(expDate, new Date());
@@ -615,9 +617,7 @@ export default function QuotationsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-      </div>
+      <PageSkeleton variant="list" />
     );
   }
 
@@ -627,7 +627,7 @@ export default function QuotationsPage() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold">Cotizaciones</h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">Gestiona tus cotizaciones y borradores</p>
+          <p className="text-muted-foreground mt-1">Gestiona tus cotizaciones y borradores</p>
         </div>
         {can('cotizaciones', 'create') && (<Link href="/quotations/new">
           <Button data-tour="page-action" className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600">
@@ -652,7 +652,7 @@ export default function QuotationsPage() {
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <div className="relative w-44">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
               <Input data-tour="page-filters" placeholder="Buscar folio..." value={folioSearch} onChange={(e) => setFolioSearch(e.target.value)} className="pl-10 h-9" />
             </div>
             <Popover open={filterClientOpen} onOpenChange={setFilterClientOpen}>
@@ -741,13 +741,13 @@ export default function QuotationsPage() {
       {quotations.length > 0 ? (
         <Card>
           {/* Mobile/tablet: stacked cards (no horizontal scroll) */}
-          <div data-tour="page-list" className="lg:hidden divide-y divide-gray-200 dark:divide-gray-800">
+          <div data-tour="page-list" className="lg:hidden divide-y divide-border">
             {paginatedQuotations.map((q) => (
               <div key={q.id} className="p-4 space-y-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
-                      <span className="font-mono text-xs text-gray-500 bg-gray-100 dark:bg-gray-800 dark:text-gray-400 px-1.5 py-0.5 rounded">
+                      <span className="font-mono text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
                         {q.id.slice(-8).toUpperCase()}
                       </span>
                       <Badge variant={q.paymentType === 'CASH' ? 'default' : 'secondary'}>
@@ -816,7 +816,7 @@ export default function QuotationsPage() {
               {paginatedQuotations.map((q) => (
                 <TableRow key={q.id}>
                   <TableCell>
-                    <span className="font-mono text-xs text-gray-500 bg-gray-100 dark:bg-gray-800 dark:text-gray-400 px-1.5 py-0.5 rounded">
+                    <span className="font-mono text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
                       {q.id.slice(-8).toUpperCase()}
                     </span>
                   </TableCell>
@@ -868,7 +868,7 @@ export default function QuotationsPage() {
           </div>
           {totalPages > 1 && (
             <div className="flex justify-between items-center p-4 border-t">
-              <p className="text-sm text-gray-600 dark:text-gray-400">
+              <p className="text-sm text-muted-foreground">
                 Mostrando {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, quotations.length)} de {quotations.length}
               </p>
               <div className="flex gap-2">
@@ -879,12 +879,7 @@ export default function QuotationsPage() {
           )}
         </Card>
       ) : (
-        <Card className="p-12 text-center">
-          <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold mb-2">No hay cotizaciones registradas</h3>
-          <p className="text-gray-600 dark:text-gray-400 mb-6">Comienza creando tu primera cotización</p>
-          <Link href="/quotations/new"><Button><Plus className="w-4 h-4 mr-2" />Nueva Cotización</Button></Link>
-        </Card>
+        <Card><EmptyState icon={FileText} title="Aún no hay cotizaciones" description="Arma una propuesta para tu cliente, descárgala en PDF y conviértela en venta cuando acepte." action={can('cotizaciones', 'create') ? <Link href="/quotations/new"><Button variant="gradient"><Plus className="w-4 h-4 mr-2" />Nueva cotización</Button></Link> : undefined} /></Card>
       )}
 
       {/* ===== CREATE/EDIT QUOTATION MODAL ===== */}
@@ -1041,7 +1036,7 @@ export default function QuotationsPage() {
 
             {/* ── Servicios (Items) ── */}
             <div className="border-t pt-4 mt-2">
-              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-foreground/80 mb-3 flex items-center gap-2">
                 <Plane className="w-4 h-4" />
                 Servicios del Paquete
               </h3>
@@ -1235,7 +1230,7 @@ export default function QuotationsPage() {
 
             {/* Passengers */}
             <div className="border-t pt-4 mt-2">
-              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-foreground/80 mb-3 flex items-center gap-2">
                 <UserPlus className="w-4 h-4" />
                 Pasajeros
               </h3>
@@ -1331,7 +1326,7 @@ export default function QuotationsPage() {
 
             {/* Supplier */}
             <div className="border-t pt-4 mt-2">
-              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Proveedor (opcional)</h3>
+              <h3 className="text-sm font-semibold text-foreground/80 mb-3">Proveedor (opcional)</h3>
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label>Proveedor</Label>
