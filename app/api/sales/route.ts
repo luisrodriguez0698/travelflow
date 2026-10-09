@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireTenantId, getSessionUser } from '@/lib/get-tenant';
+import { requireAccess, accessErrorResponse } from '@/lib/access';
+import { getSessionUser } from '@/lib/get-tenant';
 import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
-    const tenantId = await requireTenantId();
+    const access = await requireAccess('ventas');
+    const tenantId = access.tenantId;
     const { searchParams } = new URL(request.url);
 
     const dateFrom = searchParams.get('dateFrom');
@@ -16,7 +18,7 @@ export async function GET(request: NextRequest) {
     const supplierId = searchParams.get('supplierId');
     const folio = searchParams.get('folio');
 
-    const where: any = { tenantId, type: 'SALE' };
+    const where: any = { ...access.bookingScope, type: 'SALE' };
 
     if (dateFrom || dateTo) {
       where.createdAt = {};
@@ -73,6 +75,8 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(bookingsWithCreator);
   } catch (error) {
+    const accessError = accessErrorResponse(error);
+    if (accessError) return accessError;
     console.error('Error fetching sales:', error);
     return NextResponse.json({ error: 'Error fetching sales' }, { status: 500 });
   }
@@ -80,7 +84,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const tenantId = await requireTenantId();
+    const access = await requireAccess('ventas');
+    const tenantId = access.tenantId;
     const body = await request.json();
 
     // Calculate net cost - from items if provided, otherwise from legacy fields
@@ -283,6 +288,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
+    const accessError = accessErrorResponse(error);
+    if (accessError) return accessError;
     console.error('Error creating sale:', error);
     return NextResponse.json({ error: 'Error creating sale' }, { status: 500 });
   }

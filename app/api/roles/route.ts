@@ -31,6 +31,7 @@ export async function POST(request: NextRequest) {
     const tenantId = await requirePermission('usuarios');
     const body = await request.json();
     const { name, permissions } = body;
+    const ownDataOnly = body.ownDataOnly === true;
 
     if (!name || !permissions || !Array.isArray(permissions)) {
       return NextResponse.json(
@@ -52,7 +53,7 @@ export async function POST(request: NextRequest) {
     }
 
     const role = await prisma.role.create({
-      data: { tenantId, name, permissions },
+      data: { tenantId, name, permissions, ownDataOnly },
       include: { _count: { select: { users: { where: { deletedAt: null } }, invitations: true } } },
     });
 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireTenantId } from '@/lib/get-tenant';
+import { requireAccess, accessErrorResponse } from '@/lib/access';
 import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
@@ -9,11 +9,12 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const tenantId = await requireTenantId();
+    const access = await requireAccess('ventas');
+    const tenantId = access.tenantId;
     const { id } = await params;
     
     const booking = await prisma.booking.findFirst({
-      where: { id, tenantId, type: 'SALE' },
+      where: { id, ...access.bookingScope, type: 'SALE' },
       include: {
         client: true,
         destination: {
@@ -36,6 +37,8 @@ export async function GET(
 
     return NextResponse.json(booking);
   } catch (error) {
+    const accessError = accessErrorResponse(error);
+    if (accessError) return accessError;
     console.error('Error fetching sale:', error);
     return NextResponse.json({ error: 'Error fetching sale' }, { status: 500 });
   }
@@ -46,13 +49,14 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    const tenantId = await requireTenantId();
+    const access = await requireAccess('ventas');
+    const tenantId = access.tenantId;
     const { id } = await params;
     const body = await request.json();
 
     // Verify ownership
     const existing = await prisma.booking.findFirst({
-      where: { id, tenantId, type: 'SALE' },
+      where: { id, ...access.bookingScope, type: 'SALE' },
     });
 
     if (!existing) {
@@ -271,6 +275,8 @@ export async function PUT(
 
     return NextResponse.json(result);
   } catch (error) {
+    const accessError = accessErrorResponse(error);
+    if (accessError) return accessError;
     console.error('Error updating sale:', error);
     return NextResponse.json({ error: 'Error updating sale' }, { status: 500 });
   }
@@ -281,12 +287,13 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    const tenantId = await requireTenantId();
+    const access = await requireAccess('ventas');
+    const tenantId = access.tenantId;
     const { id } = await params;
     const body = await request.json();
 
     const booking = await prisma.booking.findFirst({
-      where: { id, tenantId, type: 'SALE' },
+      where: { id, ...access.bookingScope, type: 'SALE' },
     });
 
     if (!booking) {
@@ -311,6 +318,8 @@ export async function PATCH(
 
     return NextResponse.json(updated);
   } catch (error) {
+    const accessError = accessErrorResponse(error);
+    if (accessError) return accessError;
     console.error('Error updating booking:', error);
     return NextResponse.json({ error: 'Error al actualizar la venta' }, { status: 500 });
   }
@@ -321,12 +330,13 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const tenantId = await requireTenantId();
+    const access = await requireAccess('ventas');
+    const tenantId = access.tenantId;
     const { id } = await params;
 
     // Verify ownership
     const existing = await prisma.booking.findFirst({
-      where: { id, tenantId, type: 'SALE' },
+      where: { id, ...access.bookingScope, type: 'SALE' },
     });
 
     if (!existing) {
@@ -345,6 +355,8 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    const accessError = accessErrorResponse(error);
+    if (accessError) return accessError;
     console.error('Error deleting sale:', error);
     return NextResponse.json({ error: 'Error deleting sale' }, { status: 500 });
   }

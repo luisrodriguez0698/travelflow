@@ -57,6 +57,7 @@ export const authOptions: NextAuthOptions = {
 
         // Get permissions from role, fallback to all for legacy ADMIN users
         const permissions = resolvePermissions(user);
+        const ownDataOnly = user.roleRef?.ownDataOnly ?? false;
 
         return {
           id: user.id,
@@ -66,6 +67,7 @@ export const authOptions: NextAuthOptions = {
           tenantName: user.tenant.name,
           role: user.role,
           permissions,
+          ownDataOnly,
         };
       },
     }),
@@ -78,6 +80,7 @@ export const authOptions: NextAuthOptions = {
         token.tenantName = (user as any).tenantName;
         token.role = (user as any).role;
         token.permissions = (user as any).permissions;
+        token.ownDataOnly = (user as any).ownDataOnly;
       } else if (token.id) {
         // Re-read permissions from the DB on every session check so role edits
         // take effect immediately instead of only after the next login.
@@ -98,6 +101,7 @@ export const authOptions: NextAuthOptions = {
           token.email = dbUser.email;
           token.role = dbUser.role;
           token.permissions = resolvePermissions(dbUser);
+          token.ownDataOnly = dbUser.roleRef?.ownDataOnly ?? false;
         }
       }
       return token;
@@ -110,6 +114,7 @@ export const authOptions: NextAuthOptions = {
         (session.user as any).role = token.role;
         (session.user as any).permissions = token.permissions;
         (session.user as any).disabled = token.disabled ?? false;
+        (session.user as any).ownDataOnly = token.ownDataOnly ?? false;
       }
       return session;
     },

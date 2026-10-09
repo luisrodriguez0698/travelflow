@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse, NextFetchEvent } from 'next/server';
 import { withAuth } from 'next-auth/middleware';
+import { getToken } from 'next-auth/jwt';
+import { moduleForPath, firstAllowedPath } from '@/lib/permissions';
 
 // ─── Dominio principal del SaaS ─────────────────────────────────────────────
 // Configura NEXT_PUBLIC_APP_HOSTNAME en Railway con el hostname real,
@@ -87,6 +89,22 @@ export async function middleware(req: NextRequest, event: NextFetchEvent) {
   // Las rutas /landings/* son públicas (ya se llegó aquí sólo si es el dominio principal)
   if (pathname.startsWith('/landings') || isPublicPath(pathname)) {
     return NextResponse.next();
+  }
+
+  // ── 4. Permiso por pagina: sin el modulo del rol, redirige a una pagina permitida.
+  // (Las APIs validan por su cuenta y responden 403; aqui solo paginas.)
+  if (!pathname.startsWith('/api/')) {
+    const requiredModule = moduleForPath(pathname);
+    if (requiredModule) {
+      const token = await getToken({ req });
+      const permissions = token?.permissions as string[] | undefined;
+      if (Array.isArray(permissions) && !permissions.includes(requiredModule)) {
+        const url = req.nextUrl.clone();
+        url.pathname = firstAllowedPath(permissions);
+        url.search = '';
+        return NextResponse.redirect(url);
+      }
+    }
   }
 
   return authMiddleware(req as Parameters<typeof authMiddleware>[0], event);

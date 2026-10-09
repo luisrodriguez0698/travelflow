@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireTenantId } from '@/lib/get-tenant';
+import { requireAccess, accessErrorResponse } from '@/lib/access';
 import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
-    const tenantId = await requireTenantId();
+    const access = await requireAccess('proveedores');
+    const tenantId = access.tenantId;
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1', 10);
     const limit = parseInt(searchParams.get('limit') || '20', 10);
@@ -20,7 +21,7 @@ export async function GET(request: NextRequest) {
     // Get all bookings with their items and payments
     const bookings = await prisma.booking.findMany({
       where: {
-        tenantId,
+        ...access.bookingScope,
         type: 'SALE',
         status: { in: ['ACTIVE', 'COMPLETED'] },
         OR: [
@@ -128,6 +129,8 @@ export async function GET(request: NextRequest) {
       pagination: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) },
     });
   } catch (error) {
+    const accessError = accessErrorResponse(error);
+    if (accessError) return accessError;
     console.error('Error fetching supplier debts summary:', error);
     return NextResponse.json({ error: 'Error al cargar resumen de deudas' }, { status: 500 });
   }

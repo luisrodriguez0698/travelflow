@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAccess, accessErrorResponse } from '@/lib/access';
 import { requirePermission, getSessionUser } from '@/lib/get-tenant';
 import { prisma } from '@/lib/prisma';
 
@@ -6,7 +7,8 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
-    const tenantId = await requirePermission('destinos');
+    const access = await requireAccess(['destinos', 'ventas', 'cotizaciones']);
+    const tenantId = access.tenantId;
     const { searchParams } = new URL(request.url);
     const all = searchParams.get('all') === 'true';
     const destinationId = searchParams.get('destinationId');
@@ -61,6 +63,8 @@ export async function GET(request: NextRequest) {
       pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     });
   } catch (error) {
+    const accessError = accessErrorResponse(error);
+    if (accessError) return accessError;
     console.error('Error fetching hotels:', error);
     return NextResponse.json({ error: 'Error al cargar hoteles' }, { status: 500 });
   }
@@ -113,6 +117,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(hotel, { status: 201 });
   } catch (error) {
+    const accessError = accessErrorResponse(error);
+    if (accessError) return accessError;
     console.error('Error creating hotel:', error);
     return NextResponse.json({ error: 'Error al crear hotel' }, { status: 500 });
   }

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAccess, accessErrorResponse } from '@/lib/access';
 import { requirePermission, getSessionUser } from '@/lib/get-tenant';
 import { prisma } from '@/lib/prisma';
 
@@ -6,7 +7,8 @@ export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const tenantId = await requirePermission('temporadas');
+    const access = await requireAccess(['temporadas', 'ventas', 'cotizaciones']);
+    const tenantId = access.tenantId;
     const seasons = await prisma.season.findMany({
       where: { tenantId },
       include: {
@@ -32,6 +34,8 @@ export async function GET() {
       creatorName: s.createdBy ? creatorMap[s.createdBy] || null : null,
     })));
   } catch (error) {
+    const accessError = accessErrorResponse(error);
+    if (accessError) return accessError;
     console.error('Error fetching seasons:', error);
     return NextResponse.json({ error: 'Error al obtener temporadas' }, { status: 500 });
   }
@@ -56,6 +60,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(season, { status: 201 });
   } catch (error) {
+    const accessError = accessErrorResponse(error);
+    if (accessError) return accessError;
     console.error('Error creating season:', error);
     return NextResponse.json({ error: 'Error al crear temporada' }, { status: 500 });
   }

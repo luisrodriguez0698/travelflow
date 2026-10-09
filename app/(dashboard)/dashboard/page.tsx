@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { requireTenantId } from '@/lib/get-tenant';
+import { requireAccess } from '@/lib/access';
 import { MetricsCards } from '@/components/dashboard/metrics-cards';
 import { PaymentAlerts } from '@/components/dashboard/payment-alerts';
 import { RecentSales } from '@/components/dashboard/recent-sales';
@@ -30,7 +30,8 @@ function lastMonths(now: Date, count: number) {
 }
 
 export default async function DashboardPage() {
-  const tenantId = await requireTenantId();
+  // Con "solo lo mio" los indicadores muestran solo las ventas/clientes del usuario
+  const access = await requireAccess('dashboard');
 
   // Get current month metrics
   const now = new Date();
@@ -47,7 +48,7 @@ export default async function DashboardPage() {
       // Ventas de los ultimos 12 meses (grafica + tarjetas del mes)
       prisma.booking.findMany({
         where: {
-          tenantId,
+          ...access.bookingScope,
           type: 'SALE',
           status: { not: 'CANCELLED' },
           saleDate: { gte: chartFrom },
@@ -57,13 +58,13 @@ export default async function DashboardPage() {
 
       // Active clients
       prisma.client.count({
-        where: { tenantId },
+        where: access.clientScope,
       }),
 
       // Upcoming payments (next 7 days)
       prisma.paymentPlan.findMany({
         where: {
-          booking: { tenantId },
+          booking: access.bookingScope,
           status: 'PENDING',
           dueDate: {
             gte: now,
@@ -85,7 +86,7 @@ export default async function DashboardPage() {
       // Overdue payments
       prisma.paymentPlan.findMany({
         where: {
-          booking: { tenantId },
+          booking: access.bookingScope,
           status: 'PENDING',
           dueDate: {
             lt: now,
@@ -105,7 +106,7 @@ export default async function DashboardPage() {
 
       // Recent sales (las cotizaciones no: el enlace va a /sales/[id])
       prisma.booking.findMany({
-        where: { tenantId, type: 'SALE' },
+        where: { ...access.bookingScope, type: 'SALE' },
         include: {
           client: true,
           destination: true,

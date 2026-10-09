@@ -638,6 +638,8 @@ model Role {
   name        String
   permissions Json     // ["dashboard","clientes","ventas","bancos",...]
   isDefault   Boolean  @default(false)
+  // true = sus usuarios solo ven las ventas, cotizaciones y clientes que ellos crearon
+  ownDataOnly Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireTenantId } from '@/lib/get-tenant';
+import { requireAccess, accessErrorResponse } from '@/lib/access';
 import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
@@ -9,7 +9,8 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const tenantId = await requireTenantId();
+    const access = await requireAccess(['proveedores', 'ventas', 'cotizaciones']);
+    const tenantId = access.tenantId;
     const { id } = await params;
 
     const supplier = await prisma.supplier.findFirst({
@@ -22,6 +23,8 @@ export async function GET(
 
     return NextResponse.json(supplier);
   } catch (error) {
+    const accessError = accessErrorResponse(error);
+    if (accessError) return accessError;
     console.error('Error fetching supplier:', error);
     return NextResponse.json({ error: 'Error al cargar proveedor' }, { status: 500 });
   }
@@ -32,7 +35,8 @@ async function updateSupplier(
   { params }: { params: { id: string } }
 ) {
   try {
-    const tenantId = await requireTenantId();
+    const access = await requireAccess('proveedores');
+    const tenantId = access.tenantId;
     const { id } = await params;
     const body = await request.json();
 
@@ -61,6 +65,8 @@ async function updateSupplier(
 
     return NextResponse.json({ message: 'Proveedor actualizado' });
   } catch (error) {
+    const accessError = accessErrorResponse(error);
+    if (accessError) return accessError;
     console.error('Error updating supplier:', error);
     return NextResponse.json({ error: 'Error al actualizar proveedor' }, { status: 500 });
   }
@@ -85,7 +91,8 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const tenantId = await requireTenantId();
+    const access = await requireAccess('proveedores');
+    const tenantId = access.tenantId;
     const { id } = await params;
 
     const hasBookings = await prisma.booking.findFirst({
@@ -109,6 +116,8 @@ export async function DELETE(
 
     return NextResponse.json({ message: 'Proveedor eliminado' });
   } catch (error) {
+    const accessError = accessErrorResponse(error);
+    if (accessError) return accessError;
     console.error('Error deleting supplier:', error);
     return NextResponse.json({ error: 'Error al eliminar proveedor' }, { status: 500 });
   }

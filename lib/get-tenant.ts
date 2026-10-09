@@ -22,6 +22,7 @@ export async function getSessionUser(): Promise<{
   name: string;
   role: string;
   permissions: string[];
+  ownDataOnly: boolean;
 } | null> {
   const session = await getServerSession(authOptions);
   const user = session?.user as any;
@@ -33,6 +34,7 @@ export async function getSessionUser(): Promise<{
     name: user.name || user.email || '',
     role: user.role,
     permissions: user.permissions ?? (user.role === 'ADMIN' ? [...ALL_MODULES] : []),
+    ownDataOnly: user.ownDataOnly === true,
   };
 }
 

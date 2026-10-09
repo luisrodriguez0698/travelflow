@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireTenantId } from '@/lib/get-tenant';
+import { requireAccess, accessErrorResponse } from '@/lib/access';
 import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
-    const tenantId = await requireTenantId();
+    const access = await requireAccess('ventas');
+    const tenantId = access.tenantId;
 
     const users = await prisma.user.findMany({
       where: { tenantId, deletedAt: null, isActive: true },
@@ -16,6 +17,8 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(users);
   } catch (error) {
+    const accessError = accessErrorResponse(error);
+    if (accessError) return accessError;
     console.error('Error fetching users:', error);
     return NextResponse.json({ error: 'Error fetching users' }, { status: 500 });
   }

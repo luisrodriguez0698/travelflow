@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireTenantId, getSessionUser } from '@/lib/get-tenant';
+import { requireAccess, accessErrorResponse } from '@/lib/access';
+import { getSessionUser } from '@/lib/get-tenant';
 import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
-    const tenantId = await requireTenantId();
+    const access = await requireAccess(['proveedores', 'ventas', 'cotizaciones']);
+    const tenantId = access.tenantId;
     const { searchParams } = new URL(request.url);
     const all = searchParams.get('all') === 'true';
     const page = parseInt(searchParams.get('page') || '1', 10);
@@ -70,6 +72,8 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
+    const accessError = accessErrorResponse(error);
+    if (accessError) return accessError;
     console.error('Error fetching suppliers:', error);
     return NextResponse.json({ error: 'Error al cargar proveedores' }, { status: 500 });
   }
@@ -77,7 +81,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const tenantId = await requireTenantId();
+    const access = await requireAccess('proveedores');
+    const tenantId = access.tenantId;
     const body = await request.json();
 
     const { name, phone, email, serviceType } = body;
@@ -104,6 +109,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(supplier, { status: 201 });
   } catch (error) {
+    const accessError = accessErrorResponse(error);
+    if (accessError) return accessError;
     console.error('Error creating supplier:', error);
     return NextResponse.json({ error: 'Error al crear proveedor' }, { status: 500 });
   }

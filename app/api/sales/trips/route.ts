@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireTenantId } from '@/lib/get-tenant';
+import { getAccess } from '@/lib/access';
 import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
-    const tenantId = await requireTenantId();
+    // Panel de la barra superior (visible para todos): sin permiso de ventas, lista vacia
+    const access = await getAccess('ventas');
+    if (!access) return NextResponse.json([]);
     const now = new Date();
 
     // 15 days in the past and future window
@@ -17,7 +19,7 @@ export async function GET(request: NextRequest) {
 
     const bookings = await prisma.booking.findMany({
       where: {
-        tenantId,
+        ...access.bookingScope,
         type: 'SALE',
         status: { not: 'CANCELLED' },
         departureDate: { not: null },

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireTenantId } from '@/lib/get-tenant';
+import { requireAccess, accessErrorResponse } from '@/lib/access';
+import { hasPermission } from '@/lib/get-tenant';
 import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
@@ -9,14 +10,17 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    const tenantId = await requireTenantId();
+    const access = await requireAccess('cotizaciones');
+    const tenantId = access.tenantId;
+    // Convertir crea una venta: tambien exige el permiso de ventas
+    if (!(await hasPermission('ventas'))) throw new Error('Forbidden');
     const { id } = await params;
 
     const body = await request.json().catch(() => ({}));
     const bankAccountId = body.bankAccountId || null;
 
     const booking = await prisma.booking.findFirst({
-      where: { id, tenantId, type: 'QUOTATION' },
+      where: { id, ...access.bookingScope, type: 'QUOTATION' },
       include: { client: true, destination: true },
     });
 
@@ -115,6 +119,8 @@ export async function POST(
 
     return NextResponse.json({ success: true, id });
   } catch (error) {
+    const accessError = accessErrorResponse(error);
+    if (accessError) return accessError;
     console.error('Error converting quotation:', error);
     return NextResponse.json({ error: 'Error al convertir la cotización' }, { status: 500 });
   }

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAccess, accessErrorResponse } from '@/lib/access';
 import { requirePermission, getSessionUser } from '@/lib/get-tenant';
 import { prisma } from '@/lib/prisma';
 
@@ -6,7 +7,8 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
-    const tenantId = await requirePermission('destinos');
+    const access = await requireAccess(['destinos', 'ventas', 'cotizaciones']);
+    const tenantId = access.tenantId;
     const { searchParams } = new URL(request.url);
     // page/limit are opt-in: other consumers (dropdowns) rely on getting the full array
     const pageParam = searchParams.get('page');
@@ -59,6 +61,8 @@ export async function GET(request: NextRequest) {
       pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     });
   } catch (error) {
+    const accessError = accessErrorResponse(error);
+    if (accessError) return accessError;
     console.error('Error fetching destinations:', error);
     return NextResponse.json({ error: 'Error fetching destinations' }, { status: 500 });
   }
@@ -88,6 +92,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(destination, { status: 201 });
   } catch (error) {
+    const accessError = accessErrorResponse(error);
+    if (accessError) return accessError;
     console.error('Error creating destination:', error);
     return NextResponse.json({ error: 'Error creating destination' }, { status: 500 });
   }

@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requirePermission, getSessionUser } from '@/lib/get-tenant';
+import { requireAccess, accessErrorResponse } from '@/lib/access';
+import { getSessionUser } from '@/lib/get-tenant';
 import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
-    const tenantId = await requirePermission('clientes');
+    const access = await requireAccess(['clientes', 'ventas', 'cotizaciones']);
+    const tenantId = access.tenantId;
     const { searchParams } = new URL(request.url);
     const all = searchParams.get('all') === 'true';
     const page = parseInt(searchParams.get('page') || '1', 10);
@@ -15,7 +17,7 @@ export async function GET(request: NextRequest) {
     const skip = (page - 1) * limit;
 
     const where = {
-      tenantId,
+      ...access.clientScope,
       ...(search
         ? {
             OR: [
@@ -30,7 +32,7 @@ export async function GET(request: NextRequest) {
     // Return all clients without pagination (for dropdowns)
     if (all) {
       const clients = await prisma.client.findMany({
-        where: { tenantId },
+        where: { ...access.clientScope },
         orderBy: { fullName: 'asc' },
         select: { id: true, fullName: true, phone: true, email: true },
       });
@@ -70,6 +72,8 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
+    const accessError = accessErrorResponse(error);
+    if (accessError) return accessError;
     console.error('Error fetching clients:', error);
     return NextResponse.json({ error: 'Error al cargar clientes' }, { status: 500 });
   }
@@ -77,7 +81,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const tenantId = await requirePermission('clientes');
+    const access = await requireAccess(['clientes', 'ventas', 'cotizaciones']);
+    const tenantId = access.tenantId;
     const body = await request.json();
 
     const { fullName, ine, passport, curp, phone, email, birthDate } = body;
@@ -108,6 +113,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(client, { status: 201 });
   } catch (error) {
+    const accessError = accessErrorResponse(error);
+    if (accessError) return accessError;
     console.error('Error creating client:', error);
     return NextResponse.json({ error: 'Error al crear cliente' }, { status: 500 });
   }

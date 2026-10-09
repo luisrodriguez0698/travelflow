@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import {
   Table,
   TableBody,
@@ -55,6 +56,7 @@ import {
   UserCheck,
   Crown,
   Lock,
+  EyeOff,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { sendInvite, type PendingInvite } from '@/lib/actions/send-invite';
@@ -83,6 +85,7 @@ interface Role {
   name: string;
   permissions: string[];
   isDefault: boolean;
+  ownDataOnly?: boolean;
   _count: { users: number; invitations: number };
 }
 
@@ -93,7 +96,11 @@ interface Invitation {
   expiresAt: string;
   createdAt: string;
   role: { name: string };
+  /** El correo ya tiene cuenta: la invitacion no podra aceptarse */
+  blockedReason?: string | null;
 }
+
+const RESEND_COOLDOWN_HOURS = 24;
 
 type TabType = 'users' | 'roles' | 'invitations';
 
@@ -134,13 +141,14 @@ export default function UsersPage() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [editUserForm, setEditUserForm] = useState({ name: '', phone: '', roleId: '' });
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
-  const [roleFormData, setRoleFormData] = useState({ name: '', permissions: [] as string[] });
+  const [roleFormData, setRoleFormData] = useState({ name: '', permissions: [] as string[], ownDataOnly: false });
   const [deleteRoleTarget, setDeleteRoleTarget] = useState<Role | null>(null);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [resendingId, setResendingId] = useState<string | null>(null);
   // Invitacion pendiente detectada al invitar: se ofrece reenviarla
   const [pendingInvite, setPendingInvite] = useState<PendingInvite | null>(null);
+  const [cancelInviteTarget, setCancelInviteTarget] = useState<Invitation | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
 
   // Fetch users
@@ -267,6 +275,84 @@ export default function UsersPage() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // Cancelar invitacion
+  const handleCancelInvite = async () => {
+    if (!cancelInviteTarget) return;
+    setIsSubmitting(true);
+    try {
+      const res = await fetch(`/api/invitations?id=${cancelInviteTarget.id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      toast.success('Invitación cancelada');
+      setCancelInviteTarget(null);
+      fetchInvitations();
+    } catch (err: any) {
+      toast.error(err.message || 'Error al cancelar la invitación');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // expiresAt = ultimo envio + 7 dias -> horas que faltan para poder reenviar
+  const hoursUntilResend = (inv: Invitation) => {
+    const lastSentAt = new Date(inv.expiresAt).getTime() - 7 * 24 * 60 * 60 * 1000;
+    return Math.max(0, Math.ceil(RESEND_COOLDOWN_HOURS - (Date.now() - lastSentAt) / (1000 * 60 * 60)));
+  };
+
+  const renderInvitationStatus = (inv: Invitation) => {
+    if (inv.status === 'PENDING' && inv.blockedReason) {
+      return (
+        <Badge className="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" title={inv.blockedReason}>
+          No se puede aceptar
+        </Badge>
+      );
+    }
+    const styles: Record<string, string> = {
+      PENDING: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
+      ACCEPTED: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+      EXPIRED: 'bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
+    };
+    const labels: Record<string, string> = { PENDING: 'Pendiente', ACCEPTED: 'Aceptada', EXPIRED: 'Expirada' };
+    return (
+      <Badge className={styles[inv.status] || styles.EXPIRED}>
+        {inv.status === 'PENDING' && <Clock className="w-3 h-3 mr-1 inline" />}
+        {labels[inv.status] || inv.status}
+      </Badge>
+    );
+  };
+
+  const renderInvitationActions = (inv: Invitation) => {
+    if (inv.status === 'ACCEPTED') return null;
+    const wait = hoursUntilResend(inv);
+    const canResend = inv.status === 'PENDING' && !inv.blockedReason;
+    return (
+      <div className="flex justify-end items-center gap-1">
+        {canResend && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/30"
+            disabled={resendingId === inv.id || wait > 0}
+            title={wait > 0 ? `Podrás reenviarla en ${wait} h` : 'Reenviar invitación'}
+            onClick={() => handleResendInvite(inv.id)}
+          >
+            {resendingId === inv.id ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <RefreshCw className="w-3 h-3 mr-1" />}
+            {wait > 0 ? `Reenviar en ${wait} h` : 'Reenviar'}
+          </Button>
+        )}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 text-red-500 hover:text-red-700"
+          title="Cancelar invitación"
+          onClick={() => setCancelInviteTarget(inv)}
+        >
+          <Trash2 className="w-4 h-4" />
+        </Button>
+      </div>
+    );
   };
 
   // Resend invitation
@@ -441,7 +527,7 @@ export default function UsersPage() {
       toast.success(selectedRole ? 'Rol actualizado' : 'Rol creado');
       setIsRoleModalOpen(false);
       setSelectedRole(null);
-      setRoleFormData({ name: '', permissions: [] });
+      setRoleFormData({ name: '', permissions: [], ownDataOnly: false });
       fetchRoles();
       fetchUsers();
     } catch (err: any) {
@@ -672,7 +758,7 @@ export default function UsersPage() {
             <Button
               onClick={() => {
                 setSelectedRole(null);
-                setRoleFormData({ name: '', permissions: [] });
+                setRoleFormData({ name: '', permissions: [], ownDataOnly: false });
                 setIsRoleModalOpen(true);
               }}
               variant="gradient"
@@ -697,6 +783,7 @@ export default function UsersPage() {
                     <p className="font-medium">
                       {role.name}
                       {role.isDefault && <Badge variant="outline" className="ml-2 text-xs">Default</Badge>}
+                      {role.ownDataOnly && <Badge variant="outline" className="ml-2 text-xs">Solo lo suyo</Badge>}
                       {isProtectedRole(role) && (
                         <Badge variant="outline" className="ml-2 text-xs">
                           <Lock className="w-3 h-3 mr-1" />
@@ -713,7 +800,7 @@ export default function UsersPage() {
                         size="icon"
                         onClick={() => {
                           setSelectedRole(role);
-                          setRoleFormData({ name: role.name, permissions: role.permissions as string[] });
+                          setRoleFormData({ name: role.name, permissions: role.permissions as string[], ownDataOnly: !!role.ownDataOnly });
                           setIsRoleModalOpen(true);
                         }}
                       >
@@ -779,6 +866,9 @@ export default function UsersPage() {
                         {role.isDefault && (
                           <Badge variant="outline" className="ml-2 text-xs">Default</Badge>
                         )}
+                        {role.ownDataOnly && (
+                          <Badge variant="outline" className="ml-2 text-xs">Solo lo suyo</Badge>
+                        )}
                         {isProtectedRole(role) && (
                           <Badge variant="outline" className="ml-2 text-xs">
                             <Lock className="w-3 h-3 mr-1" />
@@ -811,6 +901,7 @@ export default function UsersPage() {
                               setRoleFormData({
                                 name: role.name,
                                 permissions: role.permissions as string[],
+                                ownDataOnly: !!role.ownDataOnly,
                               });
                               setIsRoleModalOpen(true);
                             }}
@@ -858,53 +949,25 @@ export default function UsersPage() {
               No hay invitaciones enviadas
             </div>
           ) : (
-            invitations.map((inv) => {
-              const lastSentAt = new Date(new Date(inv.expiresAt).getTime() - 7 * 24 * 60 * 60 * 1000);
-              const hoursSinceSent = (Date.now() - lastSentAt.getTime()) / (1000 * 60 * 60);
-              const canResend = inv.status === 'PENDING' && hoursSinceSent >= 24;
-              return (
-                <div key={inv.id} className="p-4 space-y-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="font-medium truncate">{inv.email}</p>
-                      <Badge variant="secondary" className="mt-1">{inv.role.name}</Badge>
-                    </div>
-                    <Badge
-                      className={
-                        inv.status === 'PENDING'
-                          ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
-                          : inv.status === 'ACCEPTED'
-                            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                            : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
-                      }
-                    >
-                      {inv.status === 'PENDING' && <Clock className="w-3 h-3 mr-1 inline" />}
-                      {inv.status === 'PENDING' ? 'Pendiente' : inv.status === 'ACCEPTED' ? 'Aceptada' : 'Expirada'}
-                    </Badge>
+            invitations.map((inv) => (
+              <div key={inv.id} className="p-4 space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-medium truncate">{inv.email}</p>
+                    <Badge variant="secondary" className="mt-1">{inv.role.name}</Badge>
                   </div>
-                  <div className="flex items-center justify-between text-sm text-gray-500">
-                    <span>Enviada: {formatDate(inv.createdAt)}</span>
-                    <span>Expira: {formatDate(inv.expiresAt)}</span>
-                  </div>
-                  {canResend && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="w-full h-8 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/30"
-                      disabled={resendingId === inv.id}
-                      onClick={() => handleResendInvite(inv.id)}
-                    >
-                      {resendingId === inv.id ? (
-                        <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                      ) : (
-                        <RefreshCw className="w-3 h-3 mr-1" />
-                      )}
-                      Reenviar
-                    </Button>
-                  )}
+                  {renderInvitationStatus(inv)}
                 </div>
-              );
-            })
+                {inv.status === 'PENDING' && inv.blockedReason && (
+                  <p className="text-xs text-red-600 dark:text-red-400">{inv.blockedReason}. Cancélala.</p>
+                )}
+                <div className="flex items-center justify-between text-sm text-gray-500">
+                  <span>Enviada: {formatDate(inv.createdAt)}</span>
+                  <span>Expira: {formatDate(inv.expiresAt)}</span>
+                </div>
+                {renderInvitationActions(inv)}
+              </div>
+            ))
           )}
         </div>
 
@@ -936,69 +999,53 @@ export default function UsersPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                invitations.map((inv) => {
-                  // expiresAt = lastSentAt + 7 days → lastSentAt = expiresAt - 7 days
-                  const lastSentAt = new Date(new Date(inv.expiresAt).getTime() - 7 * 24 * 60 * 60 * 1000);
-                  const hoursSinceSent = (Date.now() - lastSentAt.getTime()) / (1000 * 60 * 60);
-                  const canResend = inv.status === 'PENDING' && hoursSinceSent >= 24;
-
-                  return (
+                invitations.map((inv) => (
                   <TableRow key={inv.id}>
-                    <TableCell className="font-medium">{inv.email}</TableCell>
+                    <TableCell className="font-medium">
+                      {inv.email}
+                      {inv.status === 'PENDING' && inv.blockedReason && (
+                        <p className="text-xs font-normal text-red-600 dark:text-red-400 mt-0.5">{inv.blockedReason}</p>
+                      )}
+                    </TableCell>
                     <TableCell>
                       <Badge variant="secondary">{inv.role.name}</Badge>
                     </TableCell>
-                    <TableCell>
-                      <Badge
-                        className={
-                          inv.status === 'PENDING'
-                            ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
-                            : inv.status === 'ACCEPTED'
-                              ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                              : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
-                        }
-                      >
-                        {inv.status === 'PENDING' && <Clock className="w-3 h-3 mr-1 inline" />}
-                        {inv.status === 'PENDING'
-                          ? 'Pendiente'
-                          : inv.status === 'ACCEPTED'
-                            ? 'Aceptada'
-                            : 'Expirada'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell text-gray-500">
-                      {formatDate(inv.createdAt)}
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell text-gray-500">
-                      {formatDate(inv.expiresAt)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {canResend && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/30"
-                          disabled={resendingId === inv.id}
-                          onClick={() => handleResendInvite(inv.id)}
-                        >
-                          {resendingId === inv.id ? (
-                            <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                          ) : (
-                            <RefreshCw className="w-3 h-3 mr-1" />
-                          )}
-                          Reenviar
-                        </Button>
-                      )}
-                    </TableCell>
+                    <TableCell>{renderInvitationStatus(inv)}</TableCell>
+                    <TableCell className="text-gray-500">{formatDate(inv.createdAt)}</TableCell>
+                    <TableCell className="text-gray-500">{formatDate(inv.expiresAt)}</TableCell>
+                    <TableCell className="text-right">{renderInvitationActions(inv)}</TableCell>
                   </TableRow>
-                  );
-                })
+                ))
               )}
             </TableBody>
           </Table>
         </div>
         </>
       )}
+
+      {/* Dialog: cancelar invitacion */}
+      <AlertDialog open={!!cancelInviteTarget} onOpenChange={(open) => { if (!open && !isSubmitting) setCancelInviteTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancelar invitación</AlertDialogTitle>
+            <AlertDialogDescription>
+              ¿Cancelar la invitación a <strong>{cancelInviteTarget?.email}</strong>? El enlace del correo dejará de
+              funcionar. Podrás invitarlo de nuevo cuando quieras.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isSubmitting}>Volver</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleCancelInvite(); }}
+              disabled={isSubmitting}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {isSubmitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Cancelar invitación
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Modal: Invite User */}
       <Dialog open={isInviteModalOpen} onOpenChange={setIsInviteModalOpen}>
@@ -1220,6 +1267,23 @@ export default function UsersPage() {
                   </label>
                 ))}
               </div>
+            </div>
+            <div className="flex items-start justify-between gap-4 rounded-lg border p-3 bg-muted/30">
+              <div className="space-y-0.5">
+                <Label className="text-sm font-medium flex items-center gap-1.5">
+                  <EyeOff className="w-4 h-4 text-blue-500" />
+                  Solo ve sus propios registros
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Sus usuarios solo verán las ventas y cotizaciones que ellos crearon, y los clientes que dieron de alta o a
+                  los que les vendieron. Los catálogos (hoteles, destinos, etc.) se ven completos.
+                </p>
+              </div>
+              <Switch
+                checked={roleFormData.ownDataOnly}
+                onCheckedChange={(v) => setRoleFormData((p) => ({ ...p, ownDataOnly: v }))}
+                disabled={isSubmitting}
+              />
             </div>
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" onClick={() => setIsRoleModalOpen(false)} disabled={isSubmitting}>

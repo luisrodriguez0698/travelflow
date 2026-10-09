@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireTenantId } from '@/lib/get-tenant';
+import { requireAccess, accessErrorResponse } from '@/lib/access';
 import { prisma } from '@/lib/prisma';
 import { getFileUrl } from '@/lib/s3';
 import { format } from 'date-fns';
@@ -16,11 +16,12 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const tenantId = await requireTenantId();
+    const access = await requireAccess('cotizaciones');
+    const tenantId = access.tenantId;
     const { id: bookingId } = await params;
 
     const booking = await prisma.booking.findFirst({
-      where: { id: bookingId, tenantId, type: 'QUOTATION' },
+      where: { id: bookingId, ...access.bookingScope, type: 'QUOTATION' },
       include: {
         client: true,
         destination: { include: { season: true } },
@@ -552,6 +553,8 @@ export async function GET(
 
     return NextResponse.json({ error: 'Tiempo de espera agotado' }, { status: 500 });
   } catch (error) {
+    const accessError = accessErrorResponse(error);
+    if (accessError) return accessError;
     console.error('Error generating quotation receipt:', error);
     return NextResponse.json({ error: 'Error al generar la cotización' }, { status: 500 });
   }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requirePermission } from '@/lib/get-tenant';
+import { requireAccess, accessErrorResponse } from '@/lib/access';
 import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
@@ -9,13 +9,14 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const tenantId = await requirePermission('clientes');
+    const access = await requireAccess(['clientes', 'ventas', 'cotizaciones']);
+    const tenantId = access.tenantId;
     const clientId = params?.id;
 
     const client = await prisma.client.findFirst({
       where: {
         id: clientId,
-        tenantId,
+        ...access.clientScope,
       },
     });
 
@@ -25,6 +26,8 @@ export async function GET(
 
     return NextResponse.json(client);
   } catch (error) {
+    const accessError = accessErrorResponse(error);
+    if (accessError) return accessError;
     console.error('Error fetching client:', error);
     return NextResponse.json({ error: 'Error al cargar cliente' }, { status: 500 });
   }
@@ -35,7 +38,8 @@ async function updateClient(
   { params }: { params: { id: string } }
 ) {
   try {
-    const tenantId = await requirePermission('clientes');
+    const access = await requireAccess(['clientes', 'ventas', 'cotizaciones']);
+    const tenantId = access.tenantId;
     const clientId = params?.id;
     const body = await request.json();
 
@@ -51,7 +55,7 @@ async function updateClient(
     const client = await prisma.client.updateMany({
       where: {
         id: clientId,
-        tenantId,
+        ...access.clientScope,
       },
       data: {
         fullName,
@@ -71,6 +75,8 @@ async function updateClient(
 
     return NextResponse.json({ message: 'Cliente actualizado' });
   } catch (error) {
+    const accessError = accessErrorResponse(error);
+    if (accessError) return accessError;
     console.error('Error updating client:', error);
     return NextResponse.json({ error: 'Error al actualizar cliente' }, { status: 500 });
   }
@@ -95,7 +101,8 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const tenantId = await requirePermission('clientes');
+    const access = await requireAccess('clientes');
+    const tenantId = access.tenantId;
     const clientId = params?.id;
 
     // Check if client has bookings
@@ -116,7 +123,7 @@ export async function DELETE(
     const result = await prisma.client.deleteMany({
       where: {
         id: clientId,
-        tenantId,
+        ...access.clientScope,
       },
     });
 
@@ -127,6 +134,8 @@ export async function DELETE(
 
     return NextResponse.json({ message: 'Cliente eliminado' });
   } catch (error) {
+    const accessError = accessErrorResponse(error);
+    if (accessError) return accessError;
     console.error('Error deleting client:', error);
     return NextResponse.json({ error: 'Error al eliminar cliente' }, { status: 500 });
   }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireTenantId } from '@/lib/get-tenant';
+import { requireAccess, accessErrorResponse } from '@/lib/access';
 import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
@@ -10,13 +10,14 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    const tenantId = await requireTenantId();
+    const access = await requireAccess('ventas');
+    const tenantId = access.tenantId;
     const { id: bookingId } = await params;
     const body = await request.json();
 
     // Verify ownership
     const booking = await prisma.booking.findFirst({
-      where: { id: bookingId, tenantId },
+      where: { id: bookingId, ...access.bookingScope },
     });
 
     if (!booking) {
@@ -135,6 +136,8 @@ export async function POST(
         : 'Abono registrado correctamente'
     });
   } catch (error) {
+    const accessError = accessErrorResponse(error);
+    if (accessError) return accessError;
     console.error('Error registering payment:', error);
     return NextResponse.json(
       { error: 'Error al registrar el abono' },
@@ -149,12 +152,13 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const tenantId = await requireTenantId();
+    const access = await requireAccess('ventas');
+    const tenantId = access.tenantId;
     const { id: bookingId } = await params;
 
     // Verify ownership
     const booking = await prisma.booking.findFirst({
-      where: { id: bookingId, tenantId, type: 'SALE' },
+      where: { id: bookingId, ...access.bookingScope, type: 'SALE' },
       include: {
         client: true,
         destination: {
@@ -188,6 +192,8 @@ export async function GET(
 
     return NextResponse.json({ ...booking, creatorName });
   } catch (error) {
+    const accessError = accessErrorResponse(error);
+    if (accessError) return accessError;
     console.error('Error fetching payments:', error);
     return NextResponse.json(
       { error: 'Error al obtener los pagos' },

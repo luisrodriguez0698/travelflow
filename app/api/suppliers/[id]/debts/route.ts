@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireTenantId, getSessionUser } from '@/lib/get-tenant';
+import { requireAccess, accessErrorResponse } from '@/lib/access';
+import { getSessionUser } from '@/lib/get-tenant';
 import { prisma } from '@/lib/prisma';
 import { logAudit } from '@/lib/audit';
 
@@ -10,7 +11,8 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const tenantId = await requireTenantId();
+    const access = await requireAccess('proveedores');
+    const tenantId = access.tenantId;
     const { id: supplierId } = await params;
 
     const supplier = await prisma.supplier.findFirst({
@@ -24,7 +26,7 @@ export async function GET(
     // Fetch bookings from both sources: booking-level supplier and item-level supplier
     const bookings = await prisma.booking.findMany({
       where: {
-        tenantId,
+        ...access.bookingScope,
         type: 'SALE',
         status: { in: ['ACTIVE', 'COMPLETED'] },
         OR: [
@@ -125,6 +127,8 @@ export async function GET(
 
     return NextResponse.json({ supplier, sales, summary });
   } catch (error) {
+    const accessError = accessErrorResponse(error);
+    if (accessError) return accessError;
     console.error('Error fetching supplier debts:', error);
     return NextResponse.json({ error: 'Error al cargar las deudas' }, { status: 500 });
   }
@@ -135,7 +139,8 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    const tenantId = await requireTenantId();
+    const access = await requireAccess('proveedores');
+    const tenantId = access.tenantId;
     const { id: supplierId } = await params;
     const body = await request.json();
     const { bookingId, bankAccountId, amount, notes, date } = body;
@@ -151,7 +156,7 @@ export async function POST(
     const booking = await prisma.booking.findFirst({
       where: {
         id: bookingId,
-        tenantId,
+        ...access.bookingScope,
         OR: [
           { supplierId },
           { items: { some: { supplierId, cost: { gt: 0 } } } },
@@ -260,6 +265,8 @@ export async function POST(
 
     return NextResponse.json(supplierPayment, { status: 201 });
   } catch (error) {
+    const accessError = accessErrorResponse(error);
+    if (accessError) return accessError;
     console.error('Error creating supplier payment:', error);
     return NextResponse.json({ error: 'Error al registrar el pago' }, { status: 500 });
   }
@@ -270,7 +277,8 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const tenantId = await requireTenantId();
+    const access = await requireAccess('proveedores');
+    const tenantId = access.tenantId;
     const { searchParams } = new URL(request.url);
     const paymentId = searchParams.get('paymentId');
 
@@ -327,6 +335,8 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    const accessError = accessErrorResponse(error);
+    if (accessError) return accessError;
     console.error('Error cancelling supplier payment:', error);
     return NextResponse.json({ error: 'Error al cancelar el pago' }, { status: 500 });
   }

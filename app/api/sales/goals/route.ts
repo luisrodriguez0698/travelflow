@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireTenantId, getSessionUser } from '@/lib/get-tenant';
+import { requireAccess, accessErrorResponse } from '@/lib/access';
+import { getSessionUser } from '@/lib/get-tenant';
 import { prisma } from '@/lib/prisma';
 import { logAudit } from '@/lib/audit';
 
@@ -7,7 +8,8 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
-    const tenantId = await requireTenantId();
+    const access = await requireAccess('ventas');
+    const tenantId = access.tenantId;
     const { searchParams } = new URL(request.url);
     const month = parseInt(searchParams.get('month') || '0');
     const year = parseInt(searchParams.get('year') || '0');
@@ -35,6 +37,8 @@ export async function GET(request: NextRequest) {
       goals.map((g) => ({ ...g, userName: userMap[g.userId] ?? null }))
     );
   } catch (error) {
+    const accessError = accessErrorResponse(error);
+    if (accessError) return accessError;
     console.error('Error fetching sales goals:', error);
     return NextResponse.json({ error: 'Error fetching sales goals' }, { status: 500 });
   }
@@ -42,7 +46,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const tenantId = await requireTenantId();
+    const access = await requireAccess('ventas');
+    const tenantId = access.tenantId;
     const body = await request.json();
     const { userId, month, year, goalAmount } = body;
 
@@ -73,6 +78,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(goal);
   } catch (error) {
+    const accessError = accessErrorResponse(error);
+    if (accessError) return accessError;
     console.error('Error saving sales goal:', error);
     return NextResponse.json({ error: 'Error saving sales goal' }, { status: 500 });
   }

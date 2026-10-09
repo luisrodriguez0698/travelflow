@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireTenantId, getSessionUser } from '@/lib/get-tenant';
+import { requireAccess, accessErrorResponse } from '@/lib/access';
+import { getSessionUser } from '@/lib/get-tenant';
 import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
@@ -9,11 +10,12 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const tenantId = await requireTenantId();
+    const access = await requireAccess('cotizaciones');
+    const tenantId = access.tenantId;
     const { id } = await params;
 
     const booking = await prisma.booking.findFirst({
-      where: { id, tenantId, type: 'QUOTATION' },
+      where: { id, ...access.bookingScope, type: 'QUOTATION' },
       include: {
         client: true,
         destination: { include: { season: true } },
@@ -45,6 +47,8 @@ export async function GET(
 
     return NextResponse.json({ ...booking, creatorName });
   } catch (error) {
+    const accessError = accessErrorResponse(error);
+    if (accessError) return accessError;
     console.error('Error fetching quotation:', error);
     return NextResponse.json({ error: 'Error fetching quotation' }, { status: 500 });
   }
@@ -55,12 +59,13 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    const tenantId = await requireTenantId();
+    const access = await requireAccess('cotizaciones');
+    const tenantId = access.tenantId;
     const { id } = await params;
     const body = await request.json();
 
     const existing = await prisma.booking.findFirst({
-      where: { id, tenantId, type: 'QUOTATION' },
+      where: { id, ...access.bookingScope, type: 'QUOTATION' },
     });
 
     if (!existing) {
@@ -270,6 +275,8 @@ export async function PUT(
 
     return NextResponse.json(result);
   } catch (error) {
+    const accessError = accessErrorResponse(error);
+    if (accessError) return accessError;
     console.error('Error updating quotation:', error);
     return NextResponse.json({ error: 'Error updating quotation' }, { status: 500 });
   }
@@ -280,11 +287,12 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const tenantId = await requireTenantId();
+    const access = await requireAccess('cotizaciones');
+    const tenantId = access.tenantId;
     const { id } = await params;
 
     const existing = await prisma.booking.findFirst({
-      where: { id, tenantId, type: 'QUOTATION' },
+      where: { id, ...access.bookingScope, type: 'QUOTATION' },
     });
 
     if (!existing) {
@@ -298,6 +306,8 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    const accessError = accessErrorResponse(error);
+    if (accessError) return accessError;
     console.error('Error deleting quotation:', error);
     return NextResponse.json({ error: 'Error deleting quotation' }, { status: 500 });
   }

@@ -14,6 +14,7 @@ export async function PUT(
     const { id } = await params;
     const body = await request.json();
     const { name, permissions } = body;
+    const ownDataOnly = body.ownDataOnly === true;
 
     if (!name || !permissions || !Array.isArray(permissions)) {
       return NextResponse.json(
@@ -51,7 +52,7 @@ export async function PUT(
 
     const updated = await prisma.role.update({
       where: { id },
-      data: { name, permissions },
+      data: { name, permissions, ownDataOnly },
       include: { _count: { select: { users: { where: { deletedAt: null } }, invitations: true } } },
     });
 

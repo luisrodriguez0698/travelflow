@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireTenantId } from '@/lib/get-tenant';
+import { requireAccess, accessErrorResponse } from '@/lib/access';
 import { prisma } from '@/lib/prisma';
 import { getFileUrl } from '@/lib/s3';
 import { format } from 'date-fns';
@@ -16,12 +16,13 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const tenantId = await requireTenantId();
+    const access = await requireAccess('ventas');
+    const tenantId = access.tenantId;
     const { id: bookingId } = await params;
 
     // Fetch booking with all relations
     const booking = await prisma.booking.findFirst({
-      where: { id: bookingId, tenantId },
+      where: { id: bookingId, ...access.bookingScope },
       include: {
         client: true,
         destination: {
@@ -724,6 +725,8 @@ export async function GET(
       { status: 500 }
     );
   } catch (error) {
+    const accessError = accessErrorResponse(error);
+    if (accessError) return accessError;
     console.error('Error generating receipt:', error);
     return NextResponse.json(
       { error: 'Error al generar el recibo' },

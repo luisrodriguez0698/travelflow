@@ -1,12 +1,15 @@
 import { NextResponse } from 'next/server';
-import { requireTenantId } from '@/lib/get-tenant';
+import { getAccess } from '@/lib/access';
 import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const tenantId = await requireTenantId();
+    // Avisos de fecha limite con proveedor: los ven quienes manejan ventas o proveedores
+    const access = await getAccess(['ventas', 'proveedores']);
+    if (!access) return NextResponse.json([]);
+    const tenantId = access.tenantId;
 
     // Auto-generate notifications for upcoming supplier deadlines (next 7 days + overdue)
     const now = new Date();
@@ -16,7 +19,7 @@ export async function GET() {
     // Find bookings with supplier deadlines in range that don't have notifications yet
     const bookingsWithDeadlines = await prisma.booking.findMany({
       where: {
-        tenantId,
+        ...access.bookingScope,
         type: 'SALE',
         supplierDeadline: { lte: sevenDaysFromNow },
         status: { not: 'CANCELLED' },
@@ -52,6 +55,8 @@ export async function GET() {
       where: {
         tenantId,
         dismissed: false,
+        // Con "solo lo mio": solo avisos de sus propias ventas
+        ...(access.ownOnly && { booking: { createdBy: access.userId } }),
       },
       include: {
         booking: {

@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireTenantId } from '@/lib/get-tenant';
+import { requireAccess, accessErrorResponse } from '@/lib/access';
 import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
-    const tenantId = await requireTenantId();
+    const access = await requireAccess('ventas');
+    const tenantId = access.tenantId;
     const { searchParams } = new URL(request.url);
     const month = searchParams.get('month') ? parseInt(searchParams.get('month')!) : null;
     const year = parseInt(searchParams.get('year') || String(new Date().getFullYear()));
@@ -24,7 +25,7 @@ export async function GET(request: NextRequest) {
 
     const bookings = await prisma.booking.findMany({
       where: {
-        tenantId,
+        ...access.bookingScope,
         type: 'SALE',
         status: { not: 'CANCELLED' },
         saleDate: { gte: dateFrom, lte: dateTo },
@@ -62,6 +63,8 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(result);
   } catch (error) {
+    const accessError = accessErrorResponse(error);
+    if (accessError) return accessError;
     console.error('Error fetching sales stats:', error);
     return NextResponse.json({ error: 'Error fetching sales stats' }, { status: 500 });
   }

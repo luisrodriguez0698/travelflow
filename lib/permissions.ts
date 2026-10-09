@@ -32,6 +32,7 @@ export const ROUTE_TO_MODULE: Record<string, ModulePermission> = {
   '/destinations': 'destinos',
   '/hotels': 'destinos',
   '/services': 'destinos',
+  '/packages': 'destinos',
   '/seasons': 'temporadas',
   '/sales': 'ventas',
   '/sales/goals': 'ventas',
@@ -68,4 +69,21 @@ export const PROTECTED_ROLE_NAME = 'Admin';
 
 export function isProtectedRole(role: { name: string; isDefault: boolean }): boolean {
   return role.isDefault && role.name === PROTECTED_ROLE_NAME;
+}
+
+/** Modulo requerido por una pagina (la ruta mas especifica gana); undefined = libre. */
+export function moduleForPath(pathname: string): ModulePermission | undefined {
+  let best: string | undefined;
+  for (const route of Object.keys(ROUTE_TO_MODULE)) {
+    if ((pathname === route || pathname.startsWith(route + '/')) && (!best || route.length > best.length)) {
+      best = route;
+    }
+  }
+  return best ? ROUTE_TO_MODULE[best] : undefined;
+}
+
+/** Primera pagina a la que el usuario si tiene acceso (para redirigirlo). */
+export function firstAllowedPath(permissions: string[]): string {
+  const route = Object.entries(ROUTE_TO_MODULE).find(([, module]) => permissions.includes(module));
+  return route ? route[0] : '/profile';
 }
