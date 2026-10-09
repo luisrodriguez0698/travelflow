@@ -240,7 +240,11 @@ export default function UsersPage() {
       const result = await sendInvite(inviteEmail, inviteRoleId);
       if (!result.success) {
         if (result.code === 'PENDING_INVITE' && result.pending) {
-          setPendingInvite(result.pending);
+          // Nunca dos modales de Radix abiertos a la vez: al cerrar el de arriba
+          // el <body> se queda con pointer-events:none y la pagina se "congela".
+          const pending = result.pending;
+          setIsInviteModalOpen(false);
+          setTimeout(() => setPendingInvite(pending), 200);
           return;
         }
         throw new Error(result.error);
@@ -1105,7 +1109,15 @@ export default function UsersPage() {
       </Dialog>
 
       {/* Dialog: ya existe una invitacion pendiente para ese correo */}
-      <AlertDialog open={!!pendingInvite} onOpenChange={(open) => { if (!open && !isSubmitting) setPendingInvite(null); }}>
+      <AlertDialog
+        open={!!pendingInvite}
+        onOpenChange={(open) => {
+          if (open || isSubmitting) return;
+          setPendingInvite(null);
+          // Cancelar regresa al formulario (con los datos) por si quiere cambiar el correo
+          setTimeout(() => setIsInviteModalOpen(true), 200);
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">

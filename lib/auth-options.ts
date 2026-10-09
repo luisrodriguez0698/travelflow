@@ -32,10 +32,17 @@ export const authOptions: NextAuthOptions = {
           throw new Error(`Demasiados intentos. Intenta de nuevo en ${rl.retryAfterSeconds} segundos.`);
         }
 
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email },
-          include: { tenant: true, roleRef: true },
-        });
+        let user;
+        try {
+          user = await prisma.user.findUnique({
+            where: { email: credentials.email },
+            include: { tenant: true, roleRef: true },
+          });
+        } catch (error) {
+          // El mensaje de error llega a la pantalla de login: nunca exponer detalles internos
+          console.error('Login DB error:', error);
+          throw new Error('No se pudo iniciar sesión en este momento. Intenta de nuevo en unos minutos.');
+        }
 
         // Usuarios eliminados (borrado logico) se tratan como inexistentes
         if (!user || user.deletedAt) {
