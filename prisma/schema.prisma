@@ -50,6 +50,7 @@ model Tenant {
   testimonials     Testimonial[]
   services         ServiceCatalog[]
   packageTemplates PackageTemplate[]
+  activityNotifications ActivityNotification[]
 
   @@map("tenants")
 }
@@ -80,6 +81,7 @@ model User {
   tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   roleRef           Role?              @relation(fields: [roleId], references: [id], onDelete: SetNull)
   pushSubscriptions PushSubscription[]
+  activityNotifications ActivityNotification[]
 
   @@index([tenantId])
   @@index([roleId])
@@ -510,6 +512,28 @@ model PackageTemplate {
 
   @@index([tenantId])
   @@map("package_templates")
+}
+
+// Avisos de actividad en tiempo (casi) real: "nueva venta", "abono registrado",
+// "ingreso en bancos". Una fila por destinatario para llevar leido / no leido.
+model ActivityNotification {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String   // destinatario
+  actorName String   // quien hizo la accion
+  type      String   // SALE_CREATED, PAYMENT_RECEIVED, BANK_INCOME
+  title     String
+  body      String
+  url       String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+  @@index([userId, createdAt])
+  @@map("activity_notifications")
 }
 
 model SupplierPayment {

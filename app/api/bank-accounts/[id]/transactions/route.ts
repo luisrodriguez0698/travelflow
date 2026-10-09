@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePermission, getSessionUser } from '@/lib/get-tenant';
+import { notifyActivity, formatMoney } from '@/lib/activity';
 import { prisma } from '@/lib/prisma';
 import { logAudit } from '@/lib/audit';
 
@@ -188,6 +189,16 @@ export async function POST(
 
       const su = await getSessionUser();
       if (su) await logAudit({ tenantId, userId: su.id, userName: su.name, action: 'CREATE', entity: 'bank_transactions', entityId: transaction.id, changes: { type: 'INCOME', amount, description } });
+      if (su) {
+        await notifyActivity({
+          tenantId,
+          actor: { id: su.id, name: su.name },
+          type: 'BANK_INCOME',
+          title: 'Ingreso en bancos',
+          body: `${su.name} registró un ingreso de ${formatMoney(amount)} en ${account.referenceName}: ${description}`,
+          url: '/banks',
+        });
+      }
 
       return NextResponse.json(transaction, { status: 201 });
     }

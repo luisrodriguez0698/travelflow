@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAccess, accessErrorResponse } from '@/lib/access';
+import { getSessionUser } from '@/lib/get-tenant';
+import { notifyActivity, formatMoney } from '@/lib/activity';
 import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
@@ -127,6 +129,18 @@ export async function POST(
         data: { currentBalance: { increment: amount } },
       }),
     ]);
+
+    const actor = await getSessionUser();
+    if (actor) {
+      await notifyActivity({
+        tenantId,
+        actor: { id: actor.id, name: actor.name },
+        type: 'PAYMENT_RECEIVED',
+        title: 'Abono registrado',
+        body: `${actor.name} registró un abono de ${formatMoney(amount)} de ${bookingWithClient?.client?.fullName || 'un cliente'} en ${bankAccount.referenceName}`,
+        url: `/sales/${bookingId}`,
+      });
+    }
 
     return NextResponse.json({
       success: true,

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -11,9 +11,16 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet';
-import { Bell, X, CheckCheck, Truck, Clock, AlertTriangle } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Bell, X, CheckCheck, Truck, Clock, AlertTriangle, ShoppingCart, Wallet, Landmark, Volume2, VolumeX, Activity,
+} from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { toast } from 'sonner';
+import { isSoundEnabled, setSoundEnabled, playChime, unlockAudio } from '@/lib/notify-sound';
+
+// ─── Avisos de proveedores (fechas limite) ───────────
 
 interface Notification {
   id: string;
@@ -30,6 +37,35 @@ interface Notification {
     destination: { name: string } | null;
     supplier: { name: string; serviceType: string } | null;
   };
+}
+
+// ─── Avisos de actividad (ventas, abonos, ingresos) ───
+
+interface ActivityItem {
+  id: string;
+  type: 'SALE_CREATED' | 'PAYMENT_RECEIVED' | 'BANK_INCOME' | string;
+  title: string;
+  body: string;
+  url: string | null;
+  read: boolean;
+  actorName: string;
+  createdAt: string;
+}
+
+const ACTIVITY_POLL_MS = 15_000;
+
+const ACTIVITY_STYLE: Record<string, { icon: typeof ShoppingCart; className: string }> = {
+  SALE_CREATED: { icon: ShoppingCart, className: 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400' },
+  PAYMENT_RECEIVED: { icon: Wallet, className: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-400' },
+  BANK_INCOME: { icon: Landmark, className: 'bg-violet-100 text-violet-600 dark:bg-violet-900/40 dark:text-violet-400' },
+};
+
+function relativeTime(date: string) {
+  const diff = (Date.now() - new Date(date).getTime()) / 1000;
+  if (diff < 60) return 'hace un momento';
+  if (diff < 3600) return `hace ${Math.floor(diff / 60)} min`;
+  if (diff < 86400) return `hace ${Math.floor(diff / 3600)} h`;
+  return format(new Date(date), "d 'de' MMM, HH:mm", { locale: es });
 }
 
 function getDaysRemaining(dueDate: string) {
@@ -58,7 +94,15 @@ export function NotificationPanel() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
+  const [tab, setTab] = useState<'activity' | 'suppliers'>('activity');
 
+  const [activity, setActivity] = useState<ActivityItem[]>([]);
+  const [activityUnread, setActivityUnread] = useState(0);
+  const [soundOn, setSoundOn] = useState(true);
+  // Mas reciente ya visto: lo que llegue despues es "nuevo" (sonido + aviso)
+  const newestSeen = useRef<string | null>(null);
+
+  // ─── Proveedores ───
   const fetchNotifications = async () => {
     setLoading(true);
     try {
@@ -74,17 +118,93 @@ export function NotificationPanel() {
     }
   };
 
-  // Fetch on mount and when panel opens
+  // ─── Actividad (cada 15 s) ───
+  const fetchActivity = useCallback(async () => {
+    try {
+      const res = await fetch('/api/activity');
+      if (!res.ok) return;
+      const data: { items: ActivityItem[]; unread: number } = await res.json();
+      setActivity(data.items);
+      setActivityUnread(data.unread);
+
+      const newest = data.items[0]?.createdAt ?? null;
+      if (newestSeen.current === null) {
+        newestSeen.current = newest ?? new Date(0).toISOString(); // primera carga: sin sonido
+        return;
+      }
+      const fresh = data.items.filter((i) => !i.read && i.createdAt > (newestSeen.current as string));
+      if (newest && newest > newestSeen.current) newestSeen.current = newest;
+      if (fresh.length > 0) {
+        playChime();
+        const latest = fresh[0];
+        toast(latest.title, {
+          description: fresh.length > 1 ? `${latest.body} (+${fresh.length - 1} más)` : latest.body,
+          action: latest.url ? { label: 'Ver', onClick: () => router.push(latest.url as string) } : undefined,
+        });
+      }
+    } catch {
+      /* sin red: se reintenta en el siguiente ciclo */
+    }
+  }, [router]);
+
   useEffect(() => {
+    setSoundOn(isSoundEnabled());
     fetchNotifications();
-  }, []);
+    fetchActivity();
+    const timer = setInterval(fetchActivity, ACTIVITY_POLL_MS);
+    // El navegador solo deja sonar despues de una interaccion del usuario
+    const unlock = () => unlockAudio();
+    window.addEventListener('pointerdown', unlock, { once: true });
+    window.addEventListener('keydown', unlock, { once: true });
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('pointerdown', unlock);
+      window.removeEventListener('keydown', unlock);
+    };
+  }, [fetchActivity]);
 
   useEffect(() => {
-    if (open) fetchNotifications();
-  }, [open]);
+    if (open) {
+      fetchNotifications();
+      fetchActivity();
+    }
+  }, [open, fetchActivity]);
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const supplierUnread = notifications.filter((n) => !n.read).length;
+  const unreadCount = activityUnread + supplierUnread;
 
+  const toggleSound = () => {
+    const next = !soundOn;
+    setSoundOn(next);
+    setSoundEnabled(next);
+    if (next) {
+      unlockAudio();
+      playChime(); // muestra como suena
+    }
+  };
+
+  // ─── Acciones: actividad ───
+  const markActivityRead = async (ids: string[] | 'all') => {
+    try {
+      await fetch('/api/activity', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(ids === 'all' ? { all: true } : { ids }),
+      });
+      setActivity((prev) => prev.map((a) => (ids === 'all' || ids.includes(a.id) ? { ...a, read: true } : a)));
+      setActivityUnread((n) => (ids === 'all' ? 0 : Math.max(0, n - ids.length)));
+    } catch {}
+  };
+
+  const handleActivityClick = (item: ActivityItem) => {
+    if (!item.read) markActivityRead([item.id]);
+    if (item.url) {
+      setOpen(false);
+      router.push(item.url);
+    }
+  };
+
+  // ─── Acciones: proveedores ───
   const handleDismiss = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     try {
@@ -111,6 +231,10 @@ export function NotificationPanel() {
   };
 
   const handleMarkAllRead = async () => {
+    if (tab === 'activity') {
+      await markActivityRead('all');
+      return;
+    }
     const unread = notifications.filter((n) => !n.read);
     await Promise.all(
       unread.map((n) =>
@@ -130,10 +254,12 @@ export function NotificationPanel() {
     router.push(`/sales/${notification.booking.id}`);
   };
 
+  const tabUnread = tab === 'activity' ? activityUnread : supplierUnread;
+
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative">
+        <Button variant="ghost" size="icon" className="relative" aria-label="Notificaciones">
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
             <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center font-bold">
@@ -142,34 +268,89 @@ export function NotificationPanel() {
           )}
         </Button>
       </SheetTrigger>
-      <SheetContent side="right" className="w-[400px] sm:w-[440px] p-0">
-        <SheetHeader className="p-4 pb-3 border-b">
-          <div className="flex items-center justify-between">
+      <SheetContent side="right" className="w-[400px] sm:w-[440px] p-0 flex flex-col">
+        <SheetHeader className="p-4 pb-3 border-b space-y-3">
+          <div className="flex items-center justify-between gap-2 pr-6">
             <SheetTitle className="flex items-center gap-2">
               <Bell className="w-5 h-5" />
               Notificaciones
-              {unreadCount > 0 && (
-                <Badge variant="secondary" className="ml-1">
-                  {unreadCount}
-                </Badge>
-              )}
             </SheetTitle>
-            {unreadCount > 0 && (
+            <div className="flex items-center gap-1">
               <Button
                 variant="ghost"
-                size="sm"
-                className="text-xs"
-                onClick={handleMarkAllRead}
+                size="icon"
+                className="h-8 w-8"
+                onClick={toggleSound}
+                title={soundOn ? 'Sonido activado (clic para silenciar)' : 'Sonido desactivado (clic para activar)'}
+                aria-label={soundOn ? 'Silenciar avisos' : 'Activar sonido de avisos'}
               >
-                <CheckCheck className="w-4 h-4 mr-1" />
-                Marcar todas
+                {soundOn ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4 text-muted-foreground" />}
               </Button>
-            )}
+              {tabUnread > 0 && (
+                <Button variant="ghost" size="sm" className="text-xs h-8" onClick={handleMarkAllRead}>
+                  <CheckCheck className="w-4 h-4 mr-1" />
+                  Marcar todas
+                </Button>
+              )}
+            </div>
           </div>
+          <Tabs value={tab} onValueChange={(v) => setTab(v as 'activity' | 'suppliers')}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="activity" className="gap-1.5">
+                <Activity className="w-3.5 h-3.5" />
+                Actividad
+                {activityUnread > 0 && <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">{activityUnread}</Badge>}
+              </TabsTrigger>
+              <TabsTrigger value="suppliers" className="gap-1.5">
+                <Truck className="w-3.5 h-3.5" />
+                Proveedores
+                {supplierUnread > 0 && <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">{supplierUnread}</Badge>}
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
         </SheetHeader>
 
-        <div className="overflow-y-auto h-[calc(100vh-80px)]">
-          {loading && notifications.length === 0 ? (
+        <div className="overflow-y-auto flex-1">
+          {tab === 'activity' ? (
+            activity.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 px-4">
+                <Activity className="w-12 h-12 text-gray-300 dark:text-gray-600 mb-3" />
+                <p className="text-gray-500 dark:text-gray-400 text-sm text-center">Sin actividad reciente</p>
+                <p className="text-xs text-muted-foreground text-center mt-1 max-w-[260px]">
+                  Aquí verás al momento las ventas, abonos e ingresos que registre tu equipo.
+                </p>
+              </div>
+            ) : (
+              <div className="divide-y divide-gray-100 dark:divide-gray-800">
+                {activity.map((item) => {
+                  const style = ACTIVITY_STYLE[item.type] || ACTIVITY_STYLE.SALE_CREATED;
+                  const Icon = style.icon;
+                  return (
+                    <button
+                      type="button"
+                      key={item.id}
+                      onClick={() => handleActivityClick(item)}
+                      className={`w-full text-left p-4 flex gap-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors ${
+                        !item.read ? 'bg-blue-50/50 dark:bg-blue-950/20' : ''
+                      }`}
+                    >
+                      <span className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${style.className}`}>
+                        <Icon className="w-4 h-4" />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className={`text-sm ${!item.read ? 'font-semibold' : 'font-medium'}`}>{item.title}</p>
+                          {!item.read && <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" aria-label="No leída" />}
+                        </div>
+                        <p className="text-sm text-muted-foreground leading-snug mt-0.5">{item.body}</p>
+                        <p className="text-xs text-muted-foreground/80 mt-1">{relativeTime(item.createdAt)}</p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )
+          ) : loading && notifications.length === 0 ? (
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500" />
             </div>

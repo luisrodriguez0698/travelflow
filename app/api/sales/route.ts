@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAccess, accessErrorResponse } from '@/lib/access';
 import { getSessionUser } from '@/lib/get-tenant';
+import { notifyActivity, formatMoney } from '@/lib/activity';
 import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
@@ -285,6 +286,17 @@ export async function POST(request: NextRequest) {
       },
     });
 
+
+    if (sessionUser) {
+      await notifyActivity({
+        tenantId,
+        actor: { id: sessionUser.id, name: sessionUser.name },
+        type: 'SALE_CREATED',
+        title: 'Nueva venta',
+        body: `${sessionUser.name} registró una venta a ${result?.client?.fullName || 'un cliente'} por ${formatMoney(booking.totalPrice)}`,
+        url: `/sales/${booking.id}`,
+      });
+    }
 
     return NextResponse.json(result, { status: 201 });
   } catch (error) {

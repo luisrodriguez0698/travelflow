@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAccess, accessErrorResponse } from '@/lib/access';
-import { hasPermission } from '@/lib/get-tenant';
+import { hasPermission, getSessionUser } from '@/lib/get-tenant';
+import { notifyActivity, formatMoney } from '@/lib/activity';
 import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
@@ -116,6 +117,19 @@ export async function POST(
       await prisma.paymentPlan.createMany({ data: payments });
     }
 
+
+    // Una cotizacion convertida es una venta nueva para el equipo
+    const actor = await getSessionUser();
+    if (actor) {
+      await notifyActivity({
+        tenantId,
+        actor: { id: actor.id, name: actor.name },
+        type: 'SALE_CREATED',
+        title: 'Nueva venta',
+        body: `${actor.name} convirtió una cotización en venta: ${booking.client?.fullName || 'un cliente'} por ${formatMoney(booking.totalPrice)}`,
+        url: `/sales/${id}`,
+      });
+    }
 
     return NextResponse.json({ success: true, id });
   } catch (error) {
