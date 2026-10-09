@@ -67,7 +67,11 @@ export const GENERAL_TOUR: TourDef = {
     { element: 'navbar-trips', title: 'Viajes en curso', description: 'Quién está viajando hoy y quién sale pronto.' },
     { element: 'navbar-notifications', title: 'Notificaciones', description: 'Avisos de pagos a proveedores y fechas límite.' },
     { element: 'navbar-theme', title: 'Modo claro / oscuro', description: 'Cambia el tema a tu gusto.' },
-    { element: 'navbar-user', title: 'Tu cuenta', description: 'Entra a <b>Mi perfil</b> para cambiar tu nombre, correo o contraseña.' },
+    {
+      element: 'navbar-user',
+      title: 'Tu cuenta',
+      description: 'En <b>Mi perfil</b> cambias tu nombre, correo o contraseña, instalas la app y activas las <b>notificaciones</b> y el sonido de avisos.',
+    },
     {
       element: 'navbar-help',
       title: '¿Se te olvidó algo?',
@@ -289,13 +293,25 @@ export const SECTION_TOURS: TourDef[] = [
     ],
   },
   {
+    id: 'profile',
+    title: 'Mi perfil y notificaciones',
+    path: '/profile',
+    steps: [
+      { title: 'Tu perfil', description: 'Aquí cambias tu nombre, teléfono, correo de acceso y contraseña.' },
+      {
+        element: 'profile-app',
+        title: 'App y notificaciones',
+        description: 'Instala TravelFlow como app y activa las <b>notificaciones</b> (cuotas por vencer y la actividad del equipo) y el <b>sonido</b>. Se configura en <b>cada dispositivo</b>: hazlo en tu celular y en tu PC.',
+      },
+    ],
+  },
+  {
     id: 'settings',
     title: 'Configuración',
     path: '/settings',
     module: 'configuracion',
     steps: [
       { element: 'settings-agency', title: 'Datos de la agencia', description: 'Logo, contacto y políticas. Aparecen en los PDF de ventas y cotizaciones.' },
-      { element: 'settings-app', title: 'App y notificaciones', description: 'Instala TravelFlow como app y activa los avisos de pagos.' },
       { element: 'settings-danger', title: 'Zona de peligro', description: 'Solo el propietario: restablecer datos o eliminar la agencia.' },
     ],
   },

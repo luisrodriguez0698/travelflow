@@ -45,6 +45,7 @@ import {
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
 import { PageSkeleton } from '@/components/skeletons';
+import { useCan } from '@/hooks/use-can';
 import {
   BarChart,
   Bar,
@@ -845,6 +846,7 @@ function UserGoalCard({
   onSave: () => void;
   onCancel: () => void;
 }) {
+  const can = useCan();
   const progressColor =
     card.progress >= 100
       ? 'bg-emerald-500'
@@ -930,15 +932,18 @@ function UserGoalCard({
               {card.goalAmount > 0 ? formatCurrency(card.goalAmount) : '— Sin meta'}
             </p>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onEditStart}
-            className="text-blue-600 text-xs h-7 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/30"
-          >
-            <Pencil className="w-3 h-3 mr-1" />
-            {card.goalAmount > 0 ? 'Editar Meta' : 'Agregar Meta'}
-          </Button>
+          {/* Asignar metas exige "Ventas -> Editar" (lo valida tambien el servidor) */}
+          {can('ventas', 'edit') && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onEditStart}
+              className="text-blue-600 text-xs h-7 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/30"
+            >
+              <Pencil className="w-3 h-3 mr-1" />
+              {card.goalAmount > 0 ? 'Editar Meta' : 'Agregar Meta'}
+            </Button>
+          )}
         </div>
       )}
 

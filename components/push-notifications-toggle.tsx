@@ -6,19 +6,19 @@ import { Switch } from '@/components/ui/switch';
 import { usePushNotifications } from '@/hooks/use-push-notifications';
 import { useToast } from '@/hooks/use-toast';
 
+// Notificaciones push en ESTE dispositivo: cuotas por vencer/vencidas y avisos de
+// actividad del equipo (ventas, abonos, ingresos) aunque la app este cerrada.
 export function PushNotificationsToggle() {
   const { isSupported, isSubscribed, loading, subscribe, unsubscribe } = usePushNotifications();
   const [busy, setBusy] = useState(false);
   const { toast } = useToast();
-
-  if (!isSupported) return null;
 
   const handleChange = async (checked: boolean) => {
     setBusy(true);
     try {
       if (checked) {
         await subscribe();
-        toast({ title: 'Notificaciones activadas', description: 'Te avisaremos de pagos próximos a vencer o vencidos.' });
+        toast({ title: 'Notificaciones activadas', description: 'Te avisaremos en este dispositivo aunque la app esté cerrada.' });
       } else {
         await unsubscribe();
         toast({ title: 'Notificaciones desactivadas' });
@@ -36,10 +36,23 @@ export function PushNotificationsToggle() {
         <Bell className="w-5 h-5 text-purple-600 dark:text-purple-400" />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="font-medium">Notificaciones de pagos</p>
-        <p className="text-sm text-muted-foreground">Recibe un aviso cuando una cuota esté por vencer o ya haya vencido.</p>
+        <p className="font-medium">Notificaciones</p>
+        {/* Mientras revisa (loading) se asume compatible para no parpadear el aviso */}
+        {isSupported || loading ? (
+          <p className="text-sm text-muted-foreground">
+            Cuotas por vencer y la actividad de tu equipo (ventas, abonos, ingresos) en este dispositivo, aunque la app esté cerrada.
+          </p>
+        ) : (
+          // iPhone/iPad en Safari: Apple solo permite notificaciones con la app instalada
+          <p className="text-sm text-muted-foreground">
+            Este navegador no las permite. En iPhone, instala la app (Compartir → Agregar a pantalla de inicio) y
+            actívalas desde ahí.
+          </p>
+        )}
       </div>
-      <Switch checked={isSubscribed} disabled={loading || busy} onCheckedChange={handleChange} className="shrink-0" />
+      {(isSupported || loading) && (
+        <Switch checked={isSubscribed} disabled={loading || busy} onCheckedChange={handleChange} className="shrink-0" />
+      )}
     </div>
   );
 }

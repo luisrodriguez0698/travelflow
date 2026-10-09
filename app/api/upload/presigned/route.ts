@@ -9,7 +9,7 @@ const ALLOWED_CONTENT_TYPES = new Set([
 ]);
 
 // Carpetas válidas por contexto — evita path traversal
-const VALID_FOLDERS = new Set(['hotels', 'packages', 'logos', 'uploads', 'general']);
+const VALID_FOLDERS = new Set(['hotels', 'packages', 'logos', 'uploads', 'general', 'avatars']);
 
 export async function POST(request: NextRequest) {
   try {

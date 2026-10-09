@@ -18,10 +18,7 @@ import Link from 'next/link';
 import { HelpMenu } from './help-tour';
 import { useSidebar } from './sidebar-context';
 import { useCan } from '@/hooks/use-can';
-
-function initials(name: string) {
-  return name.split(' ').filter(Boolean).map((n) => n[0]).join('').toUpperCase().slice(0, 2) || '?';
-}
+import { UserAvatar } from './user-avatar';
 
 export function Navbar() {
   const { data: session } = useSession() || {};
@@ -87,13 +84,12 @@ export function Navbar() {
           <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
               <Button data-tour="navbar-user" variant="ghost" size="icon" className="rounded-full" aria-label="Mi cuenta">
-                <span className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 text-white text-xs font-semibold flex items-center justify-center">
-                  {initials(userName)}
-                </span>
+                <UserAvatar name={userName} src={(session?.user as any)?.avatar} className="w-8 h-8" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" collisionPadding={12} className="w-64 max-w-[calc(100vw-24px)]">
-              <DropdownMenuLabel>
+              <DropdownMenuLabel className="flex items-center gap-3">
+                <UserAvatar name={userName} src={(session?.user as any)?.avatar} className="w-10 h-10 text-sm" />
                 <div className="flex flex-col space-y-1 min-w-0">
                   <p className="text-sm font-medium truncate">{userName}</p>
                   <p className="text-xs text-muted-foreground truncate">

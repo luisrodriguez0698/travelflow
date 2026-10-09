@@ -62,6 +62,7 @@ import { toast } from 'sonner';
 import { sendInvite, type PendingInvite } from '@/lib/actions/send-invite';
 import { resendInvite } from '@/lib/actions/resend-invite';
 import { useCan } from '@/hooks/use-can';
+import { UserAvatar } from '@/components/user-avatar';
 import { CreatorHistoryButton } from '@/components/record-history';
 
 const MAX_USERS = 5;
@@ -100,6 +101,7 @@ interface User {
   roleId: string | null;
   isActive: boolean;
   isOwner: boolean;
+  avatar?: string | null;
   createdAt: string;
   roleRef: { id: string; name: string } | null;
 }
@@ -707,12 +709,15 @@ export default function UsersPage() {
               users.map((user) => (
                 <div key={user.id} className={`p-4 space-y-2 ${!user.isActive ? 'opacity-60' : ''}`}>
                   <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="font-medium truncate">
-                        {user.name || 'Sin nombre'}
-                        {renderUserBadges(user)}
-                      </p>
-                      <p className="text-sm text-muted-foreground truncate">{user.email}</p>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <UserAvatar name={user.name || user.email} src={user.avatar} className="w-10 h-10 text-sm" />
+                      <div className="min-w-0">
+                        <p className="font-medium truncate">
+                          {user.name || 'Sin nombre'}
+                          {renderUserBadges(user)}
+                        </p>
+                        <p className="text-sm text-muted-foreground truncate">{user.email}</p>
+                      </div>
                     </div>
                     <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 shrink-0">
                       {user.roleRef?.name || user.role}
@@ -756,8 +761,13 @@ export default function UsersPage() {
                   users.map((user) => (
                     <TableRow key={user.id} className={!user.isActive ? 'opacity-60' : undefined}>
                       <TableCell className="font-medium">
-                        {user.name || 'Sin nombre'}
-                        {renderUserBadges(user)}
+                        <div className="flex items-center gap-3">
+                          <UserAvatar name={user.name || user.email} src={user.avatar} className="w-9 h-9" />
+                          <span>
+                            {user.name || 'Sin nombre'}
+                            {renderUserBadges(user)}
+                          </span>
+                        </div>
                       </TableCell>
                       <TableCell className="text-muted-foreground">
                         {user.email}

@@ -61,6 +61,7 @@ model User {
   password  String
   name      String?
   phone     String?
+  avatar    String?  // URL publica de la foto de perfil (R2: tenants/<id>/avatars/...)
   tenantId  String
   role      String   @default("ADMIN")
   roleId    String?

@@ -13,12 +13,16 @@ export function isSoundEnabled(): boolean {
   }
 }
 
+/** Avisa a la campana y a Mi perfil para que muestren el mismo estado. */
+export const SOUND_CHANGE_EVENT = 'tf-sound-change';
+
 export function setSoundEnabled(enabled: boolean) {
   try {
     window.localStorage.setItem(STORAGE_KEY, enabled ? 'on' : 'off');
   } catch {
     /* modo privado: solo dura la sesion */
   }
+  window.dispatchEvent(new Event(SOUND_CHANGE_EVENT));
 }
 
 function getContext(): AudioContext | null {

@@ -34,6 +34,7 @@ export async function GET(request: NextRequest) {
           email: true,
           name: true,
           phone: true,
+          avatar: true,
           role: true,
           roleId: true,
           isActive: true,

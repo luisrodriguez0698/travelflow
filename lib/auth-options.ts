@@ -76,6 +76,7 @@ export const authOptions: NextAuthOptions = {
           role: user.role,
           permissions,
           ownDataOnly,
+          avatar: user.avatar,
         };
       },
     }),
@@ -89,6 +90,7 @@ export const authOptions: NextAuthOptions = {
         token.role = (user as any).role;
         token.permissions = (user as any).permissions;
         token.ownDataOnly = (user as any).ownDataOnly;
+        token.avatar = (user as any).avatar ?? null;
       } else if (token.id) {
         // Re-read permissions from the DB on every session check so role edits
         // take effect immediately instead of only after the next login.
@@ -107,6 +109,7 @@ export const authOptions: NextAuthOptions = {
           // Nombre/correo pueden cambiar desde Mi perfil
           token.name = dbUser.name;
           token.email = dbUser.email;
+          token.avatar = dbUser.avatar ?? null;
           token.role = dbUser.role;
           token.permissions = resolvePermissions(dbUser);
           token.ownDataOnly = dbUser.roleRef?.ownDataOnly ?? false;
@@ -123,6 +126,7 @@ export const authOptions: NextAuthOptions = {
         (session.user as any).permissions = token.permissions;
         (session.user as any).disabled = token.disabled ?? false;
         (session.user as any).ownDataOnly = token.ownDataOnly ?? false;
+        (session.user as any).avatar = token.avatar ?? null;
       }
       return session;
     },

@@ -1,22 +1,28 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { UserCircle, Mail, KeyRound, Save, Loader2, Eye, EyeOff, Building2 } from 'lucide-react';
+import { UserCircle, Mail, KeyRound, Save, Loader2, Eye, EyeOff, Building2, Smartphone, Camera } from 'lucide-react';
 import { toast } from 'sonner';
 import { PASSWORD_MIN_LENGTH, PASSWORD_MIN_MESSAGE } from '@/lib/password';
 import { PageSkeleton } from '@/components/skeletons';
+import { UserAvatar } from '@/components/user-avatar';
+import { uploadAvatar } from '@/lib/avatar-upload';
+import { InstallAppCard } from '@/components/install-app-card';
+import { PushNotificationsToggle } from '@/components/push-notifications-toggle';
+import { NotificationSoundToggle } from '@/components/notification-sound-toggle';
 
 interface Profile {
   id: string;
   name: string | null;
   email: string;
   phone: string | null;
+  avatar: string | null;
   createdAt: string;
   roleName: string;
   tenantName: string;
@@ -100,6 +106,47 @@ export default function ProfilePage() {
     loadProfile();
   }, []);
 
+  // ─── Foto de perfil ───
+  const avatarInput = useRef<HTMLInputElement>(null);
+  const [avatarBusy, setAvatarBusy] = useState(false);
+
+  const saveAvatar = async (avatar: string | null) => {
+    const res = await fetch('/api/profile', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'avatar', avatar }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    setProfile((p) => (p ? { ...p, avatar } : p));
+    await refreshSession(); // la barra superior muestra la foto nueva
+  };
+
+  const handleAvatarChange = async (file: File) => {
+    setAvatarBusy(true);
+    try {
+      const url = await uploadAvatar(file);
+      await saveAvatar(url);
+      toast.success('Foto de perfil actualizada');
+    } catch (err: any) {
+      toast.error(err.message || 'No se pudo cambiar la foto');
+    } finally {
+      setAvatarBusy(false);
+    }
+  };
+
+  const handleAvatarRemove = async () => {
+    setAvatarBusy(true);
+    try {
+      await saveAvatar(null);
+      toast.success('Foto de perfil eliminada');
+    } catch (err: any) {
+      toast.error(err.message || 'No se pudo quitar la foto');
+    } finally {
+      setAvatarBusy(false);
+    }
+  };
+
   const save = async (payload: ProfileUpdate, successMessage: string) => {
     setSaving(payload.type);
     try {
@@ -170,12 +217,6 @@ export default function ProfilePage() {
 
   if (!profile) return null;
 
-  const initials = (profile.name || profile.email)
-    .split(' ')
-    .map((w) => w[0])
-    .slice(0, 2)
-    .join('')
-    .toUpperCase();
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -190,8 +231,50 @@ export default function ProfilePage() {
       {/* Summary */}
       <Card className="p-6">
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 shrink-0 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white text-xl font-bold shadow-lg shadow-blue-500/25">
-            {initials}
+          {/* Foto de perfil: clic para cambiarla */}
+          <div className="relative shrink-0">
+            <button
+              type="button"
+              onClick={() => avatarInput.current?.click()}
+              disabled={avatarBusy}
+              className="group relative block rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              aria-label="Cambiar foto de perfil"
+            >
+              <UserAvatar
+                name={profile.name || profile.email}
+                src={profile.avatar}
+                className="w-20 h-20 text-2xl shadow-lg shadow-blue-500/25"
+              />
+              <span className="absolute inset-0 rounded-full bg-black/45 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                {avatarBusy ? <Loader2 className="w-6 h-6 animate-spin" /> : <Camera className="w-6 h-6" />}
+              </span>
+              {avatarBusy && (
+                <span className="absolute inset-0 rounded-full bg-black/45 flex items-center justify-center">
+                  <Loader2 className="w-6 h-6 animate-spin text-white" />
+                </span>
+              )}
+            </button>
+            {/* Boton visible en celular (sin hover) */}
+            <button
+              type="button"
+              onClick={() => avatarInput.current?.click()}
+              disabled={avatarBusy}
+              className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-primary text-primary-foreground border-2 border-card flex items-center justify-center shadow"
+              aria-label="Cambiar foto de perfil"
+            >
+              <Camera className="w-4 h-4" />
+            </button>
+            <input
+              ref={avatarInput}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                e.target.value = ''; // permite elegir la misma foto otra vez
+                if (file) handleAvatarChange(file);
+              }}
+            />
           </div>
           <div className="min-w-0">
             <p className="text-lg font-semibold truncate">{profile.name || 'Sin nombre'}</p>
@@ -204,6 +287,26 @@ export default function ProfilePage() {
                 <Building2 className="w-3 h-3" />
                 {profile.tenantName}
               </span>
+            </div>
+            <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2">
+              <button
+                type="button"
+                onClick={() => avatarInput.current?.click()}
+                disabled={avatarBusy}
+                className="text-xs font-medium text-primary hover:underline disabled:opacity-50"
+              >
+                {profile.avatar ? 'Cambiar foto' : 'Agregar foto'}
+              </button>
+              {profile.avatar && (
+                <button
+                  type="button"
+                  onClick={handleAvatarRemove}
+                  disabled={avatarBusy}
+                  className="text-xs font-medium text-destructive hover:underline disabled:opacity-50"
+                >
+                  Quitar foto
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -364,6 +467,22 @@ export default function ProfilePage() {
             </Button>
           </div>
         </form>
+      </Card>
+
+      {/* Preferencias de este dispositivo: disponibles para todos los usuarios */}
+      <Card data-tour="profile-app" className="p-6">
+        <div className="flex items-center gap-2 mb-2">
+          <Smartphone className="w-5 h-5 text-blue-500" />
+          <h2 className="text-xl font-semibold">App y notificaciones</h2>
+        </div>
+        <p className="text-sm text-muted-foreground mb-6">
+          Se configuran en cada dispositivo: actívalas en tu celular y en tu PC por separado.
+        </p>
+        <div className="space-y-3">
+          <InstallAppCard />
+          <PushNotificationsToggle />
+          <NotificationSoundToggle />
+        </div>
       </Card>
     </div>
   );

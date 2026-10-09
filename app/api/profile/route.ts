@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { getSessionUser, getTenantOwnerId } from '@/lib/get-tenant';
 import { prisma } from '@/lib/prisma';
 import { rateLimit } from '@/lib/rate-limit';
+import { deleteFile } from '@/lib/s3';
 import { PASSWORD_MIN_LENGTH, PASSWORD_MIN_MESSAGE } from '@/lib/password';
 
 export const dynamic = 'force-dynamic';
@@ -20,6 +21,11 @@ const profileSchema = z.discriminatedUnion('type', [
     type: z.literal('email'),
     email: z.string().trim().toLowerCase().email('Correo inválido'),
     currentPassword: z.string().min(1, 'Ingresa tu contraseña actual'),
+  }),
+  z.object({
+    type: z.literal('avatar'),
+    // URL publica de la foto ya subida, o null para quitarla
+    avatar: z.string().url().max(500).nullable(),
   }),
   z.object({
     type: z.literal('password'),
@@ -41,6 +47,7 @@ export async function GET() {
       name: true,
       email: true,
       phone: true,
+      avatar: true,
       createdAt: true,
       roleRef: { select: { name: true } },
       role: true,
@@ -57,6 +64,7 @@ export async function GET() {
     name: user.name,
     email: user.email,
     phone: user.phone,
+    avatar: user.avatar,
     createdAt: user.createdAt,
     roleName: user.roleRef?.name || user.role,
     tenantName: user.tenant.name,
@@ -97,6 +105,21 @@ export async function PATCH(request: NextRequest) {
       if (!valid) {
         return NextResponse.json({ error: 'La contraseña actual es incorrecta' }, { status: 400 });
       }
+    }
+
+    if (body.type === 'avatar') {
+      // Solo fotos subidas a la carpeta de avatares de ESTA agencia
+      const base = (process.env.R2_PUBLIC_URL ?? '').replace(/\/$/, '');
+      const prefix = `${base}/tenants/${sessionUser.tenantId}/avatars/`;
+      if (body.avatar && (!base || !body.avatar.startsWith(prefix))) {
+        return NextResponse.json({ error: 'Imagen no válida' }, { status: 400 });
+      }
+      await prisma.user.update({ where: { id: user.id }, data: { avatar: body.avatar } });
+      // Borrar la foto anterior de la nube (no bloquea si falla)
+      if (user.avatar && user.avatar !== body.avatar && base && user.avatar.startsWith(prefix)) {
+        deleteFile(user.avatar.slice(base.length + 1)).catch((e) => console.error('Avatar delete error:', e));
+      }
+      return NextResponse.json({ success: true, avatar: body.avatar });
     }
 
     if (body.type === 'info') {

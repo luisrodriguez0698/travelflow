@@ -18,7 +18,7 @@ import {
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toast } from 'sonner';
-import { isSoundEnabled, setSoundEnabled, playChime, unlockAudio } from '@/lib/notify-sound';
+import { isSoundEnabled, setSoundEnabled, playChime, unlockAudio, SOUND_CHANGE_EVENT } from '@/lib/notify-sound';
 import { RowsSkeleton } from '@/components/skeletons';
 
 // ─── Avisos de proveedores (fechas limite) ───────────
@@ -185,10 +185,14 @@ export function NotificationPanel() {
     });
     // El navegador solo deja sonar despues de una interaccion del usuario
     const unlock = () => unlockAudio();
+    // Si se cambia el sonido desde Mi perfil, el icono 🔊/🔇 se actualiza aqui
+    const syncSound = () => setSoundOn(isSoundEnabled());
+    window.addEventListener(SOUND_CHANGE_EVENT, syncSound);
     window.addEventListener('pointerdown', unlock, { once: true });
     window.addEventListener('keydown', unlock, { once: true });
     return () => {
       source.close();
+      window.removeEventListener(SOUND_CHANGE_EVENT, syncSound);
       window.removeEventListener('pointerdown', unlock);
       window.removeEventListener('keydown', unlock);
     };

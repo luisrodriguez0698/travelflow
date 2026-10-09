@@ -89,7 +89,7 @@ export const FIELD_LABELS: Record<string, string> = {
   airline: 'Aerolínea', flightNumber: 'No. de vuelo', flightClass: 'Clase', returnFlightNumber: 'Vuelo de regreso',
   transportType: 'Tipo de unidad',
   // Plantillas / roles / usuarios
-  items: 'Servicios', permissions: 'Permisos', isDefault: 'Predeterminado', password: 'Contraseña',
+  items: 'Servicios', permissions: 'Permisos', isDefault: 'Predeterminado', password: 'Contraseña', avatar: 'Foto de perfil',
   // Restablecimiento de cuenta
   bookings: 'Ventas y cotizaciones', supplierPayments: 'Pagos a proveedores', bankAccounts: 'Cuentas bancarias',
   bankTransactions: 'Movimientos bancarios', clients: 'Clientes', goals: 'Metas', audit: 'Registros de bitácora',
