@@ -57,7 +57,7 @@ import {
   Lock,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { sendInvite } from '@/lib/actions/send-invite';
+import { sendInvite, type PendingInvite } from '@/lib/actions/send-invite';
 import { resendInvite } from '@/lib/actions/resend-invite';
 import { CreatorHistoryButton } from '@/components/record-history';
 
@@ -139,6 +139,8 @@ export default function UsersPage() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [resendingId, setResendingId] = useState<string | null>(null);
+  // Invitacion pendiente detectada al invitar: se ofrece reenviarla
+  const [pendingInvite, setPendingInvite] = useState<PendingInvite | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
 
   // Fetch users
@@ -227,7 +229,14 @@ export default function UsersPage() {
     }
     setIsSubmitting(true);
     try {
-      await sendInvite(inviteEmail, inviteRoleId);
+      const result = await sendInvite(inviteEmail, inviteRoleId);
+      if (!result.success) {
+        if (result.code === 'PENDING_INVITE' && result.pending) {
+          setPendingInvite(result.pending);
+          return;
+        }
+        throw new Error(result.error);
+      }
       toast.success('Invitación enviada correctamente');
       setIsInviteModalOpen(false);
       setInviteEmail('');
@@ -240,11 +249,32 @@ export default function UsersPage() {
     }
   };
 
+  // Reenviar la invitacion pendiente detectada al invitar (con el rol elegido ahora)
+  const handleResendPending = async () => {
+    if (!pendingInvite) return;
+    setIsSubmitting(true);
+    try {
+      const result = await resendInvite(pendingInvite.id, inviteRoleId || undefined);
+      if (!result.success) throw new Error(result.error);
+      toast.success(`Invitación reenviada a ${pendingInvite.email}`);
+      setPendingInvite(null);
+      setIsInviteModalOpen(false);
+      setInviteEmail('');
+      setInviteRoleId('');
+      fetchInvitations();
+    } catch (err: any) {
+      toast.error(err.message || 'Error al reenviar invitación');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   // Resend invitation
   const handleResendInvite = async (invitationId: string) => {
     setResendingId(invitationId);
     try {
-      await resendInvite(invitationId);
+      const result = await resendInvite(invitationId);
+      if (!result.success) throw new Error(result.error);
       toast.success('Invitación reenviada correctamente');
       fetchInvitations();
     } catch (err: any) {
@@ -511,7 +541,10 @@ export default function UsersPage() {
           <div className="relative max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <Input
-              placeholder="Buscar por nombre o email..."
+              type="search"
+              name="user-search"
+              autoComplete="off"
+              placeholder="Buscar por nombre o correo..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-10"
@@ -981,6 +1014,8 @@ export default function UsersPage() {
               <Label>Correo electrónico *</Label>
               <Input
                 type="email"
+                name="invite-email"
+                autoComplete="off"
                 placeholder="usuario@ejemplo.com"
                 value={inviteEmail}
                 onChange={(e) => setInviteEmail(e.target.value)}
@@ -1021,6 +1056,44 @@ export default function UsersPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Dialog: ya existe una invitacion pendiente para ese correo */}
+      <AlertDialog open={!!pendingInvite} onOpenChange={(open) => { if (!open && !isSubmitting) setPendingInvite(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Mail className="w-5 h-5 text-blue-500" />
+              Ya invitaste a este correo
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm text-muted-foreground">
+                <p>
+                  Le enviaste una invitación a <strong className="text-foreground">{pendingInvite?.email}</strong> el{' '}
+                  {pendingInvite && formatDate(pendingInvite.sentAt)} y todavía no la acepta.
+                </p>
+                <p>¿Quieres reenviarla? Le llegará un correo nuevo y tendrá 7 días más para aceptarla.</p>
+                {pendingInvite && inviteRoleId && inviteRoleId !== pendingInvite.roleId && (
+                  <p className="rounded-md bg-muted px-3 py-2">
+                    El rol cambiará de <strong className="text-foreground">{pendingInvite.roleName}</strong> a{' '}
+                    <strong className="text-foreground">{roles.find((r) => r.id === inviteRoleId)?.name}</strong>.
+                  </p>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isSubmitting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleResendPending(); }}
+              disabled={isSubmitting}
+              className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white"
+            >
+              {isSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+              Reenviar invitación
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Modal: Edit User */}
       <Dialog open={isEditUserModalOpen} onOpenChange={setIsEditUserModalOpen}>
