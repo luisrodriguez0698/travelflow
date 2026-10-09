@@ -1,5 +1,6 @@
 import { prisma } from './prisma';
 import { resolvePermissionList, can, ALL_MODULES } from './permissions';
+import { publishToUser } from './realtime';
 
 // Avisos de actividad para el equipo ("nueva venta", "abono", "ingreso").
 // Cada evento exige el acceso de su apartado: solo lo recibe quien puede verlo.
@@ -58,7 +59,8 @@ export async function notifyActivity(input: ActivityInput): Promise<void> {
     });
     if (recipients.length === 0) return;
 
-    await prisma.activityNotification.createMany({
+    const created = await prisma.activityNotification.createManyAndReturn({
+      select: { id: true, userId: true, type: true, title: true, body: true, url: true, read: true, actorName: true, createdAt: true },
       data: recipients.map((u) => ({
         tenantId: input.tenantId,
         userId: u.id,
@@ -69,6 +71,9 @@ export async function notifyActivity(input: ActivityInput): Promise<void> {
         url: input.url ?? null,
       })),
     });
+
+    // Tiempo real: a cada destinatario conectado por SSE le llega al instante
+    for (const { userId, ...item } of created) publishToUser(userId, item);
 
     // Push al celular/PC aunque la app este cerrada. Import dinamico: web-push
     // falla al cargar si faltan las llaves VAPID y no debe afectar lo demas.

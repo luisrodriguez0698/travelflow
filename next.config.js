@@ -4,8 +4,19 @@ const withPWA = require('@ducanh2912/next-pwa').default({
   disable: process.env.NODE_ENV === 'development',
   register: true,
   cacheOnFrontEndNav: true,
+  // Las reglas propias van ANTES que las de fabrica (que cachean todo GET /api/*)
+  extendDefaultRuntimeCaching: true,
   workboxOptions: {
     skipWaiting: true,
+    runtimeCaching: [
+      {
+        // Stream SSE de avisos: conexion abierta que nunca termina; el service
+        // worker no debe interceptarla ni intentar guardarla en cache.
+        urlPattern: ({ url }) => url.pathname.startsWith('/api/activity/stream'),
+        handler: 'NetworkOnly',
+        method: 'GET',
+      },
+    ],
   },
 });
 

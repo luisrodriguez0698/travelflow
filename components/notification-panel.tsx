@@ -52,8 +52,6 @@ interface ActivityItem {
   createdAt: string;
 }
 
-const ACTIVITY_POLL_MS = 15_000;
-
 const ACTIVITY_STYLE: Record<string, { icon: typeof ShoppingCart; className: string }> = {
   SALE_CREATED: { icon: ShoppingCart, className: 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400' },
   PAYMENT_RECEIVED: { icon: Wallet, className: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-400' },
@@ -101,6 +99,8 @@ export function NotificationPanel() {
   const [soundOn, setSoundOn] = useState(true);
   // Mas reciente ya visto: lo que llegue despues es "nuevo" (sonido + aviso)
   const newestSeen = useRef<string | null>(null);
+  // IDs ya mostrados: evita duplicar sonido/aviso entre el stream y la sincronizacion
+  const knownIds = useRef(new Set<string>());
 
   // ─── Proveedores ───
   const fetchNotifications = async () => {
@@ -118,12 +118,14 @@ export function NotificationPanel() {
     }
   };
 
-  // ─── Actividad (cada 15 s) ───
+  // ─── Actividad: lista completa (al abrir y al (re)conectar el stream) ───
   const fetchActivity = useCallback(async () => {
     try {
       const res = await fetch('/api/activity');
       if (!res.ok) return;
       const data: { items: ActivityItem[]; unread: number } = await res.json();
+      const unseen = new Set(data.items.filter((i) => !knownIds.current.has(i.id)).map((i) => i.id));
+      data.items.forEach((i) => knownIds.current.add(i.id));
       setActivity(data.items);
       setActivityUnread(data.unread);
 
@@ -132,7 +134,7 @@ export function NotificationPanel() {
         newestSeen.current = newest ?? new Date(0).toISOString(); // primera carga: sin sonido
         return;
       }
-      const fresh = data.items.filter((i) => !i.read && i.createdAt > (newestSeen.current as string));
+      const fresh = data.items.filter((i) => !i.read && unseen.has(i.id) && i.createdAt > (newestSeen.current as string));
       if (newest && newest > newestSeen.current) newestSeen.current = newest;
       if (fresh.length > 0) {
         playChime();
@@ -147,21 +149,49 @@ export function NotificationPanel() {
     }
   }, [router]);
 
+  // Aviso que llega en vivo por el stream SSE
+  const handleIncoming = useCallback(
+    (item: ActivityItem) => {
+      if (knownIds.current.has(item.id)) return;
+      knownIds.current.add(item.id);
+      setActivity((prev) => [item, ...prev.filter((a) => a.id !== item.id)].slice(0, 30));
+      setActivityUnread((n) => n + 1);
+      if (!newestSeen.current || item.createdAt > newestSeen.current) newestSeen.current = item.createdAt;
+      playChime();
+      toast(item.title, {
+        description: item.body,
+        action: item.url ? { label: 'Ver', onClick: () => router.push(item.url as string) } : undefined,
+      });
+    },
+    [router]
+  );
+
   useEffect(() => {
     setSoundOn(isSoundEnabled());
     fetchNotifications();
     fetchActivity();
-    const timer = setInterval(fetchActivity, ACTIVITY_POLL_MS);
+
+    // Tiempo real por Server-Sent Events (sin polling). EventSource reconecta
+    // solo; en cada (re)conexion se sincroniza la lista por si algo se perdio.
+    const source = new EventSource('/api/activity/stream');
+    source.addEventListener('ready', () => fetchActivity());
+    source.addEventListener('activity', (event) => {
+      try {
+        handleIncoming(JSON.parse((event as MessageEvent).data));
+      } catch {
+        /* evento mal formado: se ignora */
+      }
+    });
     // El navegador solo deja sonar despues de una interaccion del usuario
     const unlock = () => unlockAudio();
     window.addEventListener('pointerdown', unlock, { once: true });
     window.addEventListener('keydown', unlock, { once: true });
     return () => {
-      clearInterval(timer);
+      source.close();
       window.removeEventListener('pointerdown', unlock);
       window.removeEventListener('keydown', unlock);
     };
-  }, [fetchActivity]);
+  }, [fetchActivity, handleIncoming]);
 
   useEffect(() => {
     if (open) {
