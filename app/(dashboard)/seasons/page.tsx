@@ -35,6 +35,7 @@ import {
 } from '@/components/ui/table';
 import { Plus, Calendar, Edit, Trash2, ChevronLeft, ChevronRight, Search, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useCan } from '@/hooks/use-can';
 
 interface Season {
   id: string;
@@ -59,6 +60,7 @@ const COLORS = [
 ];
 
 export default function SeasonsPage() {
+  const can = useCan();
   const [seasons, setSeasons] = useState<Season[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -266,10 +268,10 @@ export default function SeasonsPage() {
           <h1 className="text-3xl font-bold">Temporadas</h1>
           <p className="text-muted-foreground">Gestiona las temporadas para organizar tus salidas</p>
         </div>
-        <Button data-tour="page-action" onClick={openCreateModal}>
+        {can('temporadas', 'create') && (<Button data-tour="page-action" onClick={openCreateModal}>
           <Plus className="w-4 h-4 mr-2" />
           Nueva Temporada
-        </Button>
+        </Button>)}
       </div>
 
       {/* Search & Table */}
@@ -332,17 +334,17 @@ export default function SeasonsPage() {
                       {season._count?.departures || 0} salidas
                     </span>
                     <div className="flex gap-2">
-                      <Button variant="outline" size="icon" onClick={() => openEditModal(season)}>
+                      {can('temporadas', 'edit') && (<Button variant="outline" size="icon" onClick={() => openEditModal(season)}>
                         <Edit className="w-4 h-4" />
-                      </Button>
-                      <Button
+                      </Button>)}
+                      {can('temporadas', 'delete') && (<Button
                         variant="outline"
                         size="icon"
                         className="text-red-500 hover:text-red-700 hover:bg-red-50"
                         onClick={() => openDeleteDialog(season)}
                       >
                         <Trash2 className="w-4 h-4" />
-                      </Button>
+                      </Button>)}
                     </div>
                   </div>
                 </div>
@@ -386,17 +388,17 @@ export default function SeasonsPage() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
-                          <Button variant="outline" size="icon" onClick={() => openEditModal(season)}>
+                          {can('temporadas', 'edit') && (<Button variant="outline" size="icon" onClick={() => openEditModal(season)}>
                             <Edit className="w-4 h-4" />
-                          </Button>
-                          <Button
+                          </Button>)}
+                          {can('temporadas', 'delete') && (<Button
                             variant="outline"
                             size="icon"
                             className="text-red-500 hover:text-red-700 hover:bg-red-50"
                             onClick={() => openDeleteDialog(season)}
                           >
                             <Trash2 className="w-4 h-4" />
-                          </Button>
+                          </Button>)}
                         </div>
                       </TableCell>
                     </TableRow>

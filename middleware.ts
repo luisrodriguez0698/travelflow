@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse, NextFetchEvent } from 'next/server';
 import { withAuth } from 'next-auth/middleware';
 import { getToken } from 'next-auth/jwt';
-import { moduleForPath, firstAllowedPath } from '@/lib/permissions';
+import { moduleForPath, firstAllowedPath, can } from '@/lib/permissions';
 
 // ─── Dominio principal del SaaS ─────────────────────────────────────────────
 // Configura NEXT_PUBLIC_APP_HOSTNAME en Railway con el hostname real,
@@ -98,11 +98,21 @@ export async function middleware(req: NextRequest, event: NextFetchEvent) {
     if (requiredModule) {
       const token = await getToken({ req });
       const permissions = token?.permissions as string[] | undefined;
-      if (Array.isArray(permissions) && !permissions.includes(requiredModule)) {
-        const url = req.nextUrl.clone();
-        url.pathname = firstAllowedPath(permissions);
-        url.search = '';
-        return NextResponse.redirect(url);
+      if (Array.isArray(permissions)) {
+        if (!permissions.includes(requiredModule)) {
+          const url = req.nextUrl.clone();
+          url.pathname = firstAllowedPath(permissions);
+          url.search = '';
+          return NextResponse.redirect(url);
+        }
+        // Formularios: /<seccion>/new exige crear; /<seccion>/<id>/edit exige editar
+        const action = /\/new$/.test(pathname) ? 'create' : /\/edit$/.test(pathname) ? 'edit' : null;
+        if (action && !can(permissions, requiredModule, action)) {
+          const url = req.nextUrl.clone();
+          url.pathname = pathname.replace(/\/(?:new|[^/]+\/edit)$/, '') || '/dashboard';
+          url.search = '';
+          return NextResponse.redirect(url);
+        }
       }
     }
   }

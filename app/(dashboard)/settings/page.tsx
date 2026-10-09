@@ -30,6 +30,7 @@ import Image from 'next/image';
 import { InstallAppCard } from '@/components/install-app-card';
 import { PushNotificationsToggle } from '@/components/push-notifications-toggle';
 import { DangerZone } from '@/components/danger-zone';
+import { useCan } from '@/hooks/use-can';
 
 interface AgencySettings {
   id: string;
@@ -42,6 +43,7 @@ interface AgencySettings {
 }
 
 export default function SettingsPage() {
+  const can = useCan();
   const { toast } = useToast();
   const [settings, setSettings] = useState<AgencySettings | null>(null);
   const [loading, setLoading] = useState(true);
@@ -430,7 +432,7 @@ export default function SettingsPage() {
 
           {/* Save Button */}
           <div className="flex justify-end">
-            <Button
+            {can('configuracion', 'edit') && (<Button
               onClick={handleSave}
               disabled={saving}
               variant="gradient"
@@ -441,7 +443,7 @@ export default function SettingsPage() {
                 <Save className="w-4 h-4 mr-2" />
               )}
               Guardar Cambios
-            </Button>
+            </Button>)}
           </div>
         </div>
       </Card>

@@ -70,6 +70,7 @@ import { format, startOfMonth, endOfMonth, subMonths, startOfYear } from 'date-f
 import { es } from 'date-fns/locale';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
+import { useCan } from '@/hooks/use-can';
 
 const MEXICAN_BANKS = [
   'BBVA', 'Banorte', 'Santander', 'HSBC', 'Scotiabank', 'Citibanamex',
@@ -146,6 +147,7 @@ const initialAccountForm: AccountFormData = {
 };
 
 export default function BanksPage() {
+  const can = useCan();
   const { toast } = useToast();
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
   const [loading, setLoading] = useState(true);
@@ -579,14 +581,14 @@ export default function BanksPage() {
           </div>
         ) : (
           <div className="flex gap-2 flex-wrap">
-            <Button onClick={() => openTxModal('INCOME')} className="bg-green-600 hover:bg-green-700">
+            {can('bancos', 'create') && (<Button onClick={() => openTxModal('INCOME')} className="bg-green-600 hover:bg-green-700">
               <ArrowDownCircle className="w-4 h-4 mr-2" />
               Nuevo Ingreso
-            </Button>
-            <Button onClick={() => openTxModal('EXPENSE')} variant="destructive">
+            </Button>)}
+            {can('bancos', 'create') && (<Button onClick={() => openTxModal('EXPENSE')} variant="destructive">
               <ArrowUpCircle className="w-4 h-4 mr-2" />
               Nuevo Egreso
-            </Button>
+            </Button>)}
             {otherAccounts.length > 0 && (
               <Button onClick={() => openTxModal('TRANSFER')} variant="outline">
                 <ArrowRightLeft className="w-4 h-4 mr-2" />
@@ -709,7 +711,7 @@ export default function BanksPage() {
                               <Eye className="w-4 h-4" />
                             </Button>
                           )}
-                          {!isCancelled && selectedAccount.isActive !== false && (
+                          {!isCancelled && selectedAccount.isActive !== false && can('bancos', 'delete') && (
                             <Button
                               size="sm"
                               variant="outline"
@@ -770,7 +772,7 @@ export default function BanksPage() {
                                 <Eye className="w-4 h-4" />
                               </Button>
                             )}
-                            {!isCancelled && selectedAccount.isActive !== false && (
+                            {!isCancelled && selectedAccount.isActive !== false && can('bancos', 'delete') && (
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -1097,13 +1099,13 @@ export default function BanksPage() {
           <h1 className="text-3xl font-bold">Bancos</h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">Gestiona tus cuentas bancarias y movimientos</p>
         </div>
-        <Button data-tour="page-action"
+        {can('bancos', 'create') && (<Button data-tour="page-action"
           onClick={openCreateAccount}
           variant="gradient"
         >
           <Plus className="w-4 h-4 mr-2" />
           Nueva Cuenta
-        </Button>
+        </Button>)}
       </div>
 
       {/* Total Balance Card */}
@@ -1158,17 +1160,17 @@ export default function BanksPage() {
                   <Eye className="w-4 h-4 mr-1" />
                   Movimientos
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => openEditAccount(account)}>
+                {can('bancos', 'edit') && (<Button size="sm" variant="outline" onClick={() => openEditAccount(account)}>
                   <Pencil className="w-4 h-4" />
-                </Button>
-                <Button
+                </Button>)}
+                {can('bancos', 'delete') && (<Button
                   size="sm"
                   variant="outline"
                   className="text-red-600 hover:text-red-700"
                   onClick={() => openDeleteAccount(account)}
                 >
                   <Trash2 className="w-4 h-4" />
-                </Button>
+                </Button>)}
               </div>
             </Card>
           ))}
@@ -1180,10 +1182,10 @@ export default function BanksPage() {
           <p className="text-gray-600 dark:text-gray-400 mb-6">
             Comienza agregando tu primera cuenta bancaria
           </p>
-          <Button onClick={openCreateAccount}>
+          {can('bancos', 'create') && (<Button onClick={openCreateAccount}>
             <Plus className="w-4 h-4 mr-2" />
             Nueva Cuenta
-          </Button>
+          </Button>)}
         </Card>
       )}
 
@@ -1220,9 +1222,9 @@ export default function BanksPage() {
                       <Eye className="w-4 h-4 mr-1" />
                       Ver bitácora
                     </Button>
-                    <Button size="sm" variant="outline" onClick={() => handleRestoreAccount(account)} disabled={saving}>
+                    {can('bancos', 'edit') && (<Button size="sm" variant="outline" onClick={() => handleRestoreAccount(account)} disabled={saving}>
                       <ArchiveRestore className="w-4 h-4" />
-                    </Button>
+                    </Button>)}
                   </div>
                 </Card>
               ))}

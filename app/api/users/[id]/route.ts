@@ -17,7 +17,7 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    const tenantId = await requirePermission('usuarios');
+    const tenantId = await requirePermission('usuarios', 'edit');
     const sessionUser = await getSessionUser();
     const { id } = await params;
 

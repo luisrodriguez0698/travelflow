@@ -28,7 +28,7 @@ export async function sendInvite(rawEmail: string, roleId: string): Promise<Invi
   try {
     let tenantId: string;
     try {
-      tenantId = await requirePermission('usuarios');
+      tenantId = await requirePermission('usuarios', 'create');
     } catch {
       return { success: false, error: 'No tienes permiso para invitar usuarios' };
     }

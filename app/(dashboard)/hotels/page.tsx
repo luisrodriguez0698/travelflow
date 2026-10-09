@@ -33,6 +33,7 @@ import { HotelCardImageModal } from './HotelCardImageModal';
 import { PaginationFooter } from '@/components/ui/pagination-footer';
 import { CreatorHistoryButton } from '@/components/record-history';
 import { toast } from 'sonner';
+import { useCan } from '@/hooks/use-can';
 
 interface Destination {
   id: string;
@@ -85,6 +86,7 @@ const defaultForm = {
 };
 
 export default function HotelsPage() {
+  const can = useCan();
   const [hotels, setHotels] = useState<Hotel[]>([]);
   const [destinations, setDestinations] = useState<Destination[]>([]);
   const [loading, setLoading] = useState(true);
@@ -373,10 +375,10 @@ export default function HotelsPage() {
           <h1 className="text-3xl font-bold">Hoteles</h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">Gestiona los hoteles por destino</p>
         </div>
-        <Button data-tour="page-action" onClick={openCreate} variant="gradient">
+        {can('destinos', 'create') && (<Button data-tour="page-action" onClick={openCreate} variant="gradient">
           <Plus className="w-4 h-4 mr-2" />
           Nuevo Hotel
-        </Button>
+        </Button>)}
       </div>
 
       {/* Filters */}
@@ -448,12 +450,12 @@ export default function HotelsPage() {
                     <Button variant="ghost" size="icon" onClick={() => setCardImageHotel(hotel)}>
                       <ImageDown className="w-4 h-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={() => openEdit(hotel)}>
+                    {can('destinos', 'edit') && (<Button variant="ghost" size="icon" onClick={() => openEdit(hotel)}>
                       <Pencil className="w-4 h-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={() => setDeleteId(hotel.id)} className="text-red-500 hover:text-red-600">
+                    </Button>)}
+                    {can('destinos', 'delete') && (<Button variant="ghost" size="icon" onClick={() => setDeleteId(hotel.id)} className="text-red-500 hover:text-red-600">
                       <Trash2 className="w-4 h-4" />
-                    </Button>
+                    </Button>)}
                   </div>
                 </div>
               </div>
@@ -545,12 +547,12 @@ export default function HotelsPage() {
                           <TooltipContent><p>Descargar imagen del card</p></TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
-                      <Button variant="ghost" size="icon" onClick={() => openEdit(hotel)}>
+                      {can('destinos', 'edit') && (<Button variant="ghost" size="icon" onClick={() => openEdit(hotel)}>
                         <Pencil className="w-4 h-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => setDeleteId(hotel.id)} className="text-red-500 hover:text-red-600">
+                      </Button>)}
+                      {can('destinos', 'delete') && (<Button variant="ghost" size="icon" onClick={() => setDeleteId(hotel.id)} className="text-red-500 hover:text-red-600">
                         <Trash2 className="w-4 h-4" />
-                      </Button>
+                      </Button>)}
                     </div>
                   </TableCell>
                 </TableRow>

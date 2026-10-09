@@ -40,7 +40,7 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    const tenantId = await requirePermission('bancos');
+    const tenantId = await requirePermission('bancos', 'edit');
     const { id } = await params;
     const body = await request.json();
 
@@ -74,7 +74,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const tenantId = await requirePermission('bancos');
+    const tenantId = await requirePermission('bancos', 'delete');
     const { id } = await params;
 
     // transferToAccountId / adjustToZero are optional — one of them is required only when balance > 0
@@ -192,7 +192,7 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    const tenantId = await requirePermission('bancos');
+    const tenantId = await requirePermission('bancos', 'edit');
     const { id } = await params;
 
     const existing = await prisma.bankAccount.findFirst({

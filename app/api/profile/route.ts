@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { getSessionUser, getTenantOwnerId } from '@/lib/get-tenant';
 import { prisma } from '@/lib/prisma';
 import { rateLimit } from '@/lib/rate-limit';
+import { PASSWORD_MIN_LENGTH, PASSWORD_MIN_MESSAGE } from '@/lib/password';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,7 +24,7 @@ const profileSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('password'),
     currentPassword: z.string().min(1, 'Ingresa tu contraseña actual'),
-    newPassword: z.string().min(12, 'La contraseña debe tener al menos 12 caracteres'),
+    newPassword: z.string().min(PASSWORD_MIN_LENGTH, PASSWORD_MIN_MESSAGE),
   }),
 ]);
 

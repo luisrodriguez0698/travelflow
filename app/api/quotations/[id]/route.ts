@@ -59,7 +59,7 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    const access = await requireAccess('cotizaciones');
+    const access = await requireAccess('cotizaciones', 'edit');
     const tenantId = access.tenantId;
     const { id } = await params;
     const body = await request.json();
@@ -287,7 +287,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const access = await requireAccess('cotizaciones');
+    const access = await requireAccess('cotizaciones', 'delete');
     const tenantId = access.tenantId;
     const { id } = await params;
 

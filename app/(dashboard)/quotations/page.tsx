@@ -35,6 +35,7 @@ import { CreatorHistoryButton } from '@/components/record-history';
 import { format, isPast, differenceInDays, startOfMonth, endOfMonth, subMonths, startOfYear } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
+import { useCan } from '@/hooks/use-can';
 
 interface Client { id: string; fullName: string; phone: string | null; email?: string; }
 interface Season { id: string; name: string; color: string; }
@@ -138,6 +139,7 @@ const initialFormData: FormData = {
 };
 
 export default function QuotationsPage() {
+  const can = useCan();
   const { toast } = useToast();
   const router = useRouter();
   const [quotations, setQuotations] = useState<Quotation[]>([]);
@@ -627,12 +629,12 @@ export default function QuotationsPage() {
           <h1 className="text-3xl font-bold">Cotizaciones</h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">Gestiona tus cotizaciones y borradores</p>
         </div>
-        <Link href="/quotations/new">
+        {can('cotizaciones', 'create') && (<Link href="/quotations/new">
           <Button data-tour="page-action" className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600">
             <Plus className="w-4 h-4 mr-2" />
             Nueva Cotización
           </Button>
-        </Link>
+        </Link>)}
       </div>
 
       {/* Filters */}
@@ -779,15 +781,15 @@ export default function QuotationsPage() {
                   <Link href={`/quotations/${q.id}`}>
                     <Button size="sm" variant="outline"><Eye className="w-4 h-4 mr-1" />Ver</Button>
                   </Link>
-                  <Link href={`/quotations/${q.id}/edit`}>
+                  {can('cotizaciones', 'edit') && (<Link href={`/quotations/${q.id}/edit`}>
                     <Button size="sm" variant="outline"><Pencil className="w-4 h-4" /></Button>
-                  </Link>
-                  <Button size="sm" variant="outline" className="text-green-600 hover:text-green-700" onClick={() => { setConvertingQuotation(q); setIsConvertModalOpen(true); }}>
+                  </Link>)}
+                  {can('cotizaciones', 'edit') && can('ventas', 'create') && (<Button size="sm" variant="outline" className="text-green-600 hover:text-green-700" onClick={() => { setConvertingQuotation(q); setIsConvertModalOpen(true); }}>
                     <ShoppingCart className="w-4 h-4" />
-                  </Button>
-                  <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700" onClick={() => { setDeletingQuotation(q); setIsDeleteModalOpen(true); }}>
+                  </Button>)}
+                  {can('cotizaciones', 'delete') && (<Button size="sm" variant="outline" className="text-red-600 hover:text-red-700" onClick={() => { setDeletingQuotation(q); setIsDeleteModalOpen(true); }}>
                     <Trash2 className="w-4 h-4" />
-                  </Button>
+                  </Button>)}
                 </div>
               </div>
             ))}
@@ -848,15 +850,15 @@ export default function QuotationsPage() {
                       <Link href={`/quotations/${q.id}`}>
                         <Button size="sm" variant="outline" title="Ver detalle"><Eye className="w-4 h-4" /></Button>
                       </Link>
-                      <Link href={`/quotations/${q.id}/edit`}>
+                      {can('cotizaciones', 'edit') && (<Link href={`/quotations/${q.id}/edit`}>
                         <Button size="sm" variant="outline" title="Editar"><Pencil className="w-4 h-4" /></Button>
-                      </Link>
-                      <Button size="sm" variant="outline" className="text-green-600 hover:text-green-700" onClick={() => { setConvertingQuotation(q); setIsConvertModalOpen(true); }} title="Convertir a venta">
+                      </Link>)}
+                      {can('cotizaciones', 'edit') && can('ventas', 'create') && (<Button size="sm" variant="outline" className="text-green-600 hover:text-green-700" onClick={() => { setConvertingQuotation(q); setIsConvertModalOpen(true); }} title="Convertir a venta">
                         <ShoppingCart className="w-4 h-4" />
-                      </Button>
-                      <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700" onClick={() => { setDeletingQuotation(q); setIsDeleteModalOpen(true); }} title="Eliminar">
+                      </Button>)}
+                      {can('cotizaciones', 'delete') && (<Button size="sm" variant="outline" className="text-red-600 hover:text-red-700" onClick={() => { setDeletingQuotation(q); setIsDeleteModalOpen(true); }} title="Eliminar">
                         <Trash2 className="w-4 h-4" />
-                      </Button>
+                      </Button>)}
                     </div>
                   </TableCell>
                 </TableRow>

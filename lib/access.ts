@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getSessionUser } from './get-tenant';
+import { can, type PermissionAction } from './permissions';
 
 // Control de acceso de las APIs:
 // 1. Permiso de modulo: el rol debe tener al menos uno de los modulos indicados.
@@ -33,24 +34,27 @@ function buildAccess(user: { id: string; tenantId: string; ownDataOnly: boolean 
   };
 }
 
-function allows(user: { role: string; permissions: string[] }, modules: string[]) {
+function allows(user: { role: string; permissions: string[] }, modules: string[], action: PermissionAction) {
   // Legacy ADMIN sin arreglo de permisos: acceso total
   if (user.role === 'ADMIN' && user.permissions.length === 0) return true;
-  return modules.some((m) => user.permissions.includes(m));
+  return modules.some((m) => can(user.permissions, m, action));
 }
 
-/** Exige sesion y al menos uno de los modulos. Lanza 'Unauthorized' / 'Forbidden'. */
-export async function requireAccess(modules: string | string[]): Promise<Access> {
+/**
+ * Exige sesion y la accion en al menos uno de los modulos
+ * (p. ej. requireAccess('ventas', 'edit')). Lanza 'Unauthorized' / 'Forbidden'.
+ */
+export async function requireAccess(modules: string | string[], action: PermissionAction = 'view'): Promise<Access> {
   const user = await getSessionUser();
   if (!user) throw new Error('Unauthorized');
-  if (!allows(user, Array.isArray(modules) ? modules : [modules])) throw new Error('Forbidden');
+  if (!allows(user, Array.isArray(modules) ? modules : [modules], action)) throw new Error('Forbidden');
   return buildAccess(user);
 }
 
 /** Como requireAccess pero devuelve null en vez de lanzar (para paneles opcionales). */
 export async function getAccess(modules: string | string[]): Promise<Access | null> {
   const user = await getSessionUser();
-  if (!user || !allows(user, Array.isArray(modules) ? modules : [modules])) return null;
+  if (!user || !allows(user, Array.isArray(modules) ? modules : [modules], 'view')) return null;
   return buildAccess(user);
 }
 

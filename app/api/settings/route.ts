@@ -39,7 +39,7 @@ export async function GET() {
 // Actualizar configuración de la agencia
 export async function PUT(request: NextRequest) {
   try {
-    const tenantId = await requirePermission('configuracion');
+    const tenantId = await requirePermission('configuracion', 'edit');
     const body = await request.json();
 
     const { name, logo, email, phone, address, policies } = body;

@@ -38,7 +38,7 @@ async function updateClient(
   { params }: { params: { id: string } }
 ) {
   try {
-    const access = await requireAccess(['clientes', 'ventas', 'cotizaciones']);
+    const access = await requireAccess(['clientes', 'ventas', 'cotizaciones'], 'edit');
     const tenantId = access.tenantId;
     const clientId = params?.id;
     const body = await request.json();
@@ -101,7 +101,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const access = await requireAccess('clientes');
+    const access = await requireAccess('clientes', 'delete');
     const tenantId = access.tenantId;
     const clientId = params?.id;
 

@@ -91,7 +91,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const tenantId = await requirePermission('bancos');
+    const tenantId = await requirePermission('bancos', 'create');
     const body = await request.json();
 
     if (!body.bankName || !body.accountNumber || !body.accountType || !body.referenceName) {

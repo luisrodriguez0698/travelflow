@@ -22,6 +22,7 @@ import { Badge } from '@/components/ui/badge';
 import { CreatorHistoryButton } from '@/components/record-history';
 import { Plus, Search, Pencil, Trash2, MapPin, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useCan } from '@/hooks/use-can';
 
 interface Season {
   id: string;
@@ -40,6 +41,7 @@ interface Destination {
 }
 
 export default function DestinationsPage() {
+  const can = useCan();
   const [destinations, setDestinations] = useState<Destination[]>([]);
   const [seasons, setSeasons] = useState<Season[]>([]);
   const [loading, setLoading] = useState(true);
@@ -182,10 +184,10 @@ export default function DestinationsPage() {
           <h1 className="text-3xl font-bold">Destinos</h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">Gestiona tus destinos de viaje</p>
         </div>
-        <Button data-tour="page-action" onClick={openCreate} variant="gradient">
+        {can('destinos', 'create') && (<Button data-tour="page-action" onClick={openCreate} variant="gradient">
           <Plus className="w-4 h-4 mr-2" />
           Nuevo Destino
-        </Button>
+        </Button>)}
       </div>
 
       <Card className="p-4">
@@ -232,12 +234,12 @@ export default function DestinationsPage() {
                     <span className="text-sm text-muted-foreground">{dest._count.bookings} ventas</span>
                   </div>
                   <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" onClick={() => openEdit(dest)}>
+                    {can('destinos', 'edit') && (<Button variant="ghost" size="icon" onClick={() => openEdit(dest)}>
                       <Pencil className="w-4 h-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={() => setDeleteId(dest.id)} className="text-red-500 hover:text-red-600">
+                    </Button>)}
+                    {can('destinos', 'delete') && (<Button variant="ghost" size="icon" onClick={() => setDeleteId(dest.id)} className="text-red-500 hover:text-red-600">
                       <Trash2 className="w-4 h-4" />
-                    </Button>
+                    </Button>)}
                   </div>
                 </div>
               </div>
@@ -292,12 +294,12 @@ export default function DestinationsPage() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
-                      <Button variant="ghost" size="icon" onClick={() => openEdit(dest)}>
+                      {can('destinos', 'edit') && (<Button variant="ghost" size="icon" onClick={() => openEdit(dest)}>
                         <Pencil className="w-4 h-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => setDeleteId(dest.id)} className="text-red-500 hover:text-red-600">
+                      </Button>)}
+                      {can('destinos', 'delete') && (<Button variant="ghost" size="icon" onClick={() => setDeleteId(dest.id)} className="text-red-500 hover:text-red-600">
                         <Trash2 className="w-4 h-4" />
-                      </Button>
+                      </Button>)}
                     </div>
                   </TableCell>
                 </TableRow>

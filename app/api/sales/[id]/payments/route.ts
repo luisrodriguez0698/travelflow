@@ -10,7 +10,7 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    const access = await requireAccess('ventas');
+    const access = await requireAccess('ventas', 'payments');
     const tenantId = access.tenantId;
     const { id: bookingId } = await params;
     const body = await request.json();

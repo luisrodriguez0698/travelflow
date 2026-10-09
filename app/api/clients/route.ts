@@ -81,7 +81,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const access = await requireAccess(['clientes', 'ventas', 'cotizaciones']);
+    const access = await requireAccess(['clientes', 'ventas', 'cotizaciones'], 'create');
     const tenantId = access.tenantId;
     const body = await request.json();
 

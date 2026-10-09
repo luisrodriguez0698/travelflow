@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Plane, Loader2, ArrowLeft, CheckCircle, XCircle, Eye, EyeOff } from 'lucide-react';
+import { PASSWORD_MIN_LENGTH, PASSWORD_MIN_MESSAGE } from '@/lib/password';
 
 function ResetPasswordForm() {
   const searchParams = useSearchParams();
@@ -31,8 +32,8 @@ function ResetPasswordForm() {
     e.preventDefault();
     setError('');
 
-    if (password.length < 12) {
-      setError('La contraseña debe tener al menos 12 caracteres');
+    if (password.length < PASSWORD_MIN_LENGTH) {
+      setError(PASSWORD_MIN_MESSAGE);
       return;
     }
 
@@ -136,7 +137,7 @@ function ResetPasswordForm() {
                     <Input
                       id="password"
                       type={showPassword ? 'text' : 'password'}
-                      placeholder="Mínimo 12 caracteres"
+                      placeholder={`Mínimo ${PASSWORD_MIN_LENGTH} caracteres`}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required

@@ -42,6 +42,7 @@ import { Badge } from '@/components/ui/badge';
 import { CreatorHistoryButton } from '@/components/record-history';
 import { Plus, Truck, Edit, Trash2, ChevronLeft, ChevronRight, Search, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useCan } from '@/hooks/use-can';
 
 interface Supplier {
   id: string;
@@ -71,6 +72,7 @@ const SERVICE_COLORS: Record<string, string> = {
 const ITEMS_PER_PAGE = 10;
 
 export default function SuppliersPage() {
+  const can = useCan();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -301,13 +303,13 @@ export default function SuppliersPage() {
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Proveedores</h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">Gestiona tus proveedores de servicios</p>
         </div>
-        <Button data-tour="page-action"
+        {can('proveedores', 'create') && (<Button data-tour="page-action"
           onClick={openCreateModal}
           variant="gradient"
         >
           <Plus className="w-4 h-4 mr-2" />
           Nuevo Proveedor
-        </Button>
+        </Button>)}
       </div>
 
       <Card className="p-4">
@@ -342,17 +344,17 @@ export default function SuppliersPage() {
                     {getServiceLabel(supplier.serviceType)}
                   </Badge>
                   <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={() => openEditModal(supplier)}>
+                    {can('proveedores', 'edit') && (<Button variant="outline" size="sm" onClick={() => openEditModal(supplier)}>
                       <Edit className="w-4 h-4" />
-                    </Button>
-                    <Button
+                    </Button>)}
+                    {can('proveedores', 'delete') && (<Button
                       variant="outline"
                       size="sm"
                       className="text-red-600 hover:text-red-700 hover:bg-red-50"
                       onClick={() => openDeleteDialog(supplier)}
                     >
                       <Trash2 className="w-4 h-4" />
-                    </Button>
+                    </Button>)}
                   </div>
                 </div>
               </div>
@@ -400,21 +402,21 @@ export default function SuppliersPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        <Button
+                        {can('proveedores', 'edit') && (<Button
                           variant="outline"
                           size="sm"
                           onClick={() => openEditModal(supplier)}
                         >
                           <Edit className="w-4 h-4" />
-                        </Button>
-                        <Button
+                        </Button>)}
+                        {can('proveedores', 'delete') && (<Button
                           variant="outline"
                           size="sm"
                           className="text-red-600 hover:text-red-700 hover:bg-red-50"
                           onClick={() => openDeleteDialog(supplier)}
                         >
                           <Trash2 className="w-4 h-4" />
-                        </Button>
+                        </Button>)}
                       </div>
                     </TableCell>
                   </TableRow>

@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
+import { PASSWORD_MIN_LENGTH, PASSWORD_MIN_MESSAGE } from '@/lib/password';
 
 const acceptInviteSchema = z.object({
   token: z.string().min(1, 'Token requerido'),
   name: z.string().min(1, 'El nombre es requerido'),
-  password: z.string().min(12, 'La contraseña debe tener al menos 12 caracteres'),
+  password: z.string().min(PASSWORD_MIN_LENGTH, PASSWORD_MIN_MESSAGE),
   phone: z.string().optional(),
 });
 

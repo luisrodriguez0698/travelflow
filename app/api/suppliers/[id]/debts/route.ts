@@ -139,7 +139,7 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    const access = await requireAccess('proveedores');
+    const access = await requireAccess('proveedores', 'payments');
     const tenantId = access.tenantId;
     const { id: supplierId } = await params;
     const body = await request.json();
@@ -277,7 +277,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const access = await requireAccess('proveedores');
+    const access = await requireAccess('proveedores', 'payments');
     const tenantId = access.tenantId;
     const { searchParams } = new URL(request.url);
     const paymentId = searchParams.get('paymentId');

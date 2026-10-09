@@ -37,6 +37,7 @@ import { Plus, Users, Edit, Trash2, ChevronLeft, ChevronRight, Search, Loader2 }
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toast } from 'sonner';
+import { useCan } from '@/hooks/use-can';
 
 interface Client {
   id: string;
@@ -53,6 +54,7 @@ interface Client {
 const ITEMS_PER_PAGE = 10;
 
 export default function ClientsPage() {
+  const can = useCan();
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -329,13 +331,13 @@ export default function ClientsPage() {
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Clientes</h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">Gestiona tu directorio de clientes</p>
         </div>
-        <Button data-tour="page-action"
+        {can('clientes', 'create') && (<Button data-tour="page-action"
           onClick={openCreateModal}
           variant="gradient"
         >
           <Plus className="w-4 h-4 mr-2" />
           Nuevo Cliente
-        </Button>
+        </Button>)}
       </div>
 
       {/* Search */}
@@ -371,17 +373,17 @@ export default function ClientsPage() {
                   <p className="text-sm text-muted-foreground truncate">{client.email}</p>
                 )}
                 <div className="flex items-center justify-end gap-2 pt-1">
-                  <Button variant="outline" size="sm" onClick={() => openEditModal(client)}>
+                  {can('clientes', 'edit') && (<Button variant="outline" size="sm" onClick={() => openEditModal(client)}>
                     <Edit className="w-4 h-4" />
-                  </Button>
-                  <Button
+                  </Button>)}
+                  {can('clientes', 'delete') && (<Button
                     variant="outline"
                     size="sm"
                     className="text-red-600 hover:text-red-700 hover:bg-red-50"
                     onClick={() => openDeleteDialog(client)}
                   >
                     <Trash2 className="w-4 h-4" />
-                  </Button>
+                  </Button>)}
                 </div>
               </div>
             ))
@@ -432,21 +434,21 @@ export default function ClientsPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        <Button
+                        {can('clientes', 'edit') && (<Button
                           variant="outline"
                           size="sm"
                           onClick={() => openEditModal(client)}
                         >
                           <Edit className="w-4 h-4" />
-                        </Button>
-                        <Button
+                        </Button>)}
+                        {can('clientes', 'delete') && (<Button
                           variant="outline"
                           size="sm"
                           className="text-red-600 hover:text-red-700 hover:bg-red-50"
                           onClick={() => openDeleteDialog(client)}
                         >
                           <Trash2 className="w-4 h-4" />
-                        </Button>
+                        </Button>)}
                       </div>
                     </TableCell>
                   </TableRow>

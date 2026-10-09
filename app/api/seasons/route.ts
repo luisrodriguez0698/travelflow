@@ -43,7 +43,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const tenantId = await requirePermission('temporadas');
+    const tenantId = await requirePermission('temporadas', 'create');
     const body = await request.json();
 
     const sessionUser = await getSessionUser();

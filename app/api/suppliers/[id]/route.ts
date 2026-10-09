@@ -35,7 +35,7 @@ async function updateSupplier(
   { params }: { params: { id: string } }
 ) {
   try {
-    const access = await requireAccess('proveedores');
+    const access = await requireAccess('proveedores', 'edit');
     const tenantId = access.tenantId;
     const { id } = await params;
     const body = await request.json();
@@ -91,7 +91,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const access = await requireAccess('proveedores');
+    const access = await requireAccess('proveedores', 'delete');
     const tenantId = access.tenantId;
     const { id } = await params;
 

@@ -30,7 +30,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const tenantId = await requirePermission('destinos');
+    const tenantId = await requirePermission('destinos', 'create');
     const body = await request.json();
 
     const { departures, ...packageData } = body;

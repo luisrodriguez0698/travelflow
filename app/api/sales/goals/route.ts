@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const access = await requireAccess('ventas');
+    const access = await requireAccess('ventas', 'edit');
     const tenantId = access.tenantId;
     const body = await request.json();
     const { userId, month, year, goalAmount } = body;

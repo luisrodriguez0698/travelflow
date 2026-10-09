@@ -49,7 +49,7 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    const access = await requireAccess('ventas');
+    const access = await requireAccess('ventas', 'edit');
     const tenantId = access.tenantId;
     const { id } = await params;
     const body = await request.json();
@@ -287,7 +287,7 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    const access = await requireAccess('ventas');
+    const access = await requireAccess('ventas', 'edit');
     const tenantId = access.tenantId;
     const { id } = await params;
     const body = await request.json();
@@ -330,7 +330,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const access = await requireAccess('ventas');
+    const access = await requireAccess('ventas', 'delete');
     const tenantId = access.tenantId;
     const { id } = await params;
 

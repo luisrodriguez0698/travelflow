@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Plane, Loader2, CheckCircle, XCircle, Eye, EyeOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { PASSWORD_MIN_LENGTH, PASSWORD_MIN_MESSAGE } from '@/lib/password';
 
 // Esta pantalla es siempre oscura (no sigue el tema), asi que se fijan los
 // colores de foco y autocompletado para que no hereden bg-background (blanco en tema claro).
@@ -92,8 +93,8 @@ function AcceptInviteContent() {
       return;
     }
 
-    if (formData.password.length < 12) {
-      setFormError('La contraseña debe tener al menos 12 caracteres');
+    if (formData.password.length < PASSWORD_MIN_LENGTH) {
+      setFormError(PASSWORD_MIN_MESSAGE);
       return;
     }
 
@@ -246,11 +247,11 @@ function AcceptInviteContent() {
                   id="password"
                   name="password"
                   type={showPassword ? 'text' : 'password'}
-                  placeholder="Mínimo 12 caracteres"
+                  placeholder={`Mínimo ${PASSWORD_MIN_LENGTH} caracteres`}
                   value={formData.password}
                   onChange={handleChange}
                   required
-                  minLength={12}
+                  minLength={PASSWORD_MIN_LENGTH}
                   autoComplete="new-password"
                   disabled={submitting}
                   className={cn(darkInputClass, 'pr-10')}

@@ -50,6 +50,7 @@ import { useToast } from '@/hooks/use-toast';
 import { generateReceiptPdf } from '@/lib/generate-receipt-pdf';
 import { DatePicker } from '@/components/ui/date-picker';
 import { HistoryButton } from '@/components/record-history';
+import { useCan } from '@/hooks/use-can';
 
 interface PaymentPlan {
   id: string;
@@ -172,6 +173,7 @@ interface Sale {
 }
 
 export default function SaleDetailPage() {
+  const can = useCan();
   const params = useParams();
   const id = params.id as string;
   const { toast } = useToast();
@@ -925,7 +927,7 @@ export default function SaleDetailPage() {
                         Pendiente: ${pending.toLocaleString('es-MX')}
                       </span>
                     </div>
-                    {payment.status !== 'PAID' && (
+                    {payment.status !== 'PAID' && can('ventas', 'payments') && (
                       <Button
                         size="sm"
                         variant="outline"
@@ -973,7 +975,7 @@ export default function SaleDetailPage() {
                       </TableCell>
                       <TableCell>{getStatusBadge(payment.status)}</TableCell>
                       <TableCell className="text-right">
-                        {payment.status !== 'PAID' && (
+                        {payment.status !== 'PAID' && can('ventas', 'payments') && (
                           <Button
                             size="sm"
                             variant="outline"

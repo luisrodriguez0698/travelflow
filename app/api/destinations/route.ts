@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const tenantId = await requirePermission('destinos');
+    const tenantId = await requirePermission('destinos', 'create');
     const body = await request.json();
 
     if (!body.name?.trim()) {

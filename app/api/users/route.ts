@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const tenantId = await requirePermission('usuarios');
+    const tenantId = await requirePermission('usuarios', 'delete');
     const sessionUser = await getSessionUser();
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');

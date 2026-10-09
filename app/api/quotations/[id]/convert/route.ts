@@ -10,10 +10,10 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    const access = await requireAccess('cotizaciones');
+    const access = await requireAccess('cotizaciones', 'edit');
     const tenantId = access.tenantId;
     // Convertir crea una venta: tambien exige el permiso de ventas
-    if (!(await hasPermission('ventas'))) throw new Error('Forbidden');
+    if (!(await hasPermission('ventas', 'create'))) throw new Error('Forbidden');
     const { id } = await params;
 
     const body = await request.json().catch(() => ({}));

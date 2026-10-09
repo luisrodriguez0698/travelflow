@@ -3,10 +3,11 @@ import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { rateLimit } from '@/lib/rate-limit';
+import { PASSWORD_MIN_LENGTH, PASSWORD_MIN_MESSAGE } from '@/lib/password';
 
 const resetPasswordSchema = z.object({
   token: z.string().min(1, 'Token requerido'),
-  password: z.string().min(12, 'La contraseña debe tener al menos 12 caracteres'),
+  password: z.string().min(PASSWORD_MIN_LENGTH, PASSWORD_MIN_MESSAGE),
 });
 
 export const dynamic = 'force-dynamic';

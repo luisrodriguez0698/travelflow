@@ -44,6 +44,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import { generateQuotationPdf } from '@/lib/generate-quotation-pdf';
+import { useCan } from '@/hooks/use-can';
 
 interface PaymentPlan {
   id: string;
@@ -158,6 +159,7 @@ interface Quotation {
 }
 
 export default function QuotationDetailPage() {
+  const can = useCan();
   const params = useParams();
   const router = useRouter();
   const id = params.id as string;
@@ -340,14 +342,14 @@ export default function QuotationDetailPage() {
             )}
             Descargar Cotización PDF
           </Button>
-          <Button
+          {can('cotizaciones', 'edit') && can('ventas', 'create') && (<Button
             onClick={() => setShowConvertDialog(true)}
             variant="outline"
             className="border-green-300 text-green-700 hover:bg-green-50 dark:border-green-700 dark:text-green-400 dark:hover:bg-green-950/30"
           >
             <ShoppingCart className="w-4 h-4 mr-2" />
             Convertir a Venta
-          </Button>
+          </Button>)}
         </div>
       </div>
 

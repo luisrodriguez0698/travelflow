@@ -30,6 +30,7 @@ import { Plane, MapPin, Bus, Plus, Search, Loader2, Pencil, Trash2, Truck, Globe
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { CreatorHistoryButton } from '@/components/record-history';
+import { useCan } from '@/hooks/use-can';
 
 type ServiceType = 'FLIGHT' | 'TOUR' | 'TRANSFER';
 type Direction = 'IDA' | 'REGRESO' | 'IDA_Y_VUELTA';
@@ -99,6 +100,7 @@ const formatCurrency = (n: number) =>
   new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n);
 
 export default function ServicesPage() {
+  const can = useCan();
   const [activeType, setActiveType] = useState<ServiceType>('FLIGHT');
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
@@ -237,10 +239,10 @@ export default function ServicesPage() {
             Vuelos, tours y transportes listos para agregar a ventas y cotizaciones
           </p>
         </div>
-        <Button data-tour="page-action" onClick={openCreate} variant="gradient">
+        {can('destinos', 'create') && (<Button data-tour="page-action" onClick={openCreate} variant="gradient">
           <Plus className="w-4 h-4 mr-2" />
           Nuevo {config.singular}
-        </Button>
+        </Button>)}
       </div>
 
       {/* Tabs */}
@@ -345,10 +347,10 @@ export default function ServicesPage() {
                 </div>
                 <div className="flex items-center gap-1">
                   <CreatorHistoryButton entity="services" entityId={s.id} title={s.name} />
-                  <Button variant="ghost" size="icon" onClick={() => openEdit(s)} title="Editar">
+                  {can('destinos', 'edit') && (<Button variant="ghost" size="icon" onClick={() => openEdit(s)} title="Editar">
                     <Pencil className="w-4 h-4" />
-                  </Button>
-                  <Button
+                  </Button>)}
+                  {can('destinos', 'delete') && (<Button
                     variant="ghost"
                     size="icon"
                     onClick={() => setDeleteTarget(s)}
@@ -356,7 +358,7 @@ export default function ServicesPage() {
                     title="Eliminar"
                   >
                     <Trash2 className="w-4 h-4" />
-                  </Button>
+                  </Button>)}
                 </div>
               </div>
             </Card>

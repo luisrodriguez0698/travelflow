@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { UserCircle, Mail, KeyRound, Save, Loader2, Eye, EyeOff, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { PASSWORD_MIN_LENGTH, PASSWORD_MIN_MESSAGE } from '@/lib/password';
 
 interface Profile {
   id: string;
@@ -141,8 +142,8 @@ export default function ProfilePage() {
 
   const handleSavePassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (passwordForm.newPassword.length < 12) {
-      toast.error('La contraseña debe tener al menos 12 caracteres');
+    if (passwordForm.newPassword.length < PASSWORD_MIN_LENGTH) {
+      toast.error(PASSWORD_MIN_MESSAGE);
       return;
     }
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
@@ -329,7 +330,7 @@ export default function ProfilePage() {
                 value={passwordForm.newPassword}
                 onChange={(newPassword) => setPasswordForm({ ...passwordForm, newPassword })}
                 disabled={saving !== null}
-                placeholder="Mínimo 12 caracteres"
+                placeholder={`Mínimo ${PASSWORD_MIN_LENGTH} caracteres`}
                 autoComplete="new-password"
               />
             </div>

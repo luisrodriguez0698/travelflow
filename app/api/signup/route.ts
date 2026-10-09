@@ -4,10 +4,11 @@ import { prisma } from '@/lib/prisma';
 import { DEFAULT_ROLES } from '@/lib/permissions';
 import { z } from 'zod';
 import { rateLimit } from '@/lib/rate-limit';
+import { PASSWORD_MIN_LENGTH, PASSWORD_MIN_MESSAGE } from '@/lib/password';
 
 const signupSchema = z.object({
   email: z.string().email('Correo inválido'),
-  password: z.string().min(12, 'La contraseña debe tener al menos 12 caracteres'),
+  password: z.string().min(PASSWORD_MIN_LENGTH, PASSWORD_MIN_MESSAGE),
   agencyName: z.string().min(1, 'El nombre de la agencia es requerido'),
   phone: z.string().min(1, 'El teléfono es requerido'),
   address: z.string().optional(),

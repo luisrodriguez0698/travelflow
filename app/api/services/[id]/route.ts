@@ -10,7 +10,7 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    const tenantId = await requirePermission('destinos');
+    const tenantId = await requirePermission('destinos', 'edit');
     const { id } = await params;
 
     const existing = await prisma.serviceCatalog.findFirst({ where: { id, tenantId } });
@@ -56,7 +56,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const tenantId = await requirePermission('destinos');
+    const tenantId = await requirePermission('destinos', 'delete');
     const { id } = await params;
 
     const existing = await prisma.serviceCatalog.findFirst({ where: { id, tenantId } });

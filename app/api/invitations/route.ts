@@ -56,7 +56,7 @@ export async function GET() {
 // Cancelar una invitacion que aun no se acepta (el enlace del correo deja de funcionar)
 export async function DELETE(request: NextRequest) {
   try {
-    const tenantId = await requirePermission('usuarios');
+    const tenantId = await requirePermission('usuarios', 'delete');
     const id = new URL(request.url).searchParams.get('id');
     if (!id) return NextResponse.json({ error: 'ID requerido' }, { status: 400 });
 

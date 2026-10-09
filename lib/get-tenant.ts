@@ -1,6 +1,6 @@
 import { getServerSession } from 'next-auth';
 import { authOptions } from './auth-options';
-import { ALL_MODULES } from './permissions';
+import { ALL_MODULES, can, resolvePermissionList, type PermissionAction } from './permissions';
 import { prisma } from './prisma';
 
 export async function getTenantId(): Promise<string | null> {
@@ -33,12 +33,13 @@ export async function getSessionUser(): Promise<{
     tenantId: user.tenantId,
     name: user.name || user.email || '',
     role: user.role,
-    permissions: user.permissions ?? (user.role === 'ADMIN' ? [...ALL_MODULES] : []),
+    permissions: user.permissions ?? (user.role === 'ADMIN' ? resolvePermissionList([...ALL_MODULES]) : []),
     ownDataOnly: user.ownDataOnly === true,
   };
 }
 
-export async function requirePermission(module: string): Promise<string> {
+/** Exige el permiso del apartado; con `action` exige ademas esa accion (crear, editar...). */
+export async function requirePermission(module: string, action: PermissionAction = 'view'): Promise<string> {
   const user = await getSessionUser();
   if (!user) throw new Error('Unauthorized');
 
@@ -47,7 +48,7 @@ export async function requirePermission(module: string): Promise<string> {
     return user.tenantId;
   }
 
-  if (!user.permissions.includes(module)) {
+  if (!can(user.permissions, module, action)) {
     throw new Error('Forbidden');
   }
 
@@ -69,9 +70,9 @@ export async function getTenantOwnerId(tenantId: string): Promise<string | null>
 }
 
 /** Igual que requirePermission pero devuelve boolean en lugar de lanzar error. */
-export async function hasPermission(module: string): Promise<boolean> {
+export async function hasPermission(module: string, action: PermissionAction = 'view'): Promise<boolean> {
   const user = await getSessionUser();
   if (!user) return false;
   if (user.role === 'ADMIN' && user.permissions.length === 0) return true;
-  return user.permissions.includes(module);
+  return can(user.permissions, module, action);
 }

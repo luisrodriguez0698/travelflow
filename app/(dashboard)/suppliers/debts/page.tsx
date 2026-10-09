@@ -65,6 +65,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { useCan } from '@/hooks/use-can';
 
 // ─── Types ───────────────────────────────────────────────
 
@@ -154,6 +155,7 @@ const TRAFFIC_LIGHT_STYLES: Record<string, { bg: string; label: string }> = {
 // ─── Component ───────────────────────────────────────────
 
 export default function SupplierDebtsPage() {
+  const can = useCan();
   // Level 1 state
   const [suppliers, setSuppliers] = useState<SupplierSummary[]>([]);
   const [totals, setTotals] = useState({ totalDebt: 0, totalPaid: 0, totalRemaining: 0 });
@@ -477,7 +479,7 @@ export default function SupplierDebtsPage() {
                               {isExpanded ? <ChevronUp className="w-3 h-3 ml-1" /> : <ChevronDown className="w-3 h-3 ml-1" />}
                             </Button>
                           )}
-                          {sale.remaining > 0 && (
+                          {sale.remaining > 0 && can('proveedores', 'payments') && (
                             <Button
                               size="sm"
                               variant="gradient"
@@ -630,7 +632,7 @@ export default function SupplierDebtsPage() {
                                     )}
                                   </Button>
                                 )}
-                                {sale.remaining > 0 && (
+                                {sale.remaining > 0 && can('proveedores', 'payments') && (
                                   <Button
                                     size="sm"
                                     variant="gradient"

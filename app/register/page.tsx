@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Plane, Loader2 } from 'lucide-react';
+import { PASSWORD_MIN_LENGTH, PASSWORD_MIN_MESSAGE } from '@/lib/password';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -36,8 +37,8 @@ export default function RegisterPage() {
       return;
     }
 
-    if (formData.password.length < 12) {
-      setError('La contraseña debe tener al menos 12 caracteres');
+    if (formData.password.length < PASSWORD_MIN_LENGTH) {
+      setError(PASSWORD_MIN_MESSAGE);
       return;
     }
 

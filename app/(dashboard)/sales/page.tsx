@@ -35,6 +35,7 @@ import { CreatorHistoryButton } from '@/components/record-history';
 import { format, startOfMonth, endOfMonth, subMonths, startOfYear } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
+import { useCan } from '@/hooks/use-can';
 
 interface Client {
   id: string;
@@ -156,6 +157,7 @@ const initialFormData: FormData = {
 };
 
 export default function SalesPage() {
+  const can = useCan();
   const { toast } = useToast();
   const [sales, setSales] = useState<Sale[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -656,12 +658,12 @@ export default function SalesPage() {
               Márgenes
             </Button>
           </Link>
-          <Link href="/sales/new">
+          {can('ventas', 'create') && (<Link href="/sales/new">
             <Button data-tour="page-action" variant="gradient">
               <Plus className="w-4 h-4 mr-2" />
               Nueva Venta
             </Button>
-          </Link>
+          </Link>)}
         </div>
       </div>
 
@@ -771,17 +773,17 @@ export default function SalesPage() {
                   <Link href={`/sales/${sale.id}`}>
                     <Button size="sm" variant="outline"><Eye className="w-4 h-4 mr-1" />Ver</Button>
                   </Link>
-                  <Link href={`/sales/${sale.id}/edit`}>
+                  {can('ventas', 'edit') && (<Link href={`/sales/${sale.id}/edit`}>
                     <Button size="sm" variant="outline"><Pencil className="w-4 h-4" /></Button>
-                  </Link>
-                  <Button
+                  </Link>)}
+                  {can('ventas', 'delete') && (<Button
                     size="sm"
                     variant="outline"
                     className="text-red-600 hover:text-red-700"
                     onClick={() => { setDeletingSale(sale); setIsDeleteModalOpen(true); }}
                   >
                     <Trash2 className="w-4 h-4" />
-                  </Button>
+                  </Button>)}
                 </div>
               </div>
             ))}
@@ -863,12 +865,12 @@ export default function SalesPage() {
                       <Link href={`/sales/${sale.id}`}>
                         <Button size="sm" variant="outline" title="Ver detalle"><Eye className="w-4 h-4" /></Button>
                       </Link>
-                      <Link href={`/sales/${sale.id}/edit`}>
+                      {can('ventas', 'edit') && (<Link href={`/sales/${sale.id}/edit`}>
                         <Button size="sm" variant="outline" title="Editar"><Pencil className="w-4 h-4" /></Button>
-                      </Link>
-                      <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700" onClick={() => { setDeletingSale(sale); setIsDeleteModalOpen(true); }} title="Eliminar">
+                      </Link>)}
+                      {can('ventas', 'delete') && (<Button size="sm" variant="outline" className="text-red-600 hover:text-red-700" onClick={() => { setDeletingSale(sale); setIsDeleteModalOpen(true); }} title="Eliminar">
                         <Trash2 className="w-4 h-4" />
-                      </Button>
+                      </Button>)}
                     </div>
                   </TableCell>
                 </TableRow>

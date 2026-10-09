@@ -21,7 +21,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const tenantId = await requirePermission('destinos');
+    const tenantId = await requirePermission('destinos', 'edit');
     const body = await request.json();
 
     const existing = await prisma.destination.findFirst({
@@ -50,7 +50,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const tenantId = await requirePermission('destinos');
+    const tenantId = await requirePermission('destinos', 'delete');
 
     const destination = await prisma.destination.findFirst({
       where: { id: params.id, tenantId },

@@ -2,14 +2,15 @@ import { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';
 import { prisma } from './prisma';
-import { ALL_MODULES } from './permissions';
+import { ALL_MODULES, resolvePermissionList } from './permissions';
 import { rateLimit } from './rate-limit';
 
+// Permisos efectivos de la sesion: "ventas" (ver) + "ventas:create", etc.
 function resolvePermissions(user: { role: string; roleRef: { permissions: unknown } | null }): string[] {
   return user.roleRef
-    ? (user.roleRef.permissions as string[])
+    ? resolvePermissionList(user.roleRef.permissions)
     : user.role === 'ADMIN'
-      ? [...ALL_MODULES]
+      ? resolvePermissionList([...ALL_MODULES])
       : [];
 }
 

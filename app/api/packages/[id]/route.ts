@@ -30,7 +30,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const tenantId = await requirePermission('destinos');
+    const tenantId = await requirePermission('destinos', 'edit');
     const body = await request.json();
 
     // Verify ownership
@@ -132,7 +132,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const tenantId = await requirePermission('destinos');
+    const tenantId = await requirePermission('destinos', 'delete');
     
     // Check if package has bookings
     const pkg = await prisma.package.findFirst({

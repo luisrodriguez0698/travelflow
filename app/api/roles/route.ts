@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePermission } from '@/lib/get-tenant';
 import { prisma } from '@/lib/prisma';
+import { sanitizeRolePermissions } from '@/lib/permissions';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,14 +29,16 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const tenantId = await requirePermission('usuarios');
+    const tenantId = await requirePermission('usuarios', 'create');
     const body = await request.json();
-    const { name, permissions } = body;
+    const { name } = body;
     const ownDataOnly = body.ownDataOnly === true;
+    // Formato nuevo; cualquier accion implica "ver"
+    const permissions = sanitizeRolePermissions(body.permissions);
 
-    if (!name || !permissions || !Array.isArray(permissions)) {
+    if (!name || permissions.length === 0) {
       return NextResponse.json(
-        { error: 'Nombre y permisos requeridos' },
+        { error: 'Nombre y al menos un permiso requeridos' },
         { status: 400 }
       );
     }

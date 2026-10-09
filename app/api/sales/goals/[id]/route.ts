@@ -9,7 +9,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const access = await requireAccess('ventas');
+    const access = await requireAccess('ventas', 'edit');
     const tenantId = access.tenantId;
     const { id } = await params;
 

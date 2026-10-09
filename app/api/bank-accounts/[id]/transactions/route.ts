@@ -111,7 +111,7 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    const tenantId = await requirePermission('bancos');
+    const tenantId = await requirePermission('bancos', 'create');
     const { id } = await params;
     const body = await request.json();
 
@@ -281,7 +281,7 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    const tenantId = await requirePermission('bancos');
+    const tenantId = await requirePermission('bancos', 'edit');
     const { id: accountId } = await params;
     const body = await request.json();
     const { transactionId } = body;

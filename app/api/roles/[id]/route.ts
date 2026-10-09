@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePermission } from '@/lib/get-tenant';
 import { prisma } from '@/lib/prisma';
-import { isProtectedRole } from '@/lib/permissions';
+import { isProtectedRole, sanitizeRolePermissions } from '@/lib/permissions';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,15 +10,17 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    const tenantId = await requirePermission('usuarios');
+    const tenantId = await requirePermission('usuarios', 'edit');
     const { id } = await params;
     const body = await request.json();
-    const { name, permissions } = body;
+    const { name } = body;
     const ownDataOnly = body.ownDataOnly === true;
+    // Formato nuevo; cualquier accion implica "ver"
+    const permissions = sanitizeRolePermissions(body.permissions);
 
-    if (!name || !permissions || !Array.isArray(permissions)) {
+    if (!name || permissions.length === 0) {
       return NextResponse.json(
-        { error: 'Nombre y permisos requeridos' },
+        { error: 'Nombre y al menos un permiso requeridos' },
         { status: 400 }
       );
     }
@@ -77,7 +79,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const tenantId = await requirePermission('usuarios');
+    const tenantId = await requirePermission('usuarios', 'delete');
     const { id } = await params;
 
     const role = await prisma.role.findFirst({

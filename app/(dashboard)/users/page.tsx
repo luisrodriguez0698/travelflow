@@ -61,11 +61,34 @@ import {
 import { toast } from 'sonner';
 import { sendInvite, type PendingInvite } from '@/lib/actions/send-invite';
 import { resendInvite } from '@/lib/actions/resend-invite';
+import { useCan } from '@/hooks/use-can';
 import { CreatorHistoryButton } from '@/components/record-history';
 
 const MAX_USERS = 5;
-import { ALL_MODULES, MODULE_LABELS, isProtectedRole } from '@/lib/permissions';
-import type { ModulePermission } from '@/lib/permissions';
+import {
+  ALL_MODULES,
+  MODULE_LABELS,
+  MODULE_ACTIONS,
+  ACTION_LABELS,
+  PAYMENTS_LABEL,
+  isProtectedRole,
+  resolvePermissionList,
+  toStoredPermissions,
+} from '@/lib/permissions';
+import type { ModulePermission, PermissionAction } from '@/lib/permissions';
+
+const MATRIX_ACTIONS: PermissionAction[] = ['view', 'create', 'edit', 'delete', 'payments'];
+
+/** Resumen legible de los permisos de un rol: "Ventas · ver, abonos". */
+function describePermissions(stored: string[]) {
+  const effective = resolvePermissionList(stored);
+  return ALL_MODULES.filter((m) => effective.includes(m)).map((m) => {
+    const extra = MODULE_ACTIONS[m].filter((a) => a !== 'view' && effective.includes(`${m}:${a}`));
+    const full = extra.length === MODULE_ACTIONS[m].length - 1;
+    const words = extra.map((a) => (a === 'payments' ? (m === 'ventas' ? 'abonos' : 'pagos') : ACTION_LABELS[a].toLowerCase()));
+    return { module: m, label: MODULE_LABELS[m], detail: full ? null : words.length ? `ver, ${words.join(', ')}` : 'solo ver' };
+  });
+}
 
 interface User {
   id: string;
@@ -105,6 +128,7 @@ const RESEND_COOLDOWN_HOURS = 24;
 type TabType = 'users' | 'roles' | 'invitations';
 
 export default function UsersPage() {
+  const can = useCan();
   const { data: session } = useSession();
   const currentUserId = (session?.user as any)?.id;
 
@@ -330,7 +354,7 @@ export default function UsersPage() {
   const renderInvitationActions = (inv: Invitation) => {
     if (inv.status === 'ACCEPTED') return null;
     const wait = hoursUntilResend(inv);
-    const canResend = inv.status === 'PENDING' && !inv.blockedReason;
+    const canResend = inv.status === 'PENDING' && !inv.blockedReason && can('usuarios', 'create');
     return (
       <div className="flex justify-end items-center gap-1">
         {canResend && (
@@ -346,7 +370,7 @@ export default function UsersPage() {
             {wait > 0 ? `Reenviar en ${wait} h` : 'Reenviar'}
           </Button>
         )}
-        <Button
+        {can('usuarios', 'delete') && (<Button
           variant="ghost"
           size="icon"
           className="h-8 w-8 text-red-500 hover:text-red-700"
@@ -354,7 +378,7 @@ export default function UsersPage() {
           onClick={() => setCancelInviteTarget(inv)}
         >
           <Trash2 className="w-4 h-4" />
-        </Button>
+        </Button>)}
       </div>
     );
   };
@@ -457,10 +481,10 @@ export default function UsersPage() {
       <div className="flex justify-end items-center gap-1">
         <CreatorHistoryButton entity="users" entityId={user.id} title={user.name || user.email} />
         {canManageUser(user) && (<>
-        <Button variant="ghost" size="icon" onClick={() => openEditUser(user)} title="Editar">
+        {can('usuarios', 'edit') && (<Button variant="ghost" size="icon" onClick={() => openEditUser(user)} title="Editar">
           <UserCog className="w-4 h-4" />
-        </Button>
-        <Button
+        </Button>)}
+        {can('usuarios', 'edit') && (<Button
           variant="ghost"
           size="icon"
           onClick={() => handleToggleActive(user)}
@@ -475,8 +499,8 @@ export default function UsersPage() {
           ) : (
             <UserCheck className="w-4 h-4" />
           )}
-        </Button>
-        <Button
+        </Button>)}
+        {can('usuarios', 'delete') && (<Button
           variant="ghost"
           size="icon"
           onClick={() => {
@@ -487,7 +511,7 @@ export default function UsersPage() {
           title="Eliminar"
         >
           <Trash2 className="w-4 h-4" />
-        </Button>
+        </Button>)}
         </>)}
       </div>
     );
@@ -524,7 +548,8 @@ export default function UsersPage() {
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(roleFormData),
+        // Se guarda en formato explicito: "ventas:view", "ventas:edit"...
+        body: JSON.stringify({ ...roleFormData, permissions: toStoredPermissions(roleFormData.permissions) }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -560,14 +585,42 @@ export default function UsersPage() {
     }
   };
 
-  const togglePermission = (perm: string) => {
-    setRoleFormData((prev) => ({
-      ...prev,
-      permissions: prev.permissions.includes(perm)
-        ? prev.permissions.filter((p) => p !== perm)
-        : [...prev.permissions, perm],
-    }));
+  // Marcar crear/editar/eliminar/pagos marca "ver"; quitar "ver" quita todo el apartado
+  const togglePermission = (module: ModulePermission, action: PermissionAction) => {
+    setRoleFormData((prev) => {
+      const set = new Set(prev.permissions);
+      if (action === 'view') {
+        if (set.has(module)) {
+          set.delete(module);
+          MODULE_ACTIONS[module].forEach((a) => set.delete(`${module}:${a}`));
+        } else {
+          set.add(module);
+        }
+      } else {
+        const key = `${module}:${action}`;
+        if (set.has(key)) set.delete(key);
+        else {
+          set.add(key);
+          set.add(module);
+        }
+      }
+      return { ...prev, permissions: [...set] };
+    });
   };
+
+  // Clic en el nombre del apartado: todo / nada
+  const toggleModuleAll = (module: ModulePermission) => {
+    setRoleFormData((prev) => {
+      const set = new Set(prev.permissions);
+      const keys = [module, ...MODULE_ACTIONS[module].filter((a) => a !== 'view').map((a) => `${module}:${a}`)];
+      const allOn = keys.every((k) => set.has(k));
+      keys.forEach((k) => (allOn ? set.delete(k) : set.add(k)));
+      return { ...prev, permissions: [...set] };
+    });
+  };
+
+  const hasPerm = (module: ModulePermission, action: PermissionAction) =>
+    action === 'view' ? roleFormData.permissions.includes(module) : roleFormData.permissions.includes(`${module}:${action}`);
 
   const formatDate = (d: string) =>
     new Date(d).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -590,7 +643,7 @@ export default function UsersPage() {
           </p>
         </div>
         <div className="flex flex-col items-end gap-1">
-          <Button
+          {can('usuarios', 'create') && (<Button
             data-tour="page-action"
             onClick={() => setIsInviteModalOpen(true)}
             disabled={totalCount >= MAX_USERS}
@@ -599,7 +652,7 @@ export default function UsersPage() {
           >
             <UserPlus className="w-4 h-4 mr-2" />
             Invitar Usuario
-          </Button>
+          </Button>)}
           <span className={`text-xs font-medium ${totalCount >= MAX_USERS ? 'text-red-500' : 'text-muted-foreground'}`}>
             {totalCount}/{MAX_USERS} usuarios
             {totalCount >= MAX_USERS && ' · Límite alcanzado'}
@@ -759,7 +812,7 @@ export default function UsersPage() {
       {activeTab === 'roles' && (
         <div className="space-y-4">
           <div className="flex justify-end">
-            <Button
+            {can('usuarios', 'create') && (<Button
               onClick={() => {
                 setSelectedRole(null);
                 setRoleFormData({ name: '', permissions: [], ownDataOnly: false });
@@ -769,7 +822,7 @@ export default function UsersPage() {
             >
               <Plus className="w-4 h-4 mr-2" />
               Nuevo Rol
-            </Button>
+            </Button>)}
           </div>
 
           {/* Mobile/tablet: stacked cards (no horizontal scroll) */}
@@ -799,18 +852,18 @@ export default function UsersPage() {
                     <CreatorHistoryButton entity="roles" entityId={role.id} title={`Rol ${role.name}`} size="sm" />
                     {!isProtectedRole(role) && (
                     <div className="flex gap-1 shrink-0">
-                      <Button
+                      {can('usuarios', 'edit') && (<Button
                         variant="ghost"
                         size="icon"
                         onClick={() => {
                           setSelectedRole(role);
-                          setRoleFormData({ name: role.name, permissions: role.permissions as string[], ownDataOnly: !!role.ownDataOnly });
+                          setRoleFormData({ name: role.name, permissions: resolvePermissionList(role.permissions), ownDataOnly: !!role.ownDataOnly });
                           setIsRoleModalOpen(true);
                         }}
                       >
                         <Pencil className="w-4 h-4" />
-                      </Button>
-                      <Button
+                      </Button>)}
+                      {can('usuarios', 'delete') && (<Button
                         variant="ghost"
                         size="icon"
                         onClick={() => {
@@ -820,15 +873,16 @@ export default function UsersPage() {
                         className="text-red-500 hover:text-red-700"
                       >
                         <Trash2 className="w-4 h-4" />
-                      </Button>
+                      </Button>)}
                     </div>
                     )}
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-1">
-                    {(role.permissions as string[]).map((p) => (
-                      <Badge key={p} variant="secondary" className="text-xs">
-                        {MODULE_LABELS[p as ModulePermission] || p}
+                    {describePermissions(role.permissions).map((d) => (
+                      <Badge key={d.module} variant="secondary" className="text-xs font-normal">
+                        <span className="font-medium">{d.label}</span>
+                        {d.detail && <span className="opacity-70">&nbsp;· {d.detail}</span>}
                       </Badge>
                     ))}
                   </div>
@@ -882,9 +936,10 @@ export default function UsersPage() {
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
-                          {(role.permissions as string[]).map((p) => (
-                            <Badge key={p} variant="secondary" className="text-xs">
-                              {MODULE_LABELS[p as ModulePermission] || p}
+                          {describePermissions(role.permissions).map((d) => (
+                            <Badge key={d.module} variant="secondary" className="text-xs font-normal">
+                              <span className="font-medium">{d.label}</span>
+                              {d.detail && <span className="opacity-70">&nbsp;· {d.detail}</span>}
                             </Badge>
                           ))}
                         </div>
@@ -897,14 +952,14 @@ export default function UsersPage() {
                         <CreatorHistoryButton entity="roles" entityId={role.id} title={`Rol ${role.name}`} />
                         {!isProtectedRole(role) && (
                         <div className="flex justify-end gap-1">
-                          <Button
+                          {can('usuarios', 'edit') && (<Button
                             variant="ghost"
                             size="icon"
                             onClick={() => {
                               setSelectedRole(role);
                               setRoleFormData({
                                 name: role.name,
-                                permissions: role.permissions as string[],
+                                permissions: resolvePermissionList(role.permissions),
                                 ownDataOnly: !!role.ownDataOnly,
                               });
                               setIsRoleModalOpen(true);
@@ -912,8 +967,8 @@ export default function UsersPage() {
                             title="Editar"
                           >
                             <Pencil className="w-4 h-4" />
-                          </Button>
-                          <Button
+                          </Button>)}
+                          {can('usuarios', 'delete') && (<Button
                             variant="ghost"
                             size="icon"
                             onClick={() => {
@@ -924,7 +979,7 @@ export default function UsersPage() {
                             title="Eliminar"
                           >
                             <Trash2 className="w-4 h-4" />
-                          </Button>
+                          </Button>)}
                         </div>
                         )}
                         </div>
@@ -1238,7 +1293,7 @@ export default function UsersPage() {
 
       {/* Modal: Create/Edit Role */}
       <Dialog open={isRoleModalOpen} onOpenChange={setIsRoleModalOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{selectedRole ? 'Editar Rol' : 'Nuevo Rol'}</DialogTitle>
             <DialogDescription>
@@ -1257,28 +1312,58 @@ export default function UsersPage() {
             </div>
             <div className="space-y-2">
               <Label>Permisos *</Label>
-              <div className="grid grid-cols-2 gap-2">
-                {ALL_MODULES.map((mod) => (
-                  <label
-                    key={mod}
-                    className={`flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-colors ${
-                      roleFormData.permissions.includes(mod)
-                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={roleFormData.permissions.includes(mod)}
-                      onChange={() => togglePermission(mod)}
-                      className="rounded border-gray-300"
-                    />
-                    <span className="text-sm font-medium">
-                      {MODULE_LABELS[mod]}
-                    </span>
-                  </label>
-                ))}
+              <p className="text-xs text-muted-foreground">
+                Marcar crear, editar, eliminar o pagos activa "Ver". Haz clic en el nombre del apartado para marcar o quitar todo.
+              </p>
+              <div className="overflow-x-auto rounded-lg border">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-muted/50 text-xs text-muted-foreground">
+                      <th className="text-left font-medium px-3 py-2">Apartado</th>
+                      {MATRIX_ACTIONS.map((a) => (
+                        <th key={a} className="font-medium px-2 py-2 text-center w-16">{ACTION_LABELS[a]}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {ALL_MODULES.map((mod) => (
+                      <tr key={mod} className={roleFormData.permissions.includes(mod) ? 'bg-blue-50/50 dark:bg-blue-950/20' : undefined}>
+                        <td className="px-3 py-2">
+                          <button
+                            type="button"
+                            onClick={() => toggleModuleAll(mod)}
+                            disabled={isSubmitting}
+                            className="font-medium text-left hover:text-blue-600 dark:hover:text-blue-400"
+                            title="Marcar / quitar todo"
+                          >
+                            {MODULE_LABELS[mod]}
+                          </button>
+                        </td>
+                        {MATRIX_ACTIONS.map((action) => (
+                          <td key={action} className="px-2 py-2 text-center">
+                            {MODULE_ACTIONS[mod].includes(action) ? (
+                              <input
+                                type="checkbox"
+                                checked={hasPerm(mod, action)}
+                                onChange={() => togglePermission(mod, action)}
+                                disabled={isSubmitting}
+                                className="h-4 w-4 rounded border-gray-300 accent-blue-600 cursor-pointer"
+                                aria-label={`${MODULE_LABELS[mod]}: ${action === 'payments' ? PAYMENTS_LABEL[mod] : ACTION_LABELS[action]}`}
+                                title={action === 'payments' ? PAYMENTS_LABEL[mod] : undefined}
+                              />
+                            ) : (
+                              <span className="text-muted-foreground/40">—</span>
+                            )}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
+              <p className="text-xs text-muted-foreground">
+                <b>Pagos:</b> en Ventas es registrar abonos de clientes; en Proveedores, registrar pagos a proveedores.
+              </p>
             </div>
             <div className="flex items-start justify-between gap-4 rounded-lg border p-3 bg-muted/30">
               <div className="space-y-0.5">
