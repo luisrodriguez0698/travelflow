@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
             select: { id: true, name: true, email: true, avatar: true },
           }),
       prisma.bankAccount.findMany({
-        where: { tenantId: access.tenantId, deletedAt: null, isActive: true },
+        where: { ...access.bankScope, deletedAt: null, isActive: true },
         orderBy: { referenceName: 'asc' },
         select: { id: true, referenceName: true, bankName: true },
       }),

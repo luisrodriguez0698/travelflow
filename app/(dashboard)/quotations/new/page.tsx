@@ -29,6 +29,7 @@ import { BookingItemsForm, BookingItemData } from '@/components/booking-items-fo
 import { useToast } from '@/hooks/use-toast';
 import { TemplateActions, applyTemplate, type AppliedTemplate } from '@/components/template-actions';
 import { PageSkeleton } from '@/components/skeletons';
+import { AgentSelect } from '@/components/agent-select';
 
 interface Client { id: string; fullName: string; phone: string | null; email?: string; }
 interface Season { id: string; name: string; color: string; }
@@ -80,6 +81,8 @@ export default function NewQuotationPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
+  // Agente al que pertenece (por defecto quien la crea)
+  const [sellerId, setSellerId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [clients, setClients] = useState<Client[]>([]);
   const [destinations, setDestinations] = useState<Destination[]>([]);
@@ -146,6 +149,7 @@ export default function NewQuotationPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           clientId: formData.clientId,
+          sellerId,
           departureDate: formData.departureDate?.toISOString() || null,
           returnDate: formData.returnDate?.toISOString() || null,
           totalPrice: formData.totalPrice,
@@ -284,6 +288,8 @@ export default function NewQuotationPage() {
                 </Button>
               </div>
             </div>
+
+            <AgentSelect module="cotizaciones" value={sellerId} onChange={setSellerId} />
 
             {/* Dates */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

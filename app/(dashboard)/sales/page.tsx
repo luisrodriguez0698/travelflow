@@ -806,7 +806,7 @@ export default function SalesPage() {
                 <TableHead>Tipo</TableHead>
                 <TableHead className="text-right">Total</TableHead>
                 <TableHead>Estado</TableHead>
-                <TableHead className="text-center">Creado por</TableHead>
+                <TableHead className="text-center">Agente</TableHead>
                 <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>

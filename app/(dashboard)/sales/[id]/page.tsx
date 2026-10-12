@@ -408,7 +408,7 @@ export default function SaleDetailPage() {
                   <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 text-white text-[10px] font-semibold">
                     {sale.creatorName.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)}
                   </span>
-                  Creado por {sale.creatorName}
+                  Agente: {sale.creatorName}
                 </span>
               )}
               <HistoryButton entity="sales" entityId={sale.id} title={`Folio ${sale.id.slice(-8).toUpperCase()}`} />

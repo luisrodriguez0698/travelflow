@@ -65,7 +65,7 @@ export const FIELD_LABELS: Record<string, string> = {
   name: 'Nombre', description: 'Descripción', notes: 'Notas', email: 'Correo', phone: 'Teléfono',
   isActive: 'Activo', deletedAt: 'Eliminado', isInternational: 'Internacional', cost: 'Costo neto',
   supplierId: 'Proveedor', destinationId: 'Destino', hotelId: 'Hotel', seasonId: 'Temporada',
-  clientId: 'Cliente', roleId: 'Rol', bankAccountId: 'Cuenta bancaria',
+  clientId: 'Cliente', roleId: 'Rol', bankAccountId: 'Cuenta bancaria', createdBy: 'Agente',
   // Clientes
   fullName: 'Nombre completo', ine: 'INE', passport: 'Pasaporte', curp: 'CURP', birthDate: 'Fecha de nacimiento',
   // Ventas / cotizaciones

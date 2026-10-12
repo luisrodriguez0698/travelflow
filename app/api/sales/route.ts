@@ -4,6 +4,7 @@ import { getSessionUser } from '@/lib/get-tenant';
 import { notifyActivity, formatMoney } from '@/lib/activity';
 import { checkGoalReached } from '@/lib/goals';
 import { addAutoTicketsForSale } from '@/lib/raffles';
+import { resolveAgent } from '@/lib/booking-agent';
 import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
@@ -112,6 +113,9 @@ export async function POST(request: NextRequest) {
 
     // Get current user for createdBy
     const sessionUser = await getSessionUser();
+    // Agente de la venta: quien la crea, salvo que tenga permiso de asignar a otro
+    const agent = await resolveAgent(access, 'ventas', body.sellerId, sessionUser?.id ?? access.userId);
+    if ('error' in agent) return NextResponse.json({ error: agent.error }, { status: agent.status });
 
     const booking = await prisma.booking.create({
       data: {
@@ -138,7 +142,7 @@ export async function POST(request: NextRequest) {
         supplierId: body.supplierId || null,
         supplierDeadline: body.supplierDeadline ? new Date(body.supplierDeadline) : null,
         hotelId: body.hotelId || null,
-        createdBy: sessionUser?.id || null,
+        createdBy: agent.agentId,
         type: 'SALE',
         reservationNumber: body.reservationNumber || null,
         paymentFrequency: body.paymentFrequency || 'QUINCENAL',
@@ -299,14 +303,14 @@ export async function POST(request: NextRequest) {
         url: `/sales/${booking.id}`,
       });
       // ¿Con esta venta llego a su meta del mes? -> confeti
-      await checkGoalReached({ tenantId, sellerId: sessionUser.id, saleDate: booking.saleDate, saleAmount: booking.totalPrice });
+      if (agent.agentId) await checkGoalReached({ tenantId, sellerId: agent.agentId, saleDate: booking.saleDate, saleAmount: booking.totalPrice });
     }
     // Rifas con boletos automaticos por venta (opcional por rifa)
     await addAutoTicketsForSale({
       tenantId,
       bookingId: booking.id,
       clientId: booking.clientId,
-      sellerId: sessionUser?.id ?? null,
+      sellerId: agent.agentId,
       totalPrice: booking.totalPrice,
     });
 

@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     const { acceptTerms: _accepted, ...data } = parsed.data;
 
     if (data.sellTickets && data.bankAccountId) {
-      const bank = await prisma.bankAccount.findFirst({ where: { id: data.bankAccountId, tenantId: access.tenantId } });
+      const bank = await prisma.bankAccount.findFirst({ where: { id: data.bankAccountId, ...access.bankScope } });
       if (!bank) return NextResponse.json({ error: 'Cuenta bancaria no válida' }, { status: 400 });
     }
 

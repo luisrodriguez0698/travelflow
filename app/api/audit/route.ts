@@ -27,6 +27,9 @@ const FK_RESOLVERS: Record<string, (ids: string[], tenantId: string) => Promise<
   roleId: (ids, tenantId) =>
     prisma.role.findMany({ where: { id: { in: ids }, tenantId }, select: { id: true, name: true } })
       .then((r) => r.map((x) => ({ id: x.id, label: x.name }))),
+  createdBy: (ids, tenantId) =>
+    prisma.user.findMany({ where: { id: { in: ids }, tenantId }, select: { id: true, name: true, email: true } })
+      .then((r) => r.map((x) => ({ id: x.id, label: x.name || x.email }))),
   bankAccountId: (ids, tenantId) =>
     prisma.bankAccount.findMany({ where: { id: { in: ids }, tenantId }, select: { id: true, referenceName: true, bankName: true } })
       .then((r) => r.map((x) => ({ id: x.id, label: `${x.referenceName} (${x.bankName})` }))),

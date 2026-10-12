@@ -1,39 +1,56 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requirePermission, getSessionUser } from '@/lib/get-tenant';
+import { requireAccess, accessErrorResponse } from '@/lib/access';
 import { prisma } from '@/lib/prisma';
 import { encrypt, decrypt } from '@/lib/encryption';
 
 export const dynamic = 'force-dynamic';
 
+/** Modulos que registran cobros/pagos y necesitan elegir una cuenta */
+const PAYMENT_MODULES = ['bancos', 'ventas', 'cotizaciones', 'proveedores', 'rifas'];
+
+async function creatorNames(ids: (string | null)[]) {
+  const unique = [...new Set(ids.filter(Boolean))] as string[];
+  if (!unique.length) return {} as Record<string, string>;
+  const users = await prisma.user.findMany({ where: { id: { in: unique } }, select: { id: true, name: true, email: true } });
+  return Object.fromEntries(users.map((u) => [u.id, u.name || u.email || 'Usuario']));
+}
+
 export async function GET(request: NextRequest) {
   try {
-    const tenantId = await requirePermission('bancos');
+    const access = await requireAccess(PAYMENT_MODULES);
+    const fullAccess = access.can('bancos');
     const { searchParams } = new URL(request.url);
     const all = searchParams.get('all');
     // status: 'active' (default) | 'archived' | 'all'
-    const status = searchParams.get('status') || 'active';
+    const status = fullAccess ? searchParams.get('status') || 'active' : 'active';
     const statusWhere = status === 'all' ? {} : { isActive: status === 'archived' ? false : true };
+
+    // Sin el modulo Bancos: solo la lista para elegir cuenta al cobrar/pagar
+    // (sus cuentas + compartidas, activas, sin numero de cuenta)
+    if (!fullAccess) {
+      if (all !== 'true') return NextResponse.json({ error: 'Sin permisos' }, { status: 403 });
+      const accounts = await prisma.bankAccount.findMany({
+        where: { ...access.bankScope, isActive: true },
+        orderBy: { referenceName: 'asc' },
+        select: { id: true, referenceName: true, bankName: true, accountType: true, currentBalance: true, shared: true, isActive: true },
+      });
+      return NextResponse.json(accounts);
+    }
 
     if (all === 'true') {
       const allAccounts = await prisma.bankAccount.findMany({
-        where: { tenantId, ...statusWhere },
+        where: { ...access.bankScope, ...statusWhere },
         orderBy: { referenceName: 'asc' },
       });
-
-      const allCreatorIds = [...new Set(allAccounts.map((a) => a.createdBy).filter(Boolean))] as string[];
-      const allCreators = allCreatorIds.length > 0
-        ? await prisma.user.findMany({
-            where: { id: { in: allCreatorIds } },
-            select: { id: true, name: true, email: true },
-          })
-        : [];
-      const allCreatorMap = Object.fromEntries(allCreators.map((u) => [u.id, u.name || u.email || 'Usuario']));
-
-      return NextResponse.json(allAccounts.map((a) => ({
-        ...a,
-        accountNumber: decrypt(a.accountNumber),
-        creatorName: a.createdBy ? allCreatorMap[a.createdBy] || null : null,
-      })));
+      const names = await creatorNames(allAccounts.map((a) => a.createdBy));
+      return NextResponse.json(
+        allAccounts.map((a) => ({
+          ...a,
+          accountNumber: decrypt(a.accountNumber),
+          creatorName: a.createdBy ? names[a.createdBy] || null : null,
+          canManage: !access.ownOnly || a.createdBy === access.userId,
+        }))
+      );
     }
 
     const page = parseInt(searchParams.get('page') || '1');
@@ -41,7 +58,7 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search') || '';
     const skip = (page - 1) * limit;
 
-    const where: any = { tenantId, ...statusWhere };
+    const where: any = { ...access.bankScope, ...statusWhere };
     if (search) {
       // accountNumber is encrypted so cannot be searched with contains
       where.OR = [
@@ -60,21 +77,14 @@ export async function GET(request: NextRequest) {
       prisma.bankAccount.count({ where }),
     ]);
 
-    // Fetch creator names
-    const creatorIds = [...new Set(accounts.map((a) => a.createdBy).filter(Boolean))] as string[];
-    const creators = creatorIds.length > 0
-      ? await prisma.user.findMany({
-          where: { id: { in: creatorIds } },
-          select: { id: true, name: true, email: true },
-        })
-      : [];
-    const creatorMap = Object.fromEntries(creators.map((u) => [u.id, u.name || u.email || 'Usuario']));
+    const names = await creatorNames(accounts.map((a) => a.createdBy));
 
     return NextResponse.json({
       data: accounts.map((a) => ({
         ...a,
         accountNumber: decrypt(a.accountNumber),
-        creatorName: a.createdBy ? creatorMap[a.createdBy] || null : null,
+        creatorName: a.createdBy ? names[a.createdBy] || null : null,
+        canManage: !access.ownOnly || a.createdBy === access.userId,
       })),
       pagination: {
         page,
@@ -84,6 +94,8 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
+    const accessError = accessErrorResponse(error);
+    if (accessError) return accessError;
     console.error('Error fetching bank accounts:', error);
     return NextResponse.json({ error: 'Error fetching bank accounts' }, { status: 500 });
   }
@@ -91,7 +103,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const tenantId = await requirePermission('bancos', 'create');
+    const access = await requireAccess('bancos', 'create');
     const body = await request.json();
 
     if (!body.bankName || !body.accountNumber || !body.accountType || !body.referenceName) {
@@ -100,23 +112,24 @@ export async function POST(request: NextRequest) {
 
     const initialBalance = parseFloat(body.initialBalance) || 0;
 
-    const sessionUser = await getSessionUser();
-
     const account = await prisma.bankAccount.create({
       data: {
-        tenantId,
+        tenantId: access.tenantId,
         bankName: body.bankName,
         accountNumber: encrypt(body.accountNumber),
         accountType: body.accountType,
         referenceName: body.referenceName,
         initialBalance,
         currentBalance: initialBalance,
-        createdBy: sessionUser?.id || null,
+        shared: body.shared === true,
+        createdBy: access.userId,
       },
     });
 
     return NextResponse.json({ ...account, accountNumber: decrypt(account.accountNumber) }, { status: 201 });
   } catch (error) {
+    const accessError = accessErrorResponse(error);
+    if (accessError) return accessError;
     console.error('Error creating bank account:', error);
     return NextResponse.json({ error: 'Error creating bank account' }, { status: 500 });
   }

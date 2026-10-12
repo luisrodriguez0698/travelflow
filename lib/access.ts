@@ -15,9 +15,15 @@ export interface Access {
   bookingScope: { tenantId: string; createdBy?: string };
   /** Filtro para prisma.client. */
   clientScope: { tenantId: string; AND?: object[] };
+  /** Cuentas bancarias que puede ver y usar (las suyas + las compartidas). */
+  bankScope: { tenantId: string; AND?: object[] };
+  /** Cuentas bancarias que puede administrar (editar, archivar): solo las suyas. */
+  bankOwnScope: { tenantId: string; createdBy?: string };
+  /** ¿Tiene esta accion en el modulo? */
+  can: (module: string, action?: PermissionAction) => boolean;
 }
 
-function buildAccess(user: { id: string; tenantId: string; ownDataOnly: boolean }): Access {
+function buildAccess(user: { id: string; tenantId: string; ownDataOnly: boolean; role: string; permissions: string[] }): Access {
   const ownOnly = user.ownDataOnly;
   return {
     tenantId: user.tenantId,
@@ -31,6 +37,11 @@ function buildAccess(user: { id: string; tenantId: string; ownDataOnly: boolean 
           AND: [{ OR: [{ createdBy: user.id }, { bookings: { some: { createdBy: user.id } } }] }],
         }
       : { tenantId: user.tenantId },
+    bankScope: ownOnly
+      ? { tenantId: user.tenantId, AND: [{ OR: [{ createdBy: user.id }, { shared: true }] }] }
+      : { tenantId: user.tenantId },
+    bankOwnScope: ownOnly ? { tenantId: user.tenantId, createdBy: user.id } : { tenantId: user.tenantId },
+    can: (module, action = 'view') => allows(user, [module], action),
   };
 }
 

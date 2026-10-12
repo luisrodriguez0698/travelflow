@@ -223,7 +223,7 @@ export default function SupplierDebtsPage() {
 
   const fetchBankAccounts = useCallback(async () => {
     try {
-      const res = await fetch('/api/bank-accounts');
+      const res = await fetch('/api/bank-accounts?all=true');
       if (res.ok) {
         const data = await res.json();
         setBankAccounts(Array.isArray(data) ? data : data.data || []);

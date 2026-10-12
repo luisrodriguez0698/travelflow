@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAccess, accessErrorResponse } from '@/lib/access';
+import { resolveAgent } from '@/lib/booking-agent';
 import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
@@ -63,6 +64,9 @@ export async function PUT(
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
 
+    const agent = await resolveAgent(access, 'ventas', body.sellerId, existing.createdBy);
+    if ('error' in agent) return NextResponse.json({ error: agent.error }, { status: agent.status });
+
     // Calculate net cost - from items if provided, otherwise from legacy fields
     const items: any[] = body.items || [];
     let netCost: number;
@@ -97,6 +101,7 @@ export async function PUT(
     const booking = await prisma.booking.update({
       where: { id },
       data: {
+        createdBy: agent.agentId,
         clientId: body.clientId,
         destinationId: body.destinationId,
         departureDate: body.departureDate ? new Date(body.departureDate) : existing.departureDate,

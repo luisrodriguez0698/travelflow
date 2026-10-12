@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requirePermission } from '@/lib/get-tenant';
+import { requireAccess, accessErrorResponse } from '@/lib/access';
 import { prisma } from '@/lib/prisma';
 import { encrypt, decrypt } from '@/lib/encryption';
 
@@ -10,11 +10,11 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const tenantId = await requirePermission('bancos');
+    const access = await requireAccess('bancos');
     const { id } = await params;
 
     const account = await prisma.bankAccount.findFirst({
-      where: { id, tenantId },
+      where: { id, ...access.bankScope },
       include: {
         transactions: {
           orderBy: { date: 'desc' },
@@ -30,6 +30,8 @@ export async function GET(
 
     return NextResponse.json({ ...account, accountNumber: decrypt(account.accountNumber) });
   } catch (error) {
+    const accessError = accessErrorResponse(error);
+    if (accessError) return accessError;
     console.error('Error fetching bank account:', error);
     return NextResponse.json({ error: 'Error fetching bank account' }, { status: 500 });
   }
@@ -40,12 +42,13 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    const tenantId = await requirePermission('bancos', 'edit');
+    const access = await requireAccess('bancos', 'edit');
     const { id } = await params;
     const body = await request.json();
 
+    // Solo el dueno (o quien ve todo) edita la cuenta; las compartidas se usan pero no se editan
     const existing = await prisma.bankAccount.findFirst({
-      where: { id, tenantId },
+      where: { id, ...access.bankOwnScope },
     });
 
     if (!existing) {
@@ -59,11 +62,14 @@ export async function PUT(
         accountNumber: encrypt(body.accountNumber),
         accountType: body.accountType,
         referenceName: body.referenceName,
+        ...(typeof body.shared === 'boolean' && { shared: body.shared }),
       },
     });
 
     return NextResponse.json({ ...account, accountNumber: decrypt(account.accountNumber) });
   } catch (error) {
+    const accessError = accessErrorResponse(error);
+    if (accessError) return accessError;
     console.error('Error updating bank account:', error);
     return NextResponse.json({ error: 'Error updating bank account' }, { status: 500 });
   }
@@ -74,7 +80,8 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const tenantId = await requirePermission('bancos', 'delete');
+    const access = await requireAccess('bancos', 'delete');
+    const tenantId = access.tenantId;
     const { id } = await params;
 
     // transferToAccountId / adjustToZero are optional — one of them is required only when balance > 0
@@ -89,7 +96,7 @@ export async function DELETE(
     }
 
     const account = await prisma.bankAccount.findFirst({
-      where: { id, tenantId, isActive: true },
+      where: { id, ...access.bankOwnScope, isActive: true },
     });
 
     if (!account) {
@@ -133,7 +140,7 @@ export async function DELETE(
       }
 
       const destAccount = await prisma.bankAccount.findFirst({
-        where: { id: transferToAccountId, tenantId, isActive: true },
+        where: { id: transferToAccountId, ...access.bankScope, isActive: true },
       });
 
       if (!destAccount) {
@@ -181,6 +188,8 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    const accessError = accessErrorResponse(error);
+    if (accessError) return accessError;
     console.error('Error archiving bank account:', error);
     return NextResponse.json({ error: 'Error al archivar la cuenta' }, { status: 500 });
   }
@@ -192,11 +201,11 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    const tenantId = await requirePermission('bancos', 'edit');
+    const access = await requireAccess('bancos', 'edit');
     const { id } = await params;
 
     const existing = await prisma.bankAccount.findFirst({
-      where: { id, tenantId, isActive: false },
+      where: { id, ...access.bankOwnScope, isActive: false },
     });
 
     if (!existing) {
@@ -210,6 +219,8 @@ export async function PATCH(
 
     return NextResponse.json({ ...account, accountNumber: decrypt(account.accountNumber) });
   } catch (error) {
+    const accessError = accessErrorResponse(error);
+    if (accessError) return accessError;
     console.error('Error restoring bank account:', error);
     return NextResponse.json({ error: 'Error al restaurar la cuenta' }, { status: 500 });
   }

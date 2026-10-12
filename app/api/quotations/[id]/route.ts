@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAccess, accessErrorResponse } from '@/lib/access';
+import { resolveAgent } from '@/lib/booking-agent';
 import { getSessionUser } from '@/lib/get-tenant';
 import { prisma } from '@/lib/prisma';
 
@@ -72,6 +73,9 @@ export async function PUT(
       return NextResponse.json({ error: 'Cotización no encontrada' }, { status: 404 });
     }
 
+    const agent = await resolveAgent(access, 'cotizaciones', body.sellerId, existing.createdBy);
+    if ('error' in agent) return NextResponse.json({ error: agent.error }, { status: agent.status });
+
     const items: any[] = body.items || [];
     let netCost: number;
 
@@ -103,6 +107,7 @@ export async function PUT(
     const booking = await prisma.booking.update({
       where: { id },
       data: {
+        createdBy: agent.agentId,
         clientId: body.clientId,
         destinationId: body.destinationId,
         departureDate: body.departureDate ? new Date(body.departureDate) : existing.departureDate,

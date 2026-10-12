@@ -660,6 +660,8 @@ model BankAccount {
   accountNumber   String   // Numero de cuenta o CLABE
   accountType     String   // DEBITO, CREDITO, AHORRO
   referenceName   String   // Nombre de referencia (ej: "Cuenta principal")
+  // Con "solo lo suyo", cada usuario ve sus cuentas (createdBy) y las compartidas
+  shared          Boolean  @default(false)
   initialBalance  Float    @default(0)
   currentBalance  Float    @default(0)
   isActive        Boolean  @default(true)

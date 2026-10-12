@@ -71,6 +71,8 @@ import { es } from 'date-fns/locale';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
 import { useCan } from '@/hooks/use-can';
+import { Switch } from '@/components/ui/switch';
+import { UsersRound } from 'lucide-react';
 import { PageSkeleton, RowsSkeleton } from '@/components/skeletons';
 
 const MEXICAN_BANKS = [
@@ -97,6 +99,10 @@ interface BankAccount {
   creatorName?: string | null;
   isActive: boolean;
   deletedAt?: string | null;
+  /** Visible para todos (aunque tengan "solo lo suyo") */
+  shared?: boolean;
+  /** El usuario puede editarla/archivarla (es suya o ve todo) */
+  canManage?: boolean;
 }
 
 interface BankTransaction {
@@ -137,6 +143,7 @@ interface AccountFormData {
   accountType: string;
   referenceName: string;
   initialBalance: string;
+  shared: boolean;
 }
 
 const initialAccountForm: AccountFormData = {
@@ -145,6 +152,7 @@ const initialAccountForm: AccountFormData = {
   accountType: 'DEBITO',
   referenceName: '',
   initialBalance: '0',
+  shared: false,
 };
 
 export default function BanksPage() {
@@ -291,6 +299,7 @@ export default function BanksPage() {
       accountType: account.accountType,
       referenceName: account.referenceName,
       initialBalance: account.initialBalance.toString(),
+      shared: !!account.shared,
     });
     setIsAccountModalOpen(true);
   };
@@ -710,7 +719,7 @@ export default function BanksPage() {
                               <Eye className="w-4 h-4" />
                             </Button>
                           )}
-                          {!isCancelled && selectedAccount.isActive !== false && can('bancos', 'delete') && (
+                          {!isCancelled && selectedAccount.isActive !== false && selectedAccount.canManage !== false && can('bancos', 'delete') && (
                             <Button
                               size="sm"
                               variant="outline"
@@ -771,7 +780,7 @@ export default function BanksPage() {
                                 <Eye className="w-4 h-4" />
                               </Button>
                             )}
-                            {!isCancelled && selectedAccount.isActive !== false && can('bancos', 'delete') && (
+                            {!isCancelled && selectedAccount.isActive !== false && selectedAccount.canManage !== false && can('bancos', 'delete') && (
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -1131,7 +1140,14 @@ export default function BanksPage() {
                   <h3 className="font-semibold text-lg">{account.referenceName}</h3>
                   <p className="text-sm text-muted-foreground">{account.bankName}</p>
                 </div>
-                {getAccountTypeBadge(account.accountType)}
+                <div className="flex flex-col items-end gap-1">
+                  {getAccountTypeBadge(account.accountType)}
+                  {account.shared && (
+                    <Badge variant="outline" className="gap-1 text-[11px] border-primary/30 text-primary">
+                      <UsersRound className="w-3 h-3" />Compartida
+                    </Badge>
+                  )}
+                </div>
               </div>
               <p className="text-sm text-muted-foreground mb-1">
                 {account.accountNumber}
@@ -1159,10 +1175,10 @@ export default function BanksPage() {
                   <Eye className="w-4 h-4 mr-1" />
                   Movimientos
                 </Button>
-                {can('bancos', 'edit') && (<Button size="sm" variant="outline" onClick={() => openEditAccount(account)}>
+                {can('bancos', 'edit') && account.canManage !== false && (<Button size="sm" variant="outline" onClick={() => openEditAccount(account)}>
                   <Pencil className="w-4 h-4" />
                 </Button>)}
-                {can('bancos', 'delete') && (<Button
+                {can('bancos', 'delete') && account.canManage !== false && (<Button
                   size="sm"
                   variant="outline"
                   className="text-red-600 hover:text-red-700"
@@ -1221,7 +1237,7 @@ export default function BanksPage() {
                       <Eye className="w-4 h-4 mr-1" />
                       Ver bitácora
                     </Button>
-                    {can('bancos', 'edit') && (<Button size="sm" variant="outline" onClick={() => handleRestoreAccount(account)} disabled={saving}>
+                    {can('bancos', 'edit') && account.canManage !== false && (<Button size="sm" variant="outline" onClick={() => handleRestoreAccount(account)} disabled={saving}>
                       <ArchiveRestore className="w-4 h-4" />
                     </Button>)}
                   </div>
@@ -1309,6 +1325,17 @@ export default function BanksPage() {
                 />
               </div>
             )}
+
+            <div className="flex items-start justify-between gap-3 rounded-lg border p-3">
+              <div>
+                <p className="text-sm font-medium flex items-center gap-1.5"><UsersRound className="w-4 h-4 text-primary" />Cuenta compartida</p>
+                <p className="text-xs text-muted-foreground">
+                  La ven y la usan para cobros todos los usuarios, incluso los que solo ven sus propios registros.
+                  Si está apagada, solo la ve quien la creó (y quien ve todo, como el Admin).
+                </p>
+              </div>
+              <Switch checked={accountForm.shared} onCheckedChange={(v) => setAccountForm({ ...accountForm, shared: v })} />
+            </div>
           </div>
 
           <DialogFooter>

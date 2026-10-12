@@ -812,7 +812,7 @@ export default function QuotationsPage() {
                 <TableHead>Tipo</TableHead>
                 <TableHead className="text-right">Total</TableHead>
                 <TableHead>Expiración</TableHead>
-                <TableHead className="text-center">Creado por</TableHead>
+                <TableHead className="text-center">Agente</TableHead>
                 <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>

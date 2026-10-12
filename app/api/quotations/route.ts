@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAccess, accessErrorResponse } from '@/lib/access';
+import { resolveAgent } from '@/lib/booking-agent';
 import { getSessionUser } from '@/lib/get-tenant';
 import { prisma } from '@/lib/prisma';
 
@@ -106,6 +107,8 @@ export async function POST(request: NextRequest) {
     }
 
     const sessionUser = await getSessionUser();
+    const agent = await resolveAgent(access, 'cotizaciones', body.sellerId, sessionUser?.id ?? access.userId);
+    if ('error' in agent) return NextResponse.json({ error: agent.error }, { status: agent.status });
 
     const booking = await prisma.booking.create({
       data: {
@@ -135,7 +138,7 @@ export async function POST(request: NextRequest) {
         expirationDate: body.expirationDate ? new Date(body.expirationDate) : null,
         hotelId: body.hotelId || null,
 
-        createdBy: sessionUser?.id || null,
+        createdBy: agent.agentId,
         paymentFrequency: body.paymentFrequency || 'QUINCENAL',
       },
     });

@@ -1362,7 +1362,7 @@ export default function UsersPage() {
                                 disabled={isSubmitting}
                                 className="h-4 w-4 rounded border-border accent-blue-600 cursor-pointer"
                                 aria-label={`${MODULE_LABELS[mod]}: ${action === 'payments' ? PAYMENTS_LABEL[mod] : ACTION_LABELS[action]}`}
-                                title={action === 'payments' ? PAYMENTS_LABEL[mod] : undefined}
+                                title={action === 'payments' ? PAYMENTS_LABEL[mod] : action === 'assign' ? 'Elegir o cambiar el agente' : undefined}
                               />
                             ) : (
                               <span className="text-muted-foreground/40">—</span>
@@ -1376,6 +1376,7 @@ export default function UsersPage() {
               </div>
               <p className="text-xs text-muted-foreground">
                 <b>Pagos:</b> en Ventas es registrar abonos de clientes; en Proveedores, registrar pagos a proveedores.
+                {' '}<b>Asignar:</b> elegir o cambiar el agente al que pertenece una venta o cotización (sin este permiso queda a nombre de quien la registra).
               </p>
             </div>
             <div className="flex items-start justify-between gap-4 rounded-lg border p-3 bg-muted/30">
@@ -1386,7 +1387,8 @@ export default function UsersPage() {
                 </Label>
                 <p className="text-xs text-muted-foreground">
                   Sus usuarios solo verán las ventas y cotizaciones que ellos crearon, y los clientes que dieron de alta o a
-                  los que les vendieron. Los catálogos (hoteles, destinos, etc.) se ven completos.
+                  los que les vendieron. En Bancos, solo sus cuentas y las marcadas como compartidas. Los catálogos
+                  (hoteles, destinos, etc.) se ven completos.
                 </p>
               </div>
               <Switch

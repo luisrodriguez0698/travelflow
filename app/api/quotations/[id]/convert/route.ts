@@ -45,7 +45,7 @@ export async function POST(
     // Register down payment (anticipo) as bank income if bank selected and downPayment > 0
     if (bankAccountId && booking.downPayment > 0) {
       const bankAccount = await prisma.bankAccount.findFirst({
-        where: { id: bankAccountId, tenantId },
+        where: { id: bankAccountId, ...access.bankScope, isActive: true },
       });
 
       if (bankAccount) {

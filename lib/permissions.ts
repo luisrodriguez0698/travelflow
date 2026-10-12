@@ -112,7 +112,7 @@ export function firstAllowedPath(permissions: string[]): string {
 // En la sesion se resuelve a: "ventas" (= puede ver) + "ventas:<accion>" por cada accion.
 // Las comprobaciones de "ver" siguen usando el nombre del apartado ("ventas").
 
-export const PERMISSION_ACTIONS = ['view', 'create', 'edit', 'delete', 'payments'] as const;
+export const PERMISSION_ACTIONS = ['view', 'create', 'edit', 'delete', 'payments', 'assign'] as const;
 export type PermissionAction = (typeof PERMISSION_ACTIONS)[number];
 
 export const ACTION_LABELS: Record<PermissionAction, string> = {
@@ -121,6 +121,7 @@ export const ACTION_LABELS: Record<PermissionAction, string> = {
   edit: 'Editar',
   delete: 'Eliminar',
   payments: 'Pagos',
+  assign: 'Asignar',
 };
 
 /** Acciones que aplican a cada apartado. */
@@ -129,8 +130,9 @@ export const MODULE_ACTIONS: Record<ModulePermission, PermissionAction[]> = {
   clientes: ['view', 'create', 'edit', 'delete'],
   destinos: ['view', 'create', 'edit', 'delete'],
   temporadas: ['view', 'create', 'edit', 'delete'],
-  ventas: ['view', 'create', 'edit', 'delete', 'payments'],
-  cotizaciones: ['view', 'create', 'edit', 'delete'],
+  // assign: elegir/cambiar el agente al que pertenece (por defecto, quien la crea)
+  ventas: ['view', 'create', 'edit', 'delete', 'payments', 'assign'],
+  cotizaciones: ['view', 'create', 'edit', 'delete', 'assign'],
   proveedores: ['view', 'create', 'edit', 'delete', 'payments'],
   bancos: ['view', 'create', 'edit', 'delete'],
   configuracion: ['view', 'edit'],

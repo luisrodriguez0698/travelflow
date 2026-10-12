@@ -321,7 +321,7 @@ export default function QuotationDetailPage() {
                   <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 text-white text-[10px] font-semibold">
                     {quotation.creatorName.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)}
                   </span>
-                  Creado por {quotation.creatorName}
+                  Agente: {quotation.creatorName}
                 </span>
               )}
               <HistoryButton entity="quotations" entityId={quotation.id} title={`Folio ${quotation.id.slice(-8).toUpperCase()}`} />

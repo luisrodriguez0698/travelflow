@@ -44,7 +44,7 @@ export async function POST(
 
     // Verify bank account ownership
     const bankAccount = await prisma.bankAccount.findFirst({
-      where: { id: bankAccountId, tenantId },
+      where: { id: bankAccountId, ...access.bankScope, isActive: true },
     });
 
     if (!bankAccount) {

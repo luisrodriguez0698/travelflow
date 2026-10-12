@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requirePermission, getSessionUser } from '@/lib/get-tenant';
+import { getSessionUser } from '@/lib/get-tenant';
+import { requireAccess, accessErrorResponse } from '@/lib/access';
 import { notifyActivity, formatMoney } from '@/lib/activity';
 import { prisma } from '@/lib/prisma';
 import { logAudit } from '@/lib/audit';
@@ -11,7 +12,8 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const tenantId = await requirePermission('bancos');
+    const access = await requireAccess('bancos');
+    const tenantId = access.tenantId;
     const { id } = await params;
     const { searchParams } = new URL(request.url);
 
@@ -25,7 +27,7 @@ export async function GET(
 
     // Verify account ownership
     const account = await prisma.bankAccount.findFirst({
-      where: { id, tenantId },
+      where: { id, ...access.bankScope },
     });
 
     if (!account) {
@@ -102,6 +104,8 @@ export async function GET(
       },
     });
   } catch (error) {
+    const accessError = accessErrorResponse(error);
+    if (accessError) return accessError;
     console.error('Error fetching transactions:', error);
     return NextResponse.json({ error: 'Error fetching transactions' }, { status: 500 });
   }
@@ -112,7 +116,8 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    const tenantId = await requirePermission('bancos', 'create');
+    const access = await requireAccess('bancos', 'create');
+    const tenantId = access.tenantId;
     const { id } = await params;
     const body = await request.json();
 
@@ -127,7 +132,7 @@ export async function POST(
 
     // Verify account ownership
     const account = await prisma.bankAccount.findFirst({
-      where: { id, tenantId },
+      where: { id, ...access.bankScope },
     });
 
     if (!account) {
@@ -226,7 +231,7 @@ export async function POST(
       }
 
       const destAccount = await prisma.bankAccount.findFirst({
-        where: { id: destinationAccountId, tenantId },
+        where: { id: destinationAccountId, ...access.bankScope },
       });
 
       if (!destAccount) {
@@ -281,6 +286,8 @@ export async function POST(
 
     return NextResponse.json({ error: 'Tipo de movimiento inválido' }, { status: 400 });
   } catch (error) {
+    const accessError = accessErrorResponse(error);
+    if (accessError) return accessError;
     console.error('Error creating transaction:', error);
     return NextResponse.json({ error: 'Error creating transaction' }, { status: 500 });
   }
@@ -292,13 +299,20 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    const tenantId = await requirePermission('bancos', 'edit');
+    const access = await requireAccess('bancos', 'edit');
+    const tenantId = access.tenantId;
     const { id: accountId } = await params;
     const body = await request.json();
     const { transactionId } = body;
 
     if (!transactionId) {
       return NextResponse.json({ error: 'ID de transacción requerido' }, { status: 400 });
+    }
+
+    // Cancelar movimientos: solo en cuentas propias (en una compartida podria revertir pagos de otros)
+    const ownAccount = await prisma.bankAccount.findFirst({ where: { id: accountId, ...access.bankOwnScope }, select: { id: true } });
+    if (!ownAccount) {
+      return NextResponse.json({ error: 'Solo quien administra la cuenta puede cancelar sus movimientos' }, { status: 403 });
     }
 
     // Get the transaction
@@ -417,6 +431,8 @@ export async function PATCH(
 
     return NextResponse.json({ success: true, message: 'Movimiento cancelado correctamente' });
   } catch (error) {
+    const accessError = accessErrorResponse(error);
+    if (accessError) return accessError;
     console.error('Error cancelling transaction:', error);
     return NextResponse.json({ error: 'Error al cancelar el movimiento' }, { status: 500 });
   }

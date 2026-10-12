@@ -27,6 +27,7 @@ import Link from 'next/link';
 import { BookingItemsForm, BookingItemData } from '@/components/booking-items-form';
 import { useToast } from '@/hooks/use-toast';
 import { PageSkeleton } from '@/components/skeletons';
+import { AgentSelect } from '@/components/agent-select';
 import { EditingPresence } from '@/components/editing-presence';
 
 interface Client { id: string; fullName: string; phone: string | null; email?: string; }
@@ -80,6 +81,8 @@ export default function EditSalePage() {
   const saleId = params.id as string;
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
+  // Agente al que pertenece (por defecto quien la crea)
+  const [sellerId, setSellerId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [clients, setClients] = useState<Client[]>([]);
   const [destinations, setDestinations] = useState<Destination[]>([]);
@@ -108,6 +111,7 @@ export default function EditSalePage() {
       setSeasons(s);
       setSuppliers(sup);
       if (sale) {
+        setSellerId(sale.createdBy ?? null);
         setFormData({
           clientId: sale.clientId || '',
           departureDate: sale.departureDate ? new Date(sale.departureDate) : null,
@@ -162,6 +166,7 @@ export default function EditSalePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           clientId: formData.clientId,
+          sellerId,
           departureDate: formData.departureDate?.toISOString() || null,
           returnDate: formData.returnDate?.toISOString() || null,
           totalPrice: formData.totalPrice,
@@ -302,6 +307,8 @@ export default function EditSalePage() {
                 </Button>
               </div>
             </div>
+
+            <AgentSelect module="ventas" value={sellerId} onChange={setSellerId} autoSelectMe={false} />
 
             {/* Dates */}
             <div className="grid grid-cols-2 gap-4">

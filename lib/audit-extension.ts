@@ -18,13 +18,16 @@ interface TrackConfig {
   ignore?: string[];
   /** Campos sensibles: solo se registra que cambiaron, nunca su valor. */
   mask?: string[];
+  /** Campos de ALWAYS_IGNORE que este modelo si registra. */
+  track?: string[];
 }
 
 const ALWAYS_IGNORE = ['id', 'tenantId', 'createdAt', 'updatedAt', 'createdBy', 'updatedBy'];
 
 const TRACKED: Record<string, TrackConfig> = {
   Client: { entity: () => 'clients' },
-  Booking: { entity: (r) => (r.type === 'QUOTATION' ? 'quotations' : 'sales'), ignore: ['packageId', 'departureId'] },
+  // createdBy de una venta/cotizacion = agente asignado: su cambio si se registra
+  Booking: { entity: (r) => (r.type === 'QUOTATION' ? 'quotations' : 'sales'), ignore: ['packageId', 'departureId'], track: ['createdBy'] },
   PaymentPlan: {
     entity: () => 'sales',
     entityId: (r) => r.bookingId,
@@ -73,7 +76,7 @@ function normalize(value: unknown, type: string): unknown {
 
 function changedFields(model: string, before: AuditRecord | null, after: AuditRecord | null) {
   const cfg = TRACKED[model];
-  const skip = new Set([...ALWAYS_IGNORE, ...(cfg.ignore || [])]);
+  const skip = new Set([...ALWAYS_IGNORE.filter((f) => !cfg.track?.includes(f)), ...(cfg.ignore || [])]);
   const mask = new Set(cfg.mask || []);
   const changes: Record<string, { old: unknown; new: unknown }> = {};
 

@@ -23,7 +23,7 @@ export async function POST(request: NextRequest, { params }: Params) {
     // Cobro de boletos: solo si la rifa los vende
     const payment = raffle.sellTickets ? body.payment : null;
     if (payment) {
-      const bank = await prisma.bankAccount.findFirst({ where: { id: payment.bankAccountId, tenantId: access.tenantId } });
+      const bank = await prisma.bankAccount.findFirst({ where: { id: payment.bankAccountId, ...access.bankScope, isActive: true } });
       if (!bank) return NextResponse.json({ error: 'Cuenta bancaria no válida' }, { status: 400 });
     }
 
