@@ -22,7 +22,7 @@ interface RealtimeContextValue {
 
 const RealtimeContext = createContext<RealtimeContextValue | null>(null);
 
-const EVENTS = ['ready', 'activity', 'data-changed', 'presence', 'editing', 'session', 'celebrate'] as const;
+const EVENTS = ['ready', 'activity', 'data-changed', 'presence', 'editing', 'session', 'celebrate', 'raffle-draw'] as const;
 
 export function RealtimeProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();

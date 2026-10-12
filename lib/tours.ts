@@ -230,6 +230,20 @@ export const SECTION_TOURS: TourDef[] = [
     ],
   },
   {
+    id: 'raffles',
+    title: 'Rifas',
+    path: '/raffles',
+    module: 'rifas',
+    steps: [
+      { element: 'page-action', title: 'Nueva rifa', description: 'Define premios, quién gana (el 1°, el N-ésimo o el último en quedar) y el estilo: tómbola, tragamonedas o ruleta.' },
+      {
+        element: 'page-list',
+        title: 'Participantes y sorteo',
+        description: 'En <b>Participantes</b> agregas clientes o cualquier persona con sus boletos. En <b>Sorteo</b> se sacan uno a uno, con animación y sonido.',
+      },
+    ],
+  },
+  {
     id: 'suppliers',
     title: 'Proveedores',
     path: '/suppliers',

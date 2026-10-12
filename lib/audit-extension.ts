@@ -39,6 +39,8 @@ const TRACKED: Record<string, TrackConfig> = {
   BankAccount: { entity: () => 'bank_accounts', ignore: ['currentBalance'], mask: ['accountNumber'] },
   ServiceCatalog: { entity: () => 'services' },
   PackageTemplate: { entity: () => 'templates' },
+  Raffle: { entity: () => 'raffles', ignore: ['termsAcceptedAt'] },
+  RaffleParticipant: { entity: () => 'raffles', entityId: (r) => r.raffleId, context: (r) => `Participante: ${r.name}` },
   Role: { entity: () => 'roles' },
   User: {
     entity: () => 'users',

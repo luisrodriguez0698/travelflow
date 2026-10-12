@@ -9,6 +9,7 @@ export const ALL_MODULES = [
   'bancos',
   'configuracion',
   'usuarios',
+  'rifas',
 ] as const;
 
 export type ModulePermission = (typeof ALL_MODULES)[number];
@@ -24,6 +25,7 @@ export const MODULE_LABELS: Record<ModulePermission, string> = {
   bancos: 'Bancos',
   configuracion: 'Configuración',
   usuarios: 'Usuarios',
+  rifas: 'Rifas',
 };
 
 export const ROUTE_TO_MODULE: Record<string, ModulePermission> = {
@@ -43,6 +45,8 @@ export const ROUTE_TO_MODULE: Record<string, ModulePermission> = {
   '/banks': 'bancos',
   '/settings': 'configuracion',
   '/users': 'usuarios',
+  '/raffles': 'rifas',
+  '/sorteo': 'rifas',
   '/audit': 'usuarios',
 };
 
@@ -131,6 +135,7 @@ export const MODULE_ACTIONS: Record<ModulePermission, PermissionAction[]> = {
   bancos: ['view', 'create', 'edit', 'delete'],
   configuracion: ['view', 'edit'],
   usuarios: ['view', 'create', 'edit', 'delete'],
+  rifas: ['view', 'create', 'edit', 'delete'],
 };
 
 /** Que significa "Pagos" en cada apartado (para la pantalla de roles). */

@@ -232,3 +232,9 @@ label {
 @media (prefers-reduced-motion: reduce) {
   .live-highlight { animation-duration: 0.01s; }
 }
+
+/* Rifas: rebote de la aguja de la ruleta en cada segmento */
+@keyframes needle {
+  0% { transform: translateX(-50%) rotate(-22deg); }
+  100% { transform: translateX(-50%) rotate(0deg); }
+}

@@ -3,6 +3,7 @@ import { requireAccess, accessErrorResponse } from '@/lib/access';
 import { hasPermission, getSessionUser } from '@/lib/get-tenant';
 import { notifyActivity, formatMoney } from '@/lib/activity';
 import { checkGoalReached } from '@/lib/goals';
+import { addAutoTicketsForSale } from '@/lib/raffles';
 import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
@@ -135,6 +136,13 @@ export async function POST(
     if (booking.createdBy) {
       await checkGoalReached({ tenantId, sellerId: booking.createdBy, saleDate: new Date(), saleAmount: booking.totalPrice });
     }
+    await addAutoTicketsForSale({
+      tenantId,
+      bookingId: id,
+      clientId: booking.clientId,
+      sellerId: booking.createdBy,
+      totalPrice: booking.totalPrice,
+    });
 
     return NextResponse.json({ success: true, id });
   } catch (error) {

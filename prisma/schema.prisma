@@ -51,6 +51,7 @@ model Tenant {
   services         ServiceCatalog[]
   packageTemplates PackageTemplate[]
   activityNotifications ActivityNotification[]
+  raffles          Raffle[]
 
   @@map("tenants")
 }
@@ -83,6 +84,7 @@ model User {
   roleRef           Role?              @relation(fields: [roleId], references: [id], onDelete: SetNull)
   pushSubscriptions PushSubscription[]
   activityNotifications ActivityNotification[]
+  raffleParticipants RaffleParticipant[]
 
   @@index([tenantId])
   @@index([roleId])
@@ -110,6 +112,7 @@ model Client {
   // Relations
   tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   bookings Booking[]
+  raffleParticipants RaffleParticipant[]
 
   @@index([tenantId])
   @@map("clients")
@@ -537,6 +540,91 @@ model ActivityNotification {
   @@map("activity_notifications")
 }
 
+// ─── Rifas ──────────────────────────────────────────────────────────────────
+// Sorteo animado (tombola / tragamonedas / ruleta). El ganador lo elige el
+// servidor con azar criptografico; la animacion solo "actua" el resultado.
+model Raffle {
+  id           String    @id @default(cuid())
+  tenantId     String
+  name         String
+  description  String?   @db.Text
+  prizes       String[]  // en orden: 1er lugar, 2do lugar... (minimo 1)
+  drawDate     DateTime?
+  status       String    @default("OPEN")   // OPEN, DRAWN, CANCELLED
+  drawMode     String    @default("FIRST")  // FIRST: el primero en salir gana | NTH: el N-esimo gana | LAST: el ultimo en quedar gana
+  drawPosition Int?                         // N para el modo NTH
+  style        String    @default("TOMBOLA") // TOMBOLA, SLOT, WHEEL
+
+  // Venta de boletos (opcional)
+  sellTickets   Boolean  @default(false)
+  ticketPrice   Float?
+  bankAccountId String?
+
+  // Boletos automaticos por venta (opcional)
+  autoTickets        Boolean @default(false)
+  autoMinAmount      Float?
+  autoTicketsPerSale Int     @default(1)
+
+  // Terminos: cada agencia escribe los suyos y acepta su responsabilidad
+  terms           String?   @db.Text
+  termsAcceptedBy String?
+  termsAcceptedAt DateTime?
+
+  createdBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant       Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  bankAccount  BankAccount?        @relation(fields: [bankAccountId], references: [id], onDelete: SetNull)
+  participants RaffleParticipant[]
+  tickets      RaffleTicket[]
+
+  @@index([tenantId])
+  @@map("raffles")
+}
+
+model RaffleParticipant {
+  id         String   @id @default(cuid())
+  raffleId   String
+  tenantId   String
+  name       String
+  phone      String?
+  clientId   String?
+  sellerId   String?  // usuario al que pertenece (agente, contador, admin)
+  bookingId  String?  // venta que genero boletos automaticos
+  source     String   @default("MANUAL") // MANUAL, CLIENT, AUTO
+  paidAmount Float    @default(0)
+  createdBy  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  raffle  Raffle         @relation(fields: [raffleId], references: [id], onDelete: Cascade)
+  client  Client?        @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  seller  User?          @relation(fields: [sellerId], references: [id], onDelete: SetNull)
+  tickets RaffleTicket[]
+
+  @@index([raffleId])
+  @@index([tenantId])
+  @@map("raffle_participants")
+}
+
+model RaffleTicket {
+  id            String    @id @default(cuid())
+  raffleId      String
+  participantId String
+  number        Int       // numero visible del boleto (#001, #002...)
+  drawnOrder    Int?      // orden en que salio (null = sigue en la tombola)
+  drawnAt       DateTime?
+  prizeIndex    Int?      // 0 = 1er lugar... (null = no gano)
+
+  raffle      Raffle            @relation(fields: [raffleId], references: [id], onDelete: Cascade)
+  participant RaffleParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  @@unique([raffleId, number])
+  @@index([raffleId, drawnOrder])
+  @@map("raffle_tickets")
+}
+
 model SupplierPayment {
   id                String   @id @default(cuid())
   tenantId          String
@@ -584,6 +672,7 @@ model BankAccount {
   tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   transactions     BankTransaction[]
   supplierPayments SupplierPayment[]
+  raffles          Raffle[]
 
   @@index([tenantId])
   @@index([tenantId, isActive])

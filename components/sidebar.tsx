@@ -25,6 +25,7 @@ import {
   Hotel,
   Target,
   LayoutTemplate,
+  Ticket,
   History,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -57,6 +58,7 @@ const menuGroups: MenuGroup[] = [
       { title: 'Metas', icon: Target, href: '/sales/goals', module: 'ventas' },
       { title: 'Cotizaciones', icon: FileText, href: '/quotations', module: 'cotizaciones' },
       { title: 'Plantillas', icon: LayoutTemplate, href: '/templates' },
+      { title: 'Rifas', icon: Ticket, href: '/raffles', module: 'rifas' },
     ],
   },
   {

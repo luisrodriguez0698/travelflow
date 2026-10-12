@@ -3,6 +3,7 @@ import { requireAccess, accessErrorResponse } from '@/lib/access';
 import { getSessionUser } from '@/lib/get-tenant';
 import { notifyActivity, formatMoney } from '@/lib/activity';
 import { checkGoalReached } from '@/lib/goals';
+import { addAutoTicketsForSale } from '@/lib/raffles';
 import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
@@ -300,6 +301,14 @@ export async function POST(request: NextRequest) {
       // ¿Con esta venta llego a su meta del mes? -> confeti
       await checkGoalReached({ tenantId, sellerId: sessionUser.id, saleDate: booking.saleDate, saleAmount: booking.totalPrice });
     }
+    // Rifas con boletos automaticos por venta (opcional por rifa)
+    await addAutoTicketsForSale({
+      tenantId,
+      bookingId: booking.id,
+      clientId: booking.clientId,
+      sellerId: sessionUser?.id ?? null,
+      totalPrice: booking.totalPrice,
+    });
 
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
