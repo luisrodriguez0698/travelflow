@@ -19,6 +19,7 @@ import {
   Ticket,
   Loader2,
   Repeat,
+  RefreshCw,
   ShieldCheck,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -102,6 +103,7 @@ export default function SorteoPage() {
   const [phase, setPhase] = useState<'idle' | 'requesting' | 'spinning'>('idle');
   const [current, setCurrent] = useState<DrawResult | null>(null);
   const [spinId, setSpinId] = useState(0);
+  const [stirId, setStirId] = useState(0);
   const [winner, setWinner] = useState<DrawTicket | null>(null);
   const [resetOpen, setResetOpen] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
@@ -318,7 +320,7 @@ export default function SorteoPage() {
 
   const activeStyle = style ?? raffle.style;
   const target = phase === 'spinning' && current ? current.ticket : null;
-  const stageProps = { pool, target, spinId, durationMs: SPEEDS[speed].ms, onDone: onStageDone };
+  const stageProps = { pool, target, spinId, stirId, durationMs: SPEEDS[speed].ms, onDone: onStageDone };
   const busy = phase !== 'idle';
   const lastTicket = phase === 'idle' && current ? current.ticket : null;
 
@@ -479,6 +481,17 @@ export default function SorteoPage() {
                     'Sacar boleto'
                   )}
                 </motion.button>
+                {activeStyle === 'TOMBOLA' && (
+                  <button
+                    onClick={() => setStirId((n) => n + 1)}
+                    disabled={busy}
+                    className="px-4 py-2 rounded-full text-sm flex items-center gap-1.5 bg-white/10 text-white/80 hover:bg-white/20 disabled:opacity-50"
+                    title="Gira la tómbola sin sacar boleto (también puedes arrastrarla)"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    Revolver
+                  </button>
+                )}
                 <button
                   onClick={() => setAuto((a) => !a)}
                   className={cn('px-4 py-2 rounded-full text-sm flex items-center gap-1.5 transition-colors', auto ? 'bg-amber-300 text-slate-900' : 'bg-white/10 text-white/80 hover:bg-white/20')}
@@ -510,6 +523,7 @@ export default function SorteoPage() {
                 </button>
               )}
               {canDraw && <span className="hidden sm:inline text-white/40">Tecla espacio = sacar</span>}
+              {activeStyle === 'TOMBOLA' && <span className="hidden sm:inline text-white/40">· Arrastra la tómbola para revolver</span>}
             </div>
           </div>
         </section>

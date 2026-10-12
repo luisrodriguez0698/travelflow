@@ -12,6 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Loader2, Plus, Trash2, Trophy, Dices, CircleDot, Disc3, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
+import { DatePicker } from '@/components/ui/date-picker';
 import { DEFAULT_TERMS } from '@/lib/raffle-rules';
 import { STYLE_INFO, MODE_INFO } from './raffle-ui';
 
@@ -49,6 +51,13 @@ const EMPTY: RaffleFormValue = {
   autoTicketsPerSale: 1,
   terms: DEFAULT_TERMS,
 };
+
+/** "2026-10-12..." -> fecha local (sin corrimiento por zona horaria) */
+function parseDay(value: string | null) {
+  if (!value) return null;
+  const [y, m, d] = value.slice(0, 10).split('-').map(Number);
+  return y && m && d ? new Date(y, m - 1, d) : null;
+}
 
 const STYLE_ICONS = { TOMBOLA: CircleDot, SLOT: Dices, WHEEL: Disc3 } as const;
 
@@ -131,12 +140,11 @@ export function RaffleFormDialog({
               <Textarea id="raffle-desc" rows={2} value={form.description ?? ''} onChange={(e) => set('description', e.target.value)} placeholder="Cómo participar, redes sociales, etc." />
             </div>
             <div className="space-y-1.5 max-w-xs">
-              <Label htmlFor="raffle-date">Fecha del sorteo</Label>
-              <Input
-                id="raffle-date"
-                type="date"
-                value={form.drawDate ? form.drawDate.slice(0, 10) : ''}
-                onChange={(e) => set('drawDate', e.target.value || null)}
+              <Label>Fecha del sorteo</Label>
+              <DatePicker
+                value={parseDay(form.drawDate)}
+                onChange={(d) => set('drawDate', d ? format(d, 'yyyy-MM-dd') : null)}
+                placeholder="Sin fecha definida"
               />
             </div>
           </section>

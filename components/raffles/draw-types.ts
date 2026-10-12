@@ -17,6 +17,8 @@ export interface StageProps {
   spinId: number;
   durationMs: number;
   onDone: () => void;
+  /** Cambia cada vez que se pide "revolver" sin sacar boleto (solo tombola) */
+  stirId?: number;
 }
 
 export const ticketDigits = (pool: { number: number }[]) =>

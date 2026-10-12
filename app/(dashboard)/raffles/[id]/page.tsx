@@ -6,6 +6,9 @@ import { useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { PaginationFooter } from '@/components/ui/pagination-footer';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -59,6 +62,9 @@ export default function RaffleDetailPage() {
   const [raffle, setRaffle] = useState<RaffleDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [sellerFilter, setSellerFilter] = useState('all');
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(20);
   const [editOpen, setEditOpen] = useState(false);
   const [participantOpen, setParticipantOpen] = useState(false);
   const [editingParticipant, setEditingParticipant] = useState<ParticipantValue | null>(null);
@@ -86,11 +92,29 @@ export default function RaffleDetailPage() {
   const filtered = useMemo(() => {
     if (!raffle) return [];
     const q = search.trim().toLowerCase();
-    if (!q) return raffle.participants;
-    return raffle.participants.filter(
-      (p) => p.name.toLowerCase().includes(q) || p.phone?.includes(q) || p.tickets.some((t) => String(t.number) === q.replace('#', ''))
-    );
-  }, [raffle, search]);
+    const ticketQuery = q.replace('#', '').replace(/^0+(?=\d)/, '');
+    return raffle.participants.filter((p) => {
+      if (sellerFilter !== 'all' && (p.sellerId ?? 'none') !== sellerFilter) return false;
+      if (!q) return true;
+      return p.name.toLowerCase().includes(q) || p.phone?.includes(q) || p.tickets.some((t) => String(t.number) === ticketQuery);
+    });
+  }, [raffle, search, sellerFilter]);
+
+  // Agentes presentes en la lista (para el filtro), con su conteo
+  const sellers = useMemo(() => {
+    const map = new Map<string, { id: string; name: string; count: number }>();
+    for (const p of raffle?.participants ?? []) {
+      const key = p.sellerId ?? 'none';
+      const entry = map.get(key) ?? { id: key, name: p.seller ? p.seller.name || p.seller.email : 'Sin agente', count: 0 };
+      entry.count++;
+      map.set(key, entry);
+    }
+    return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }, [raffle]);
+
+  useEffect(() => setPage(1), [search, sellerFilter, limit]);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / limit));
+  const pageItems = filtered.slice((page - 1) * limit, page * limit);
 
   const winners = useMemo(() => {
     if (!raffle) return [];
@@ -207,7 +231,18 @@ export default function RaffleDetailPage() {
       <Card className="p-4 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <h2 className="font-semibold flex items-center gap-2"><Users className="w-4 h-4" />Participantes</h2>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {sellers.length > 1 && (
+              <Select value={sellerFilter} onValueChange={setSellerFilter}>
+                <SelectTrigger className="w-full sm:w-52"><SelectValue placeholder="Agente" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los agentes</SelectItem>
+                  {sellers.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>{s.name} ({s.count})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
             <div className="relative flex-1 sm:w-64">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input type="search" autoComplete="off" placeholder="Nombre, teléfono o #boleto" className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
@@ -239,8 +274,9 @@ export default function RaffleDetailPage() {
             description={search ? undefined : 'Agrega a tus clientes o a cualquier persona; cada boleto es una oportunidad de ganar.'}
           />
         ) : (
+          <TooltipProvider delayDuration={150}>
           <div className="divide-y">
-            {filtered.map((p) => {
+            {pageItems.map((p) => {
               const won = p.tickets.some((t) => t.prizeIndex !== null);
               return (
                 <div key={p.id} className="py-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
@@ -277,9 +313,17 @@ export default function RaffleDetailPage() {
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     {p.seller && (
-                      <span title={`Agente: ${p.seller.name || p.seller.email}`}>
-                        <UserAvatar name={p.seller.name || p.seller.email} src={p.seller.avatar} className="w-7 h-7 text-[10px]" />
-                      </span>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button type="button" className="rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => setSellerFilter(p.sellerId!)}>
+                            <UserAvatar name={p.seller.name || p.seller.email} src={p.seller.avatar} className="w-7 h-7 text-[10px]" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="font-medium">{p.seller.name || p.seller.email}</p>
+                          <p className="text-[11px] opacity-70">Clic para ver solo sus participantes</p>
+                        </TooltipContent>
+                      </Tooltip>
                     )}
                     {!locked && can('rifas', 'edit') && (
                       <Button
@@ -304,6 +348,10 @@ export default function RaffleDetailPage() {
               );
             })}
           </div>
+          </TooltipProvider>
+        )}
+        {filtered.length > 20 && (
+          <PaginationFooter page={page} limit={limit} total={filtered.length} totalPages={totalPages} onPageChange={setPage} onLimitChange={setLimit} />
         )}
       </Card>
 
