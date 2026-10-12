@@ -28,6 +28,8 @@ type Phase = 'idle' | 'spin' | 'gate' | 'chute' | 'rest';
 /** Cuantas esferas se dibujan como maximo (con miles de boletos se muestra una muestra; todos participan) */
 const MAX_BALLS = 70;
 const STIR_MS = 2200;
+/** Radio del tambor respecto al lienzo (deja espacio a la derecha para la manivela) */
+const DRUM_R = 0.35;
 
 /** Orden pseudoaleatorio pero estable por boleto, para elegir la muestra visible */
 function stableHash(id: string) {
@@ -72,7 +74,7 @@ export function TombolaStage({ pool, target, spinId, durationMs, onDone, stirId 
   // Mantener las esferas sincronizadas con los boletos en juego
   useEffect(() => {
     const visible = pickVisible(pool, target);
-    const R = sizeRef.current * 0.37 || 150;
+    const R = sizeRef.current * DRUM_R || 150;
     const current = new Map(balls.current.map((b) => [b.id, b]));
     balls.current = visible.map(
       (t, i) =>
@@ -172,7 +174,7 @@ export function TombolaStage({ pool, target, spinId, durationMs, onDone, stirId 
       const dt = Math.min(0.033, (now - last) / 1000);
       last = now;
       const size = sizeRef.current;
-      const R = size * 0.37;
+      const R = size * DRUM_R;
       const cx = size / 2;
       const cy = size * 0.42;
       const run_ = run.current;
@@ -322,6 +324,9 @@ export function TombolaStage({ pool, target, spinId, durationMs, onDone, stirId 
         }
       }
 
+      const cursor = run_.phase !== 'idle' ? 'default' : drag.current.active ? 'grabbing' : 'grab';
+      if (canvas.style.cursor !== cursor) canvas.style.cursor = cursor;
+
       // ── Dibujo ──
       ctx.clearRect(0, 0, size, size);
 
@@ -442,14 +447,14 @@ export function TombolaStage({ pool, target, spinId, durationMs, onDone, stirId 
       ctx.shadowBlur = 0;
 
       // Manivela (gira con el tambor)
-      const axleX = cx + R + size * 0.045;
+      const axleX = cx + R + size * 0.035;
       ctx.strokeStyle = '#d97706';
       ctx.lineWidth = Math.max(3, size * 0.012);
       ctx.beginPath();
       ctx.moveTo(cx + R, cy);
       ctx.lineTo(axleX, cy);
       ctx.stroke();
-      const armLen = R * 0.22;
+      const armLen = R * 0.2;
       const kx = axleX + Math.cos(angle) * armLen;
       const ky = cy + Math.sin(angle) * armLen;
       ctx.lineWidth = Math.max(4, size * 0.014);
@@ -507,11 +512,10 @@ export function TombolaStage({ pool, target, spinId, durationMs, onDone, stirId 
       const rect = canvas.getBoundingClientRect();
       const size = sizeRef.current;
       const dist = Math.hypot(e.clientX - rect.left - size / 2, e.clientY - rect.top - size * 0.42);
-      if (dist > size * 0.37 * 1.4) return;
+      if (dist > size * DRUM_R * 1.4) return;
       sfx.unlock();
       drag.current = { active: true, angle: pointerAngle(e), time: performance.now(), id: e.pointerId };
       canvas.setPointerCapture(e.pointerId);
-      canvas.style.cursor = 'grabbing';
     };
     const onMove = (e: PointerEvent) => {
       const d = drag.current;
@@ -527,7 +531,6 @@ export function TombolaStage({ pool, target, spinId, durationMs, onDone, stirId 
     const onUp = (e: PointerEvent) => {
       if (e.pointerId !== drag.current.id) return;
       drag.current.active = false;
-      canvas.style.cursor = 'grab';
     };
     canvas.addEventListener('pointerdown', onDown);
     canvas.addEventListener('pointermove', onMove);
@@ -546,7 +549,7 @@ export function TombolaStage({ pool, target, spinId, durationMs, onDone, stirId 
 
   return (
     <div ref={wrapRef} className="w-full h-full flex items-center justify-center">
-      <canvas ref={canvasRef} aria-label="Tómbola: arrástrala para revolver" role="img" className="cursor-grab touch-none select-none" />
+      <canvas ref={canvasRef} aria-label="Tómbola: arrástrala para revolver" role="img" className="touch-none select-none" />
     </div>
   );
 }
