@@ -44,6 +44,13 @@ function pickVisible(pool: DrawTicket[], target: DrawTicket | null) {
   return sorted;
 }
 
+/** Brillo (0..1) del foco i: una "ola" de luz que recorre el aro, como en los casinos */
+function casinoLight(i: number, now: number, periodMs: number, groups = 6) {
+  const phase = ((now / periodMs) * groups - i) % groups;
+  const p = (phase + groups) % groups;
+  return p < 1 ? 1 - p * 0.6 : p < 2 ? 0.4 - (p - 1) * 0.3 : 0.1;
+}
+
 const wrapAngle = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
 const easeOutBack = (t: number) => 1 + 2.2 * Math.pow(t - 1, 3) + 1.2 * Math.pow(t - 1, 2);
 
@@ -203,6 +210,13 @@ export function TombolaStage({ pool, target, spinId, durationMs, onDone, stirId 
 
       const target = run_.target ? balls.current.find((b) => b.id === run_.target) : undefined;
 
+      // En reposo los choques son "suaves" (sin rebote) y las esferas se duermen,
+      // para que la pila quede quieta en lugar de temblar
+      const calm = agitate < 0.05 && Math.abs(omega) < 0.3 && phase !== 'gate';
+      const wallBounce = calm ? 1 : 1.65;
+      const ballBounce = calm ? 0.5 : 0.92;
+      const sleepSpeed = R * 0.04;
+
       // ── Fisica (2 subpasos) ──
       for (let step = 0; step < 2; step++) {
         const h = dt / 2;
@@ -241,8 +255,8 @@ export function TombolaStage({ pool, target, spinId, durationMs, onDone, stirId 
             b.y = ny * (R - r);
             const vn = b.vx * nx + b.vy * ny;
             if (vn > 0) {
-              b.vx -= 1.65 * vn * nx;
-              b.vy -= 1.65 * vn * ny;
+              b.vx -= wallBounce * vn * nx;
+              b.vy -= wallBounce * vn * ny;
               if (agitate > 0.15 && vn > R * 1.2 && now - lastRattle > 70) {
                 lastRattle = now;
                 sfx.rattle();
@@ -257,8 +271,8 @@ export function TombolaStage({ pool, target, spinId, durationMs, onDone, stirId 
             b.vx = vnNow * nx + vt * tx;
             b.vy = vnNow * ny + vt * ty;
           }
-          b.vx *= 0.998;
-          b.vy *= 0.998;
+          b.vx *= calm ? 0.94 : 0.998;
+          b.vy *= calm ? 0.94 : 0.998;
         }
         // Choques entre esferas
         const list = balls.current;
@@ -281,13 +295,22 @@ export function TombolaStage({ pool, target, spinId, durationMs, onDone, stirId 
               c.y += ny * overlap;
               const rel = (c.vx - a.vx) * nx + (c.vy - a.vy) * ny;
               if (rel < 0) {
-                const imp = rel * 0.92;
+                const imp = rel * ballBounce;
                 a.vx += imp * nx;
                 a.vy += imp * ny;
                 c.vx -= imp * nx;
                 c.vy -= imp * ny;
               }
             }
+          }
+        }
+      }
+
+      if (calm) {
+        for (const b of balls.current) {
+          if (!b.exiting && Math.hypot(b.vx, b.vy) < sleepSpeed) {
+            b.vx = 0;
+            b.vy = 0;
           }
         }
       }
@@ -436,10 +459,11 @@ export function TombolaStage({ pool, target, spinId, durationMs, onDone, stirId 
       const lights = 24;
       for (let i = 0; i < lights; i++) {
         const a = (i / lights) * Math.PI * 2 + angle * 0.25;
-        const on = spinningLights ? (Math.floor(now / 90) + i) % 3 === 0 : phase === 'rest' ? Math.floor(now / 150) % 2 === i % 2 : i % 2 === 0;
-        ctx.fillStyle = on ? '#fef9c3' : 'rgba(254,249,195,0.25)';
-        ctx.shadowColor = on ? '#fde047' : 'transparent';
-        ctx.shadowBlur = on ? 12 : 0;
+        // Luces de casino: corren despacio en reposo, rapido al girar y parpadean todas al salir la esfera
+        const level = phase === 'rest' ? (Math.floor(now / 150) % 2 === i % 2 ? 1 : 0.15) : casinoLight(i, now, spinningLights ? 420 : 1500);
+        ctx.fillStyle = `rgba(254,249,195,${0.2 + 0.8 * level})`;
+        ctx.shadowColor = '#fde047';
+        ctx.shadowBlur = 14 * level;
         ctx.beginPath();
         ctx.arc(cx + Math.cos(a) * R, cy + Math.sin(a) * R, Math.max(2.5, size * 0.008), 0, Math.PI * 2);
         ctx.fill();

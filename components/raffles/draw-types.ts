@@ -28,3 +28,8 @@ export const ticketDigits = (pool: { number: number }[]) =>
 export function ticketHue(n: number) {
   return (n * 137.508) % 360;
 }
+
+/** Retraso CSS del foco i para que la luz "corra" por el marco (6 grupos) */
+export function casinoDelay(i: number) {
+  return `calc(var(--casino-speed, 1.6s) * ${(i % 6) - 6} / 6)`;
+}

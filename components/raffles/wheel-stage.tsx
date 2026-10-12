@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { sfx } from './draw-sounds';
-import { ticketHue, type StageProps } from './draw-types';
+import { casinoDelay, ticketHue, type StageProps } from './draw-types';
 
 /** Hasta cuantos boletos se dibuja un segmento por boleto; arriba de eso, uno por persona (proporcional) */
 const PER_TICKET_MAX = 120;
@@ -36,6 +36,9 @@ export function shortName(full: string, max = 14) {
   }
   return out.length > max + 3 ? `${out.slice(0, max)}…` : out;
 }
+
+/** Focos alrededor del aro de la ruleta */
+const RIM_BULBS = 36;
 
 const easeOutQuart = (t: number) => 1 - Math.pow(1 - t, 4);
 
@@ -205,6 +208,23 @@ export function WheelStage({ pool, target, spinId, durationMs, onDone }: StagePr
                     </text>
                   );
                 })}
+            </g>
+            {/* Focos del aro (fijos, no giran con la rueda) */}
+            <g style={{ ['--casino-speed' as string]: target ? '0.45s' : '1.6s' }}>
+              {Array.from({ length: RIM_BULBS }).map((_, i) => {
+                const [bx, by] = point((i / RIM_BULBS) * 360, 48.3);
+                return (
+                  <circle
+                    key={i}
+                    className="casino-bulb"
+                    cx={bx}
+                    cy={by}
+                    r={0.75}
+                    fill="#fef9c3"
+                    style={{ animationDelay: casinoDelay(i), filter: 'drop-shadow(0 0 1.2px #fde047)' }}
+                  />
+                );
+              })}
             </g>
             <circle cx="50" cy="50" r="7" fill="#0f172a" stroke="#f59e0b" strokeWidth="1.5" />
             <circle cx="50" cy="50" r="2.5" fill="#f59e0b" />

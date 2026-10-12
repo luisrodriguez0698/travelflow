@@ -33,6 +33,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useCan } from '@/hooks/use-can';
 import { useRealtimeEvent } from '@/components/realtime-provider';
 import { cn } from '@/lib/utils';
@@ -106,6 +107,7 @@ export default function SorteoPage() {
   const [stirId, setStirId] = useState(0);
   const [winner, setWinner] = useState<DrawTicket | null>(null);
   const [resetOpen, setResetOpen] = useState(false);
+  const [clearLog, setClearLog] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
 
   const phaseRef = useRef(phase);
@@ -264,7 +266,7 @@ export default function SorteoPage() {
 
   const reset = async () => {
     try {
-      const res = await fetch(`/api/raffles/${id}/draw`, { method: 'DELETE' });
+      const res = await fetch(`/api/raffles/${id}/draw${clearLog ? '?clearLog=1' : ''}`, { method: 'DELETE' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setResetOpen(false);
@@ -272,7 +274,8 @@ export default function SorteoPage() {
       setWinner(null);
       setAuto(false);
       await load();
-      toast.success('Sorteo reiniciado: todos los boletos regresaron');
+      toast.success(clearLog ? 'Sorteo y bitácora limpiados' : 'Sorteo reiniciado: todos los boletos regresaron');
+      setClearLog(false);
     } catch (err: any) {
       toast.error(err.message || 'No se pudo reiniciar');
     }
@@ -519,7 +522,7 @@ export default function SorteoPage() {
               {canDraw && history.length > 0 && (
                 <button onClick={() => setResetOpen(true)} disabled={busy} className="px-3 py-1 rounded-full bg-white/5 text-white/60 hover:text-white flex items-center gap-1">
                   <RotateCcw className="w-3 h-3" />
-                  Reiniciar
+                  Reiniciar / limpiar
                 </button>
               )}
               {canDraw && <span className="hidden sm:inline text-white/40">Tecla espacio = sacar</span>}
@@ -659,9 +662,20 @@ export default function SorteoPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Reiniciar sorteo</AlertDialogTitle>
             <AlertDialogDescription>
-              Todos los boletos regresan a la tómbola y se borran los ganadores. Úsalo solo si fue un ensayo. Quedará registrado en el historial.
+              Todos los boletos regresan a la tómbola y se borran los ganadores. Úsalo solo si fue un ensayo.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {can('rifas', 'delete') && (
+            <label className="flex items-start gap-2 rounded-lg bg-muted/50 p-3 cursor-pointer">
+              <Checkbox checked={clearLog} onCheckedChange={(v) => setClearLog(v === true)} className="mt-0.5" />
+              <span className="text-sm">
+                <span className="font-medium">Limpiar también la bitácora del sorteo</span>
+                <span className="block text-xs text-muted-foreground">
+                  Borra el registro de cada boleto que salió. La creación y ediciones de la rifa se conservan, y queda una nota de que se limpió.
+                </span>
+              </span>
+            </label>
+          )}
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={reset} className="bg-red-600 hover:bg-red-700">Reiniciar</AlertDialogAction>

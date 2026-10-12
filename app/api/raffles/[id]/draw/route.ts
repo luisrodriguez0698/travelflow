@@ -90,10 +90,12 @@ export async function POST(_request: NextRequest, { params }: Params) {
   }
 }
 
-// Reiniciar el sorteo (p. ej. despues de un ensayo): todos los boletos vuelven a la tombola
-export async function DELETE(_request: NextRequest, { params }: Params) {
+// Reiniciar el sorteo (p. ej. despues de un ensayo): todos los boletos vuelven a la tombola.
+// Con ?clearLog=1 tambien se borra la bitacora de las extracciones (requiere permiso de eliminar).
+export async function DELETE(request: NextRequest, { params }: Params) {
   try {
-    const access = await requireAccess('rifas', 'edit');
+    const clearLog = new URL(request.url).searchParams.get('clearLog') === '1';
+    const access = await requireAccess('rifas', clearLog ? 'delete' : 'edit');
     const { id } = await params;
     const raffle = await prisma.raffle.findFirst({ where: { id, tenantId: access.tenantId } });
     if (!raffle) return NextResponse.json({ error: 'Rifa no encontrada' }, { status: 404 });
@@ -101,6 +103,19 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
     await prismaBase.$transaction([
       prismaBase.raffleTicket.updateMany({ where: { raffleId: id }, data: { drawnOrder: null, drawnAt: null, prizeIndex: null } }),
       prismaBase.raffle.update({ where: { id }, data: { status: 'OPEN' } }),
+      // Solo los registros del sorteo ("Sorteo: salio...", "Sorteo reiniciado"); la creacion y ediciones se conservan
+      ...(clearLog
+        ? [
+            prismaBase.auditLog.deleteMany({
+              where: {
+                tenantId: access.tenantId,
+                entity: 'raffles',
+                entityId: id,
+                changes: { path: ['_context'], string_starts_with: 'Sorteo' },
+              },
+            }),
+          ]
+        : []),
     ]);
     publishToTenant(access.tenantId, 'raffle-draw', { raffleId: id, reset: true });
     const user = await getSessionUser();
@@ -112,7 +127,11 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
         action: 'UPDATE',
         entity: 'raffles',
         entityId: id,
-        changes: { _context: 'Sorteo reiniciado: todos los boletos regresaron a la tómbola' },
+        changes: {
+          _context: clearLog
+            ? 'Sorteo reiniciado y su bitácora limpiada: todos los boletos regresaron a la tómbola'
+            : 'Sorteo reiniciado: todos los boletos regresaron a la tómbola',
+        },
       });
     }
     return NextResponse.json({ success: true });

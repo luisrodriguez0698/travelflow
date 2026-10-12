@@ -238,3 +238,17 @@ label {
   0% { transform: translateX(-50%) rotate(-22deg); }
   100% { transform: translateX(-50%) rotate(0deg); }
 }
+
+/* Rifas: focos tipo casino. Una "ola" de luz recorre el marco; --casino-speed
+   se acorta mientras gira. Cada foco lleva su retraso (ver casinoDelay). */
+@keyframes casino-bulb {
+  0% { opacity: 1; }
+  16% { opacity: 0.45; }
+  33%, 100% { opacity: 0.18; }
+}
+.casino-bulb {
+  animation: casino-bulb var(--casino-speed, 1.6s) linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .casino-bulb { animation: none; opacity: 0.7; }
+}

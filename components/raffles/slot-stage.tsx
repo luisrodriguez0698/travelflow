@@ -3,7 +3,18 @@
 import { useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { sfx } from './draw-sounds';
-import { ticketDigits, type StageProps } from './draw-types';
+import { casinoDelay, ticketDigits, type StageProps } from './draw-types';
+
+/** Focos alrededor del marco en sentido horario (arriba, derecha, abajo, izquierda) */
+const FRAME_BULBS = (() => {
+  const inset = '7px';
+  const list: { left: string; top: string }[] = [];
+  for (let i = 0; i < 10; i++) list.push({ left: `${6 + i * 9.8}%`, top: inset });
+  for (let i = 1; i <= 3; i++) list.push({ left: `calc(100% - ${inset})`, top: `${i * 25}%` });
+  for (let i = 9; i >= 0; i--) list.push({ left: `${6 + i * 9.8}%`, top: `calc(100% - ${inset})` });
+  for (let i = 3; i >= 1; i--) list.push({ left: inset, top: `${i * 25}%` });
+  return list;
+})();
 
 const easeOutBack = (t: number) => {
   const c1 = 1.2;
@@ -95,19 +106,16 @@ export function SlotStage({ pool, target, spinId, durationMs, onDone }: StagePro
   return (
     <div className="w-full h-full flex flex-col items-center justify-center gap-6 px-2">
       <div className="relative rounded-[2rem] p-3 sm:p-5 bg-gradient-to-b from-amber-300 via-amber-500 to-amber-700 shadow-[0_0_60px_rgba(245,158,11,0.35)]">
-        {/* Focos del marco */}
-        <div className="absolute inset-0 rounded-[2rem] pointer-events-none">
-          {Array.from({ length: 18 }).map((_, i) => (
+        {/* Focos del marco (luces de casino que recorren el borde) */}
+        <div
+          className="absolute inset-0 rounded-[2rem] pointer-events-none"
+          style={{ ['--casino-speed' as string]: spinning ? '0.45s' : '1.6s' }}
+        >
+          {FRAME_BULBS.map((pos, i) => (
             <span
               key={i}
-              className={cn('absolute w-2 h-2 rounded-full bg-yellow-100', spinning ? 'animate-pulse' : 'opacity-60')}
-              style={{
-                left: `${i < 9 ? 6 + i * 11 : 6 + (i - 9) * 11}%`,
-                top: i < 9 ? 4 : undefined,
-                bottom: i >= 9 ? 4 : undefined,
-                animationDelay: `${(i % 3) * 150}ms`,
-                boxShadow: '0 0 8px #fde047',
-              }}
+              className="casino-bulb absolute w-2 h-2 rounded-full bg-yellow-100 -translate-x-1/2 -translate-y-1/2"
+              style={{ left: pos.left, top: pos.top, animationDelay: casinoDelay(i), boxShadow: '0 0 8px #fde047, 0 0 2px #fff' }}
             />
           ))}
         </div>
