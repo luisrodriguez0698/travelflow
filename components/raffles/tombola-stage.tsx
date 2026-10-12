@@ -14,6 +14,8 @@ interface Ball {
   hue: number;
   /** Ya paso por la compuerta (cae por el tubo, sin chocar con el tambor) */
   exiting?: boolean;
+  /** Esta apoyada (en el fondo del tambor o sobre otra esfera) en este cuadro */
+  supported?: boolean;
 }
 
 /**
@@ -218,6 +220,7 @@ export function TombolaStage({ pool, target, spinId, durationMs, onDone, stirId 
       const sleepSpeed = R * 0.04;
 
       // ── Fisica (2 subpasos) ──
+      for (const b of balls.current) b.supported = false;
       for (let step = 0; step < 2; step++) {
         const h = dt / 2;
         for (const b of balls.current) {
@@ -253,6 +256,7 @@ export function TombolaStage({ pool, target, spinId, durationMs, onDone, stirId 
             const ny = b.y / d;
             b.x = nx * (R - r);
             b.y = ny * (R - r);
+            if (ny > 0.2) b.supported = true; // toca la parte de abajo del tambor
             const vn = b.vx * nx + b.vy * ny;
             if (vn > 0) {
               b.vx -= wallBounce * vn * nx;
@@ -271,8 +275,10 @@ export function TombolaStage({ pool, target, spinId, durationMs, onDone, stirId 
             b.vx = vnNow * nx + vt * tx;
             b.vy = vnNow * ny + vt * ty;
           }
-          b.vx *= calm ? 0.94 : 0.998;
-          b.vy *= calm ? 0.94 : 0.998;
+          // Friccion extra solo si esta apoyada: en el aire cae con gravedad normal
+          const damp = calm && b.supported ? 0.94 : 0.998;
+          b.vx *= damp;
+          b.vy *= damp;
         }
         // Choques entre esferas
         const list = balls.current;
@@ -289,6 +295,8 @@ export function TombolaStage({ pool, target, spinId, durationMs, onDone, stirId 
               const nx = dx / dist;
               const ny = dy / dist;
               const overlap = (r * 2 - dist) / 2;
+              if (ny > 0.3) a.supported = true; // c esta debajo de a
+              else if (ny < -0.3) c.supported = true;
               a.x -= nx * overlap;
               a.y -= ny * overlap;
               c.x += nx * overlap;
@@ -308,7 +316,8 @@ export function TombolaStage({ pool, target, spinId, durationMs, onDone, stirId 
 
       if (calm) {
         for (const b of balls.current) {
-          if (!b.exiting && Math.hypot(b.vx, b.vy) < sleepSpeed) {
+          // Solo se "duermen" las apoyadas; una en el aire nunca se queda flotando
+          if (!b.exiting && b.supported && Math.hypot(b.vx, b.vy) < sleepSpeed) {
             b.vx = 0;
             b.vy = 0;
           }
