@@ -33,6 +33,7 @@ import { AgentSelect } from '@/components/agent-select';
 import { PaymentPlanEditor } from '@/components/payment-plan-editor';
 import { InitialPaymentAccount } from '@/components/initial-payment-account';
 import { planError } from '@/lib/payment-plan';
+import { saleTotalFromItems } from '@/lib/booking-pricing';
 
 interface Client { id: string; fullName: string; phone: string | null; email?: string; }
 interface Season { id: string; name: string; color: string; }
@@ -97,6 +98,11 @@ export default function NewSalePage() {
   }, []);
 
   const netCost = bookingItems.reduce((sum, item) => sum + (item.cost || 0), 0);
+  // Con precio de venta por servicio, el total es la suma de los servicios
+  const servicesTotal = saleTotalFromItems(bookingItems);
+  useEffect(() => {
+    if (servicesTotal !== null) setFormData((p) => (p.totalPrice === servicesTotal ? p : { ...p, totalPrice: servicesTotal }));
+  }, [servicesTotal]);
 
   const handleApplyTemplate = ({ items, totalPrice, notes }: AppliedTemplate) => {
     const cost = items.reduce((sum, item) => sum + (item.cost || 0), 0);
@@ -335,12 +341,17 @@ export default function NewSalePage() {
                   type="number"
                   value={formData.totalPrice || ''}
                   onChange={(e) => setFormData(p => ({ ...p, totalPrice: parseFloat(e.target.value) || 0 }))}
-                  onBlur={() => { if (netCost > 0 && formData.totalPrice < netCost) setFormData(p => ({ ...p, totalPrice: netCost })); }}
-                  className="text-lg font-semibold"
+                  onBlur={() => { if (servicesTotal === null && netCost > 0 && formData.totalPrice < netCost) setFormData(p => ({ ...p, totalPrice: netCost })); }}
+                  readOnly={servicesTotal !== null}
+                  className={`text-lg font-semibold ${servicesTotal !== null ? 'bg-muted/60 cursor-not-allowed' : ''}`}
                   placeholder="0"
                   min={netCost || 0}
                 />
-                {netCost > 0 && formData.totalPrice < netCost && <p className="text-xs text-red-500">No puede ser menor al costo neto</p>}
+                {servicesTotal !== null ? (
+                  <p className="text-xs text-muted-foreground">Suma del precio de venta de cada servicio (edítalo en cada servicio)</p>
+                ) : (
+                  netCost > 0 && formData.totalPrice < netCost && <p className="text-xs text-red-500">No puede ser menor al costo neto</p>
+                )}
               </div>
               {netCost > 0 && formData.totalPrice > 0 && (
                 <div className="space-y-2">
@@ -462,7 +473,7 @@ export default function NewSalePage() {
                 onChange={(newItems) => {
                   setBookingItems(newItems);
                   const cost = newItems.reduce((s, i) => s + (i.cost || 0), 0);
-                  if (cost > 0 && formData.totalPrice < cost) setFormData(p => ({ ...p, totalPrice: cost }));
+                  if (saleTotalFromItems(newItems) === null && cost > 0 && formData.totalPrice < cost) setFormData(p => ({ ...p, totalPrice: cost }));
                 }}
                 destinations={destinations}
                 suppliers={suppliers}

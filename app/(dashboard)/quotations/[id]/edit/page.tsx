@@ -30,6 +30,7 @@ import { PageSkeleton } from '@/components/skeletons';
 import { AgentSelect } from '@/components/agent-select';
 import { PaymentPlanEditor } from '@/components/payment-plan-editor';
 import { planError } from '@/lib/payment-plan';
+import { saleTotalFromItems } from '@/lib/booking-pricing';
 import { EditingPresence } from '@/components/editing-presence';
 
 interface Client { id: string; fullName: string; phone: string | null; email?: string; }
@@ -136,6 +137,11 @@ export default function EditQuotationPage() {
   }, [quotationId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const netCost = bookingItems.reduce((sum, item) => sum + (item.cost || 0), 0);
+  // Con precio de venta por servicio, el total es la suma de los servicios
+  const servicesTotal = saleTotalFromItems(bookingItems);
+  useEffect(() => {
+    if (servicesTotal !== null) setFormData((p) => (p.totalPrice === servicesTotal ? p : { ...p, totalPrice: servicesTotal }));
+  }, [servicesTotal]);
   const profit = formData.totalPrice - netCost;
   const profitPercent = netCost > 0 ? ((profit / netCost) * 100) : 0;
 
@@ -347,12 +353,17 @@ export default function EditQuotationPage() {
                   type="number"
                   value={formData.totalPrice || ''}
                   onChange={(e) => setFormData(p => ({ ...p, totalPrice: parseFloat(e.target.value) || 0 }))}
-                  onBlur={() => { if (netCost > 0 && formData.totalPrice < netCost) setFormData(p => ({ ...p, totalPrice: netCost })); }}
-                  className="text-lg font-semibold"
+                  onBlur={() => { if (servicesTotal === null && netCost > 0 && formData.totalPrice < netCost) setFormData(p => ({ ...p, totalPrice: netCost })); }}
+                  readOnly={servicesTotal !== null}
+                  className={`text-lg font-semibold ${servicesTotal !== null ? 'bg-muted/60 cursor-not-allowed' : ''}`}
                   placeholder="0"
                   min={netCost || 0}
                 />
-                {netCost > 0 && formData.totalPrice < netCost && <p className="text-xs text-red-500">No puede ser menor al costo neto</p>}
+                {servicesTotal !== null ? (
+                  <p className="text-xs text-muted-foreground">Suma del precio de venta de cada servicio (edítalo en cada servicio)</p>
+                ) : (
+                  netCost > 0 && formData.totalPrice < netCost && <p className="text-xs text-red-500">No puede ser menor al costo neto</p>
+                )}
               </div>
               {netCost > 0 && formData.totalPrice > 0 && (
                 <div className="space-y-2">
@@ -472,7 +483,7 @@ export default function EditQuotationPage() {
                 onChange={(newItems) => {
                   setBookingItems(newItems);
                   const cost = newItems.reduce((s, i) => s + (i.cost || 0), 0);
-                  if (cost > 0 && formData.totalPrice < cost) setFormData(p => ({ ...p, totalPrice: cost }));
+                  if (saleTotalFromItems(newItems) === null && cost > 0 && formData.totalPrice < cost) setFormData(p => ({ ...p, totalPrice: cost }));
                 }}
                 destinations={destinations}
                 suppliers={suppliers}

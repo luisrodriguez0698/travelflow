@@ -5,7 +5,7 @@ import type { BookingItemData } from '@/components/booking-items-form';
 // propios de cada viaje: fechas (tourDate, supplierDeadline), pasajeros,
 // numero de reservacion e id del item.
 const TEMPLATE_ITEM_KEYS = [
-  'type', 'description', 'cost', 'isInternational',
+  'type', 'description', 'cost', 'salePrice', 'isInternational',
   // Hotel
   'hotelId', 'destinationId', 'roomType', 'plan', 'numAdults', 'numChildren', 'freeChildren',
   'pricePerNight', 'numNights', 'priceAdult', 'priceChild', 'pricePackage',

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAccess, accessErrorResponse } from '@/lib/access';
+import { saleTotalFromItems, salePriceToStore } from '@/lib/booking-pricing';
 import { parsePaymentAmounts, planUpdateError } from '@/lib/payment-plan';
 import { resolveAgent } from '@/lib/booking-agent';
 import { findInitialPayment, initialPaymentAmount } from '@/lib/initial-payment';
@@ -72,7 +73,7 @@ export async function PUT(
     // Si el anticipo ya entro a un banco, no se puede cambiar su monto aqui (descuadraria la cuenta)
     const registered = await findInitialPayment(id);
     if (registered) {
-      const newInitial = initialPaymentAmount({ paymentType: body.paymentType, totalPrice: body.totalPrice, downPayment: body.downPayment || 0 });
+      const newInitial = initialPaymentAmount({ paymentType: body.paymentType, totalPrice: saleTotalFromItems(body.items) ?? body.totalPrice, downPayment: body.downPayment || 0 });
       if (Math.abs(newInitial - registered.amount) > 0.01) {
         const what = existing.paymentType === 'CASH' ? 'pago de contado' : 'anticipo';
         return NextResponse.json(
@@ -86,6 +87,9 @@ export async function PUT(
 
     // Calculate net cost - from items if provided, otherwise from legacy fields
     const items: any[] = body.items || [];
+    // Precio de venta = suma de los servicios (si tienen precio de venta por servicio)
+    const servicesTotal = saleTotalFromItems(items);
+    if (servicesTotal !== null) body.totalPrice = servicesTotal;
     let netCost: number;
 
     const numAdults = body.numAdults || 1;
@@ -195,6 +199,7 @@ export async function PUT(
               type: item.type || 'OTHER',
               description: item.description || null,
               cost: item.cost || 0,
+              salePrice: salePriceToStore(item),
               sortOrder: item.sortOrder ?? idx,
               hotelId: item.hotelId || null,
               serviceId: item.serviceId || null,

@@ -52,6 +52,7 @@ import { InitialPaymentBanner, type InitialPaymentInfo } from '@/components/init
 import { DatePicker } from '@/components/ui/date-picker';
 import { HistoryButton } from '@/components/record-history';
 import { useCan } from '@/hooks/use-can';
+import { ItemPriceBlock, ItemPriceCells, ItemPriceHeads } from '@/components/item-price';
 import { PageSkeleton } from '@/components/skeletons';
 
 interface PaymentPlan {
@@ -576,7 +577,7 @@ export default function SaleDetailPage() {
                       <div key={item.id} className="p-3 rounded-lg border bg-blue-50/50 dark:bg-blue-950/20 space-y-1.5">
                         <div className="flex justify-between items-start gap-2">
                           <p className="font-medium">{item.hotel?.name || item.description || '-'}</p>
-                          <p className="font-semibold shrink-0">${item.cost.toLocaleString('es-MX')}</p>
+                          <ItemPriceBlock item={item} />
                         </div>
                         <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted-foreground">
                           <span>{item.roomType || '-'}</span>
@@ -605,7 +606,7 @@ export default function SaleDetailPage() {
                           <TableHead className="text-center">Ocupación</TableHead>
                           <TableHead className="text-center">Noches</TableHead>
                           <TableHead className="text-right">$/Noche</TableHead>
-                          <TableHead className="text-right">Costo</TableHead>
+                          <ItemPriceHeads />
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -624,7 +625,7 @@ export default function SaleDetailPage() {
                             </TableCell>
                             <TableCell className="text-center">{item.numNights || '-'}</TableCell>
                             <TableCell className="text-right">${(item.pricePerNight || 0).toLocaleString('es-MX')}</TableCell>
-                            <TableCell className="text-right font-medium">${item.cost.toLocaleString('es-MX')}</TableCell>
+                            <ItemPriceCells item={item} />
                           </TableRow>
                         ))}
                       </TableBody>
@@ -651,7 +652,7 @@ export default function SaleDetailPage() {
                             </Badge>
                             <p className="font-medium">{item.airline || '-'}</p>
                           </div>
-                          <p className="font-semibold shrink-0">${item.cost.toLocaleString('es-MX')}</p>
+                          <ItemPriceBlock item={item} />
                         </div>
                         <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted-foreground">
                           <span>{item.origin} → {item.flightDestination}</span>
@@ -676,7 +677,7 @@ export default function SaleDetailPage() {
                           <TableHead>Ruta</TableHead>
                           <TableHead>Horario</TableHead>
                           <TableHead>Clase</TableHead>
-                          <TableHead className="text-right">Costo</TableHead>
+                          <ItemPriceHeads />
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -695,7 +696,7 @@ export default function SaleDetailPage() {
                               {item.arrivalTime ? ` - ${formatTime(item.arrivalTime)}` : ''}
                             </TableCell>
                             <TableCell>{item.flightClass || '-'}</TableCell>
-                            <TableCell className="text-right font-medium">${item.cost.toLocaleString('es-MX')}</TableCell>
+                            <ItemPriceCells item={item} />
                           </TableRow>
                         ))}
                       </TableBody>
@@ -717,7 +718,7 @@ export default function SaleDetailPage() {
                       <div key={item.id} className="p-3 rounded-lg border bg-amber-50/50 dark:bg-amber-950/20 space-y-1.5">
                         <div className="flex justify-between items-start gap-2">
                           <p className="font-medium">{item.tourName || item.description || '-'}</p>
-                          <p className="font-semibold shrink-0">${item.cost.toLocaleString('es-MX')}</p>
+                          <ItemPriceBlock item={item} />
                         </div>
                         <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted-foreground">
                           <span>{item.tourDate ? formatItemDate(item.tourDate) : '-'}</span>
@@ -736,7 +737,7 @@ export default function SaleDetailPage() {
                           <TableHead>Fecha</TableHead>
                           <TableHead className="text-center">Personas</TableHead>
                           <TableHead className="text-right">$/Persona</TableHead>
-                          <TableHead className="text-right">Costo</TableHead>
+                          <ItemPriceHeads />
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -746,7 +747,7 @@ export default function SaleDetailPage() {
                             <TableCell>{item.tourDate ? formatItemDate(item.tourDate) : '-'}</TableCell>
                             <TableCell className="text-center">{item.numPeople || '-'}</TableCell>
                             <TableCell className="text-right">${(item.pricePerPerson || 0).toLocaleString('es-MX')}</TableCell>
-                            <TableCell className="text-right font-medium">${item.cost.toLocaleString('es-MX')}</TableCell>
+                            <ItemPriceCells item={item} />
                           </TableRow>
                         ))}
                       </TableBody>
@@ -767,7 +768,7 @@ export default function SaleDetailPage() {
                     {otherItems.map((item) => (
                       <div key={item.id} className="p-3 rounded-lg border bg-muted/40 flex justify-between items-start gap-2">
                         <p className="font-medium">{item.description || '-'}</p>
-                        <p className="font-semibold shrink-0">${item.cost.toLocaleString('es-MX')}</p>
+                        <ItemPriceBlock item={item} />
                       </div>
                     ))}
                   </div>
@@ -777,14 +778,14 @@ export default function SaleDetailPage() {
                       <TableHeader>
                         <TableRow className="bg-muted/50">
                           <TableHead>Descripción</TableHead>
-                          <TableHead className="text-right">Costo</TableHead>
+                          <ItemPriceHeads />
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {otherItems.map((item) => (
                           <TableRow key={item.id}>
                             <TableCell className="font-medium">{item.description || '-'}</TableCell>
-                            <TableCell className="text-right font-medium">${item.cost.toLocaleString('es-MX')}</TableCell>
+                            <ItemPriceCells item={item} />
                           </TableRow>
                         ))}
                       </TableBody>

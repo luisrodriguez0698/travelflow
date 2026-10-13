@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { hasSalePrice, itemSalePrice, marginLabel, saleTotalFromItems } from '@/lib/booking-pricing';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -33,6 +34,8 @@ export interface BookingItemData {
   type: 'HOTEL' | 'FLIGHT' | 'TOUR' | 'TRANSFER' | 'OTHER';
   description?: string;
   cost: number;
+  /** Precio de venta al cliente (null/undefined = sin precio por servicio) */
+  salePrice?: number | null;
   sortOrder: number;
   isInternational?: boolean;
   // Hotel
@@ -257,10 +260,12 @@ export function BookingItemsForm({ items, onChange, destinations, suppliers, isS
 
   const handleConfirm = () => {
     if (!draftItem) return;
+    // Servicio nuevo sin precio de venta: se vende a costo (ganancia $0) hasta que lo ajusten
+    const confirmed = editingIndex === null && !hasSalePrice(draftItem) ? { ...draftItem, salePrice: draftItem.cost || 0 } : draftItem;
     if (editingIndex === null) {
-      onChange([...items, draftItem]);
+      onChange([...items, confirmed]);
     } else {
-      onChange(items.map((item, i) => (i === editingIndex ? draftItem : item)));
+      onChange(items.map((item, i) => (i === editingIndex ? confirmed : item)));
     }
     setModalOpen(false);
     setDraftItem(null);
@@ -271,6 +276,7 @@ export function BookingItemsForm({ items, onChange, destinations, suppliers, isS
   };
 
   const totalCost = items.reduce((sum, item) => sum + (item.cost || 0), 0);
+  const servicesTotal = saleTotalFromItems(items);
 
   return (
     <div className="space-y-3">
@@ -323,9 +329,26 @@ export function BookingItemsForm({ items, onChange, destinations, suppliers, isS
 
       {/* Total */}
       {items.length > 0 && (
-        <div className="flex items-center justify-between rounded-lg bg-muted/50 p-3 mt-1">
-          <span className="text-sm font-medium text-muted-foreground">Costo Neto Total</span>
-          <span className="font-semibold text-lg">{formatCurrency(totalCost)}</span>
+        <div className="rounded-lg bg-muted/50 p-3 mt-1 space-y-1">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-muted-foreground">Costo Neto Total</span>
+            <span className="font-semibold text-lg">{formatCurrency(totalCost)}</span>
+          </div>
+          {servicesTotal !== null && (
+            <>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Venta Total</span>
+                <span className="font-semibold text-emerald-600 dark:text-emerald-400">{formatCurrency(servicesTotal)}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Ganancia Total</span>
+                <span className={cn('font-semibold', servicesTotal - totalCost < 0 ? 'text-red-500' : 'text-emerald-600 dark:text-emerald-400')}>
+                  {formatCurrency(servicesTotal - totalCost)}
+                  {marginLabel(servicesTotal - totalCost, totalCost)}
+                </span>
+              </div>
+            </>
+          )}
         </div>
       )}
 
@@ -363,6 +386,7 @@ export function BookingItemsForm({ items, onChange, destinations, suppliers, isS
               {draftItem.type === 'TRANSFER' && (
                 <TransportForm item={draftItem} suppliers={suppliers} onChange={updateDraft} />
               )}
+              <SalePriceSection item={draftItem} isNew={editingIndex === null} onChange={updateDraft} />
             </div>
           )}
 
@@ -778,7 +802,18 @@ function ItemCard({
 
       {/* Cost + Actions */}
       <div className="flex flex-col items-end gap-1.5 shrink-0">
-        <span className="text-sm font-semibold">{formatCurrency(item.cost || 0)}</span>
+        {hasSalePrice(item) ? (
+          <div className="text-right leading-tight">
+            <p className="text-sm font-semibold">{formatCurrency(itemSalePrice(item))}</p>
+            <p className="text-[11px] text-muted-foreground">Costo {formatCurrency(item.cost || 0)}</p>
+            <p className={cn('text-[11px] font-medium', itemSalePrice(item) - (item.cost || 0) < 0 ? 'text-red-500' : 'text-emerald-600 dark:text-emerald-400')}>
+              Gana {formatCurrency(itemSalePrice(item) - (item.cost || 0))}
+              {marginLabel(itemSalePrice(item) - (item.cost || 0), item.cost || 0)}
+            </p>
+          </div>
+        ) : (
+          <span className="text-sm font-semibold" title="Costo neto (sin precio de venta)">{formatCurrency(item.cost || 0)}</span>
+        )}
         <div className="flex gap-0.5">
           <Button
             type="button" variant="ghost" size="icon"
@@ -1600,6 +1635,56 @@ function TransportForm({
 
       {/* Supplier */}
       <SupplierSection item={item} suppliers={suppliers} onChange={onChange} />
+    </div>
+  );
+}
+
+/** Costo, precio de venta y ganancia del servicio (comun a todos los tipos). */
+function SalePriceSection({
+  item,
+  isNew,
+  onChange,
+}: {
+  item: BookingItemData;
+  isNew: boolean;
+  onChange: (updates: Partial<BookingItemData>) => void;
+}) {
+  const cost = item.cost || 0;
+  const priced = hasSalePrice(item);
+  const sale = priced ? Number(item.salePrice) || 0 : null;
+  const profit = sale !== null ? sale - cost : null;
+  const margin = profit !== null && cost > 0 ? (profit / cost) * 100 : null;
+  return (
+    <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 space-y-2">
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground">Costo neto (agencia)</Label>
+          <p className="h-9 flex items-center font-semibold">{formatCurrency(cost)}</p>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Precio de venta (cliente)</Label>
+          <Input
+            type="number"
+            min={0}
+            step="0.01"
+            value={priced ? String(item.salePrice) : ''}
+            onChange={(e) => onChange({ salePrice: e.target.value === '' ? null : parseFloat(e.target.value) })}
+            placeholder={isNew ? String(cost) : 'Sin precio'}
+            className="font-semibold"
+          />
+        </div>
+      </div>
+      {profit !== null ? (
+        <p className={cn('text-xs font-medium', profit < 0 ? 'text-red-500' : 'text-emerald-600 dark:text-emerald-400')}>
+          Ganancia: {formatCurrency(profit)}
+          {margin !== null && ` (${margin.toFixed(1)}%)`}
+          {profit < 0 && ' · se vende por debajo del costo'}
+        </p>
+      ) : (
+        <p className="text-[11px] text-muted-foreground">
+          {isNew ? 'Si lo dejas vacío se vende a costo (ganancia $0).' : 'Sin precio de venta: el total de la venta se captura a mano.'}
+        </p>
+      )}
     </div>
   );
 }

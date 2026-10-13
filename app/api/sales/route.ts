@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAccess, accessErrorResponse } from '@/lib/access';
+import { saleTotalFromItems, salePriceToStore } from '@/lib/booking-pricing';
 import { parsePaymentAmounts, planUpdateError } from '@/lib/payment-plan';
 import { getSessionUser } from '@/lib/get-tenant';
 import { notifyActivity, formatMoney } from '@/lib/activity';
@@ -96,6 +97,9 @@ export async function POST(request: NextRequest) {
 
     // Calculate net cost - from items if provided, otherwise from legacy fields
     const items: any[] = body.items || [];
+    // Precio de venta = suma de los servicios (si tienen precio de venta por servicio)
+    const servicesTotal = saleTotalFromItems(items);
+    if (servicesTotal !== null) body.totalPrice = servicesTotal;
     let netCost: number;
 
     const numAdults = body.numAdults || 1;
@@ -190,6 +194,7 @@ export async function POST(request: NextRequest) {
           type: item.type || 'OTHER',
           description: item.description || null,
           cost: item.cost || 0,
+          salePrice: salePriceToStore(item),
           sortOrder: item.sortOrder ?? idx,
           hotelId: item.hotelId || null,
           serviceId: item.serviceId || null,

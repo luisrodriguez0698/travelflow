@@ -45,6 +45,7 @@ import { es } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import { generateQuotationPdf } from '@/lib/generate-quotation-pdf';
 import { useCan } from '@/hooks/use-can';
+import { ItemPriceBlock, ItemPriceCells, ItemPriceHeads } from '@/components/item-price';
 import { PageSkeleton } from '@/components/skeletons';
 import { InitialPaymentAccount } from '@/components/initial-payment-account';
 
@@ -495,7 +496,7 @@ export default function QuotationDetailPage() {
                       <div key={item.id} className="p-3 rounded-lg border bg-blue-50/50 dark:bg-blue-950/20 space-y-1.5">
                         <div className="flex justify-between items-start gap-2">
                           <p className="font-medium">{item.hotel?.name || item.description || '-'}</p>
-                          <p className="font-semibold shrink-0">${item.cost.toLocaleString('es-MX')}</p>
+                          <ItemPriceBlock item={item} />
                         </div>
                         <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted-foreground">
                           <span>{item.roomType || '-'}</span>
@@ -518,7 +519,7 @@ export default function QuotationDetailPage() {
                           <TableHead className="text-center">Ocupación</TableHead>
                           <TableHead className="text-center">Noches</TableHead>
                           <TableHead className="text-right">$/Noche</TableHead>
-                          <TableHead className="text-right">Costo</TableHead>
+                          <ItemPriceHeads />
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -532,7 +533,7 @@ export default function QuotationDetailPage() {
                             </TableCell>
                             <TableCell className="text-center">{item.numNights || '-'}</TableCell>
                             <TableCell className="text-right">${(item.pricePerNight || 0).toLocaleString('es-MX')}</TableCell>
-                            <TableCell className="text-right font-medium">${item.cost.toLocaleString('es-MX')}</TableCell>
+                            <ItemPriceCells item={item} />
                           </TableRow>
                         ))}
                       </TableBody>
@@ -559,7 +560,7 @@ export default function QuotationDetailPage() {
                             </Badge>
                             <p className="font-medium">{item.airline || '-'}</p>
                           </div>
-                          <p className="font-semibold shrink-0">${item.cost.toLocaleString('es-MX')}</p>
+                          <ItemPriceBlock item={item} />
                         </div>
                         <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted-foreground">
                           <span>{item.origin} → {item.flightDestination}</span>
@@ -584,7 +585,7 @@ export default function QuotationDetailPage() {
                           <TableHead>Ruta</TableHead>
                           <TableHead>Horario</TableHead>
                           <TableHead>Clase</TableHead>
-                          <TableHead className="text-right">Costo</TableHead>
+                          <ItemPriceHeads />
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -603,7 +604,7 @@ export default function QuotationDetailPage() {
                               {item.arrivalTime ? ` - ${formatTime(item.arrivalTime)}` : ''}
                             </TableCell>
                             <TableCell>{item.flightClass || '-'}</TableCell>
-                            <TableCell className="text-right font-medium">${item.cost.toLocaleString('es-MX')}</TableCell>
+                            <ItemPriceCells item={item} />
                           </TableRow>
                         ))}
                       </TableBody>
@@ -625,7 +626,7 @@ export default function QuotationDetailPage() {
                       <div key={item.id} className="p-3 rounded-lg border bg-amber-50/50 dark:bg-amber-950/20 space-y-1.5">
                         <div className="flex justify-between items-start gap-2">
                           <p className="font-medium">{item.tourName || item.description || '-'}</p>
-                          <p className="font-semibold shrink-0">${item.cost.toLocaleString('es-MX')}</p>
+                          <ItemPriceBlock item={item} />
                         </div>
                         <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted-foreground">
                           <span>{item.tourDate ? formatItemDate(item.tourDate) : '-'}</span>
@@ -644,7 +645,7 @@ export default function QuotationDetailPage() {
                           <TableHead>Fecha</TableHead>
                           <TableHead className="text-center">Personas</TableHead>
                           <TableHead className="text-right">$/Persona</TableHead>
-                          <TableHead className="text-right">Costo</TableHead>
+                          <ItemPriceHeads />
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -654,7 +655,7 @@ export default function QuotationDetailPage() {
                             <TableCell>{item.tourDate ? formatItemDate(item.tourDate) : '-'}</TableCell>
                             <TableCell className="text-center">{item.numPeople || '-'}</TableCell>
                             <TableCell className="text-right">${(item.pricePerPerson || 0).toLocaleString('es-MX')}</TableCell>
-                            <TableCell className="text-right font-medium">${item.cost.toLocaleString('es-MX')}</TableCell>
+                            <ItemPriceCells item={item} />
                           </TableRow>
                         ))}
                       </TableBody>
@@ -687,7 +688,7 @@ export default function QuotationDetailPage() {
                         <div key={item.id} className="p-3 rounded-lg border bg-green-50/50 dark:bg-green-950/20 space-y-1.5">
                           <div className="flex justify-between items-start gap-2">
                             <p className="font-medium">{item.transportType || '-'} · {dirLabel}</p>
-                            <p className="font-semibold shrink-0">${item.cost.toLocaleString('es-MX')}</p>
+                            <ItemPriceBlock item={item} />
                           </div>
                           <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted-foreground">
                             <span>{item.origin || '?'} → {item.flightDestination || '?'}</span>
@@ -710,7 +711,7 @@ export default function QuotationDetailPage() {
                           <TableHead>Horario</TableHead>
                           <TableHead className="text-center">Pasajeros</TableHead>
                           <TableHead>Modalidad</TableHead>
-                          <TableHead className="text-right">Costo</TableHead>
+                          <ItemPriceHeads />
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -733,7 +734,7 @@ export default function QuotationDetailPage() {
                               <TableCell className="whitespace-pre-line">{timeStr || '-'}</TableCell>
                               <TableCell className="text-center">{item.numPeople || '-'}</TableCell>
                               <TableCell>{item.isInternational ? 'Internacional' : 'Nacional'}</TableCell>
-                              <TableCell className="text-right font-medium">${item.cost.toLocaleString('es-MX')}</TableCell>
+                              <ItemPriceCells item={item} />
                             </TableRow>
                           );
                         })}
@@ -755,7 +756,7 @@ export default function QuotationDetailPage() {
                     {otherItems.map((item) => (
                       <div key={item.id} className="p-3 rounded-lg border bg-muted/40 flex justify-between items-start gap-2">
                         <p className="font-medium">{item.description || '-'}</p>
-                        <p className="font-semibold shrink-0">${item.cost.toLocaleString('es-MX')}</p>
+                        <ItemPriceBlock item={item} />
                       </div>
                     ))}
                   </div>
@@ -765,14 +766,14 @@ export default function QuotationDetailPage() {
                       <TableHeader>
                         <TableRow className="bg-muted/50">
                           <TableHead>Descripción</TableHead>
-                          <TableHead className="text-right">Costo</TableHead>
+                          <ItemPriceHeads />
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {otherItems.map((item) => (
                           <TableRow key={item.id}>
                             <TableCell className="font-medium">{item.description || '-'}</TableCell>
-                            <TableCell className="text-right font-medium">${item.cost.toLocaleString('es-MX')}</TableCell>
+                            <ItemPriceCells item={item} />
                           </TableRow>
                         ))}
                       </TableBody>

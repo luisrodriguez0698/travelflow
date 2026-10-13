@@ -327,6 +327,9 @@ model BookingItem {
   cost        Float    @default(0)
   sortOrder   Int      @default(0)
 
+  // Precio de venta del servicio (null = venta anterior sin precio por servicio)
+  salePrice         Float?
+
   // ── Hotel fields (type = HOTEL) ──
   hotelId           String?
   roomType          String?

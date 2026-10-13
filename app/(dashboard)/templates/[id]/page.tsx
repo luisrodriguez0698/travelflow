@@ -11,6 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ArrowLeft, Loader2, Save, LayoutTemplate } from 'lucide-react';
 import { toast } from 'sonner';
 import { BookingItemsForm, BookingItemData } from '@/components/booking-items-form';
+import { saleTotalFromItems } from '@/lib/booking-pricing';
 import { templateItemsToFormItems } from '@/lib/package-template';
 import { PageSkeleton } from '@/components/skeletons';
 
@@ -58,6 +59,11 @@ export default function TemplateEditorPage({ params }: { params: { id: string } 
   }, [isNew, params.id, router]);
 
   const netCost = items.reduce((sum, item) => sum + (item.cost || 0), 0);
+  // Con precio de venta por servicio, el precio de la plantilla es la suma
+  const servicesTotal = saleTotalFromItems(items);
+  useEffect(() => {
+    if (servicesTotal !== null) setForm((p) => (p.totalPrice === servicesTotal ? p : { ...p, totalPrice: servicesTotal }));
+  }, [servicesTotal]);
   const profit = form.totalPrice - netCost;
 
   const handleSave = async () => {
@@ -140,9 +146,13 @@ export default function TemplateEditorPage({ params }: { params: { id: string } 
                   min={0}
                   value={form.totalPrice || ''}
                   onChange={(e) => setForm((p) => ({ ...p, totalPrice: parseFloat(e.target.value) || 0 }))}
-                  className="text-lg font-semibold"
+                  readOnly={servicesTotal !== null}
+                  className={`text-lg font-semibold ${servicesTotal !== null ? 'bg-muted/60 cursor-not-allowed' : ''}`}
                   placeholder="0"
                 />
+                {servicesTotal !== null && (
+                  <p className="text-xs text-muted-foreground">Suma del precio de venta de cada servicio</p>
+                )}
               </div>
               {netCost > 0 && form.totalPrice > 0 && (
                 <div className="space-y-2">
