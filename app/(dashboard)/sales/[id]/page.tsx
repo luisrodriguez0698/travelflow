@@ -48,6 +48,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import { generateReceiptPdf } from '@/lib/generate-receipt-pdf';
+import { InitialPaymentBanner, type InitialPaymentInfo } from '@/components/initial-payment-banner';
 import { DatePicker } from '@/components/ui/date-picker';
 import { HistoryButton } from '@/components/record-history';
 import { useCan } from '@/hooks/use-can';
@@ -122,6 +123,7 @@ interface BookingItem {
 
 interface Sale {
   id: string;
+  initialPayment?: InitialPaymentInfo;
   totalPrice: number;
   netCost: number;
   paymentType: string;
@@ -200,7 +202,7 @@ export default function SaleDetailPage() {
     fetchSale();
     fetch('/api/bank-accounts?all=true')
       .then((r) => r.json())
-      .then(setBankAccounts)
+      .then((d) => setBankAccounts(Array.isArray(d) ? d : []))
       .catch(() => {});
   }, [id]);
 
@@ -827,6 +829,9 @@ export default function SaleDetailPage() {
         </div>
       )}
 
+      {/* Anticipo / pago de contado: en que banco entro */}
+      <InitialPaymentBanner saleId={sale.id} cash={isCash} info={sale.initialPayment} onRegistered={fetchSale} />
+
       {/* Financial Summary */}
       {isCash ? (
         <Card className="p-6 bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800">
@@ -1039,6 +1044,11 @@ export default function SaleDetailPage() {
                   ))}
                 </SelectContent>
               </Select>
+              {bankAccounts.length === 0 && (
+                <p className="text-xs text-amber-600 dark:text-amber-400">
+                  No hay cuentas bancarias disponibles. Primero da de alta una cuenta en Bancos (o pide que te compartan una).
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               <Label>Monto del Abono *</Label>

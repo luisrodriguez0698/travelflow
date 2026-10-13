@@ -39,7 +39,7 @@ const TRACKED: Record<string, TrackConfig> = {
   Season: { entity: () => 'seasons' },
   Supplier: { entity: () => 'suppliers' },
   // El saldo cambia con cada movimiento, que ya tiene su propio registro
-  BankAccount: { entity: () => 'bank_accounts', ignore: ['currentBalance'], mask: ['accountNumber'] },
+  BankAccount: { entity: () => 'bank_accounts', ignore: ['currentBalance'], mask: ['accountNumber', 'cardNumber', 'clabe'] },
   ServiceCatalog: { entity: () => 'services' },
   PackageTemplate: { entity: () => 'templates' },
   Raffle: { entity: () => 'raffles', ignore: ['termsAcceptedAt'] },

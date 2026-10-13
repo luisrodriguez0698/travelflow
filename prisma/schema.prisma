@@ -658,6 +658,8 @@ model BankAccount {
   tenantId        String
   bankName        String   // BBVA, Banorte, Santander, etc.
   accountNumber   String   // Numero de cuenta o CLABE
+  cardNumber      String?  // Numero de tarjeta (cifrado, opcional)
+  clabe           String?  // CLABE interbancaria de 18 digitos (cifrada, opcional)
   accountType     String   // DEBITO, CREDITO, AHORRO
   referenceName   String   // Nombre de referencia (ej: "Cuenta principal")
   // Con "solo lo suyo", cada usuario ve sus cuentas (createdBy) y las compartidas

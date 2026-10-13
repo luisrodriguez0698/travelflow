@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { bookingDestination } from '@/lib/booking-destination';
 import { requireAccess, accessErrorResponse } from '@/lib/access';
 import { prisma } from '@/lib/prisma';
 import { getFileUrl } from '@/lib/s3';
@@ -30,7 +31,7 @@ export async function GET(
         hotel: true,
         passengers: true,
         items: {
-          include: { hotel: true, destination: true },
+          include: { hotel: { include: { destination: true } }, destination: true },
           orderBy: { sortOrder: 'asc' },
         },
       },
@@ -260,10 +261,7 @@ export async function GET(
     }
 
     // Build destination display
-    const destinationDisplay = booking.destination?.name || (() => {
-      const destNames = [...new Set(items.filter((i: any) => i.destination).map((i: any) => i.destination.name))];
-      return destNames.length > 0 ? destNames.join(', ') : '-';
-    })();
+    const destinationDisplay = bookingDestination(booking as any).name || '-';
 
     // Build passengers section HTML
     let passengersSectionHtml = '';
@@ -424,7 +422,7 @@ export async function GET(
         <div class="info-grid">
           <div class="info-item">
             <div class="info-label">Destino</div>
-            <div class="info-value">${destinationDisplay}</div>
+            <div class="info-value">${esc(destinationDisplay)}</div>
           </div>
           <div class="info-item">
             <div class="info-label">Fecha de Salida</div>

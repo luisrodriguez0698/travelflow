@@ -28,6 +28,8 @@ import { BookingItemsForm, BookingItemData } from '@/components/booking-items-fo
 import { useToast } from '@/hooks/use-toast';
 import { PageSkeleton } from '@/components/skeletons';
 import { AgentSelect } from '@/components/agent-select';
+import { PaymentPlanEditor } from '@/components/payment-plan-editor';
+import { planError } from '@/lib/payment-plan';
 import { EditingPresence } from '@/components/editing-presence';
 
 interface Client { id: string; fullName: string; phone: string | null; email?: string; }
@@ -54,28 +56,6 @@ const initialFormData: FormData = {
   paymentFrequency: 'QUINCENAL', paymentStartDate: null, notes: '', expirationDate: null,
 };
 
-const getNextQuincenalDate = (fromDate: Date, count: number): Date => {
-  const result = new Date(fromDate);
-  for (let i = 0; i < count; i++) {
-    const currentDay = result.getDate();
-    const currentMonth = result.getMonth();
-    const currentYear = result.getFullYear();
-    const lastDayOfMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-    if (currentDay < 15) { result.setDate(15); }
-    else if (currentDay < lastDayOfMonth) { result.setDate(lastDayOfMonth); }
-    else { result.setDate(1); result.setMonth(currentMonth + 1); result.setDate(15); }
-  }
-  return result;
-};
-
-const getNextMonthlyDate = (fromDate: Date, count: number): Date => {
-  const result = new Date(fromDate);
-  result.setDate(1);
-  result.setMonth(result.getMonth() + count);
-  result.setDate(new Date(result.getFullYear(), result.getMonth() + 1, 0).getDate());
-  return result;
-};
-
 export default function EditQuotationPage() {
   const router = useRouter();
   const params = useParams();
@@ -84,6 +64,8 @@ export default function EditQuotationPage() {
   const [saving, setSaving] = useState(false);
   // Agente al que pertenece (por defecto quien la crea)
   const [sellerId, setSellerId] = useState<string | null>(null);
+  // Montos del plan editados a mano (null = reparto sugerido)
+  const [paymentAmounts, setPaymentAmounts] = useState<number[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [clients, setClients] = useState<Client[]>([]);
   const [destinations, setDestinations] = useState<Destination[]>([]);
@@ -113,6 +95,15 @@ export default function EditQuotationPage() {
       setSuppliers(sup);
       if (quotation) {
         setSellerId(quotation.createdBy ?? null);
+        // Montos guardados del plan (si cuadran con el saldo, se muestran como personalizados)
+        const savedAmounts = [...(quotation.payments || [])]
+          .sort((a: { paymentNumber: number }, b: { paymentNumber: number }) => a.paymentNumber - b.paymentNumber)
+          .map((p: { amount: number }) => p.amount);
+        setPaymentAmounts(
+          savedAmounts.length === quotation.numberOfPayments && !planError(savedAmounts, quotation.totalPrice - (quotation.downPayment || 0))
+            ? savedAmounts
+            : null
+        );
         setFormData({
           clientId: quotation.clientId || '',
           departureDate: quotation.departureDate ? new Date(quotation.departureDate) : null,
@@ -157,6 +148,13 @@ export default function EditQuotationPage() {
       toast({ title: 'Error', description: 'El precio total debe ser mayor a 0', variant: 'destructive' });
       return;
     }
+    if (formData.paymentType === 'CREDIT' && paymentAmounts) {
+      const planIssue = planError(paymentAmounts, formData.totalPrice - (formData.downPayment || 0));
+      if (planIssue) {
+        toast({ title: 'Plan de pagos', description: planIssue, variant: 'destructive' });
+        return;
+      }
+    }
     setSaving(true);
     try {
       const res = await fetch(`/api/quotations/${quotationId}`, {
@@ -165,6 +163,7 @@ export default function EditQuotationPage() {
         body: JSON.stringify({
           clientId: formData.clientId,
           sellerId,
+          paymentAmounts: formData.paymentType === 'CREDIT' ? paymentAmounts : null,
           departureDate: formData.departureDate?.toISOString() || null,
           returnDate: formData.returnDate?.toISOString() || null,
           totalPrice: formData.totalPrice,
@@ -187,11 +186,11 @@ export default function EditQuotationPage() {
           })),
         }),
       });
-      if (!res.ok) throw new Error();
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || '');
       toast({ title: 'Exito', description: 'Cotizacion actualizada exitosamente' });
       router.push('/quotations');
-    } catch {
-      toast({ title: 'Error', description: 'No se pudo actualizar la cotizacion', variant: 'destructive' });
+    } catch (err) {
+      toast({ title: 'Error', description: (err as Error).message || 'No se pudo actualizar la cotizacion', variant: 'destructive' });
     } finally {
       setSaving(false);
     }
@@ -401,54 +400,17 @@ export default function EditQuotationPage() {
                       : 'Selecciona el mes a partir del cual inicia el plan mensual'}
                   </p>
                 </div>
-                {/* Live payment preview */}
-                {formData.totalPrice > 0 && formData.numberOfPayments > 0 && (() => {
-                  const startDate = formData.paymentStartDate || new Date();
-                  const remaining = formData.totalPrice - (formData.downPayment || 0);
-                  const paymentAmount = Math.floor(remaining / formData.numberOfPayments);
-                  const lastPayment = remaining - (paymentAmount * (formData.numberOfPayments - 1));
-                  const payments = Array.from({ length: formData.numberOfPayments }, (_, i) => ({
-                    number: i + 1,
-                    dueDate: formData.paymentFrequency === 'MENSUAL'
-                      ? getNextMonthlyDate(startDate, i)
-                      : getNextQuincenalDate(startDate, i + 1),
-                    amount: i === formData.numberOfPayments - 1 ? lastPayment : paymentAmount,
-                  }));
-                  return (
-                    <div className="rounded-lg border overflow-hidden">
-                      <div className="px-3 py-2 bg-muted/50 border-b flex items-center gap-2">
-                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Vista previa del plan de pagos</span>
-                        <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded font-medium">
-                          {formData.paymentFrequency === 'QUINCENAL' ? 'Quincenal' : 'Mensual'}
-                        </span>
-                      </div>
-                      <div className="max-h-48 overflow-y-auto">
-                        <table className="w-full text-xs">
-                          <thead className="sticky top-0 bg-muted/30">
-                            <tr className="text-muted-foreground">
-                              <th className="text-left px-3 py-1.5 font-medium">#</th>
-                              <th className="text-left px-3 py-1.5 font-medium">Fecha</th>
-                              <th className="text-right px-3 py-1.5 font-medium">Monto</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {payments.map((p) => (
-                              <tr key={p.number} className="border-t border-border/50">
-                                <td className="px-3 py-1.5 text-muted-foreground">{p.number}</td>
-                                <td className="px-3 py-1.5 font-medium">
-                                  {p.dueDate.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                </td>
-                                <td className="px-3 py-1.5 text-right font-semibold text-emerald-600 dark:text-emerald-400">
-                                  ${p.amount.toLocaleString('es-MX')}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  );
-                })()}
+                {/* Plan de pagos (montos editables; sugerido por defecto) */}
+                {formData.totalPrice > 0 && formData.numberOfPayments > 0 && (
+                  <PaymentPlanEditor
+                    remaining={formData.totalPrice - (formData.downPayment || 0)}
+                    count={formData.numberOfPayments}
+                    frequency={formData.paymentFrequency}
+                    startDate={formData.paymentStartDate}
+                    amounts={paymentAmounts}
+                    onChange={setPaymentAmounts}
+                  />
+                )}
               </div>
             )}
           </Card>

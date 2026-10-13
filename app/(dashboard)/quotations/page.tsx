@@ -36,6 +36,7 @@ import { format, isPast, differenceInDays, startOfMonth, endOfMonth, subMonths, 
 import { es } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import { useCan } from '@/hooks/use-can';
+import { InitialPaymentAccount } from '@/components/initial-payment-account';
 import { PageSkeleton } from '@/components/skeletons';
 import { EmptyState } from '@/components/empty-state';
 import { useLiveList } from '@/hooks/use-live-list';
@@ -140,6 +141,10 @@ const initialFormData: FormData = {
   expirationDate: null,
   hotelId: '',
 };
+
+/** Dinero que entra al convertir: anticipo (credito) o total (contado) */
+const initialOf = (q: { paymentType: string; totalPrice: number; downPayment: number }) =>
+  q.paymentType === 'CASH' ? q.totalPrice : q.downPayment || 0;
 
 export default function QuotationsPage() {
   const can = useCan();
@@ -249,7 +254,7 @@ export default function QuotationsPage() {
     init();
     fetch('/api/bank-accounts?all=true')
       .then((r) => r.json())
-      .then(setBankAccounts)
+      .then((d) => setBankAccounts(Array.isArray(d) ? d : []))
       .catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -472,12 +477,12 @@ export default function QuotationsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ bankAccountId: convertBankAccountId || null }),
       });
-      if (!res.ok) throw new Error('Error converting');
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || '');
       toast({ title: 'Éxito', description: 'Cotización convertida a venta' });
       setIsConvertModalOpen(false);
       router.push(`/sales/${convertingQuotation.id}`);
-    } catch {
-      toast({ title: 'Error', description: 'No se pudo convertir la cotización', variant: 'destructive' });
+    } catch (err) {
+      toast({ title: 'Error', description: (err as Error).message || 'No se pudo convertir la cotización', variant: 'destructive' });
     } finally {
       setSaving(false);
     }
@@ -1492,35 +1497,21 @@ export default function QuotationsPage() {
               {convertingQuotation?.paymentType === 'CREDIT' && ' El plan de pagos se generará con fechas a partir de hoy.'}
             </DialogDescription>
           </DialogHeader>
-          {convertingQuotation && convertingQuotation.downPayment > 0 && (
-            <div className="space-y-3 py-2">
-              <div className="rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 p-3">
-                <p className="text-sm text-blue-700 dark:text-blue-300">
-                  Esta cotización tiene un anticipo de <strong>${convertingQuotation.downPayment.toLocaleString('es-MX')}</strong>. Selecciona la cuenta donde se registrará el ingreso.
-                </p>
-              </div>
-              <div className="space-y-2">
-                <Label>Cuenta Bancaria para el Anticipo *</Label>
-                <Select value={convertBankAccountId} onValueChange={setConvertBankAccountId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecciona cuenta destino" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {bankAccounts.map((acc) => (
-                      <SelectItem key={acc.id} value={acc.id}>
-                        {acc.referenceName} - {acc.bankName} (${acc.currentBalance.toLocaleString('es-MX')})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+          {convertingQuotation && (
+            <div className="py-2">
+              <InitialPaymentAccount
+                amount={initialOf(convertingQuotation)}
+                cash={convertingQuotation.paymentType === 'CASH'}
+                value={convertBankAccountId}
+                onChange={setConvertBankAccountId}
+              />
             </div>
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsConvertModalOpen(false)} disabled={saving}>Cancelar</Button>
             <Button
               onClick={handleConvert}
-              disabled={saving || (convertingQuotation !== null && convertingQuotation.downPayment > 0 && !convertBankAccountId)}
+              disabled={saving || (convertingQuotation !== null && initialOf(convertingQuotation) > 0 && !convertBankAccountId)}
               className="bg-green-600 hover:bg-green-700"
             >
               {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}

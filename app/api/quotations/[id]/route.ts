@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAccess, accessErrorResponse } from '@/lib/access';
+import { bookingDestination } from '@/lib/booking-destination';
+import { parsePaymentAmounts, planUpdateError } from '@/lib/payment-plan';
 import { resolveAgent } from '@/lib/booking-agent';
 import { getSessionUser } from '@/lib/get-tenant';
 import { prisma } from '@/lib/prisma';
@@ -26,7 +28,7 @@ export async function GET(
         hotel: true,
         passengers: true,
         items: {
-          include: { hotel: true, passengers: true },
+          include: { hotel: { include: { destination: { include: { season: true } } } }, destination: { include: { season: true } }, passengers: true },
           orderBy: { sortOrder: 'asc' },
         },
       },
@@ -46,7 +48,11 @@ export async function GET(
       creatorName = creator?.name || creator?.email || null;
     }
 
-    return NextResponse.json({ ...booking, creatorName });
+    // Destino general (ventas nuevas: el de sus servicios) para el detalle y el PDF
+    const derived = bookingDestination(booking);
+    const destination = booking.destination ?? (derived.name ? { name: derived.name, season: derived.season } : null);
+
+    return NextResponse.json({ ...booking, destination, creatorName });
   } catch (error) {
     const accessError = accessErrorResponse(error);
     if (accessError) return accessError;
@@ -92,6 +98,26 @@ export async function PUT(
       netCost = items.reduce((sum: number, item: any) => sum + (item.cost || 0), 0);
     } else {
       netCost = (priceAdult * numAdults) + (priceChild * paidChildren) + (pricePerNight * numNights);
+    }
+
+    // Plan de pagos: montos personalizados del formulario (o reparto automatico)
+    const plan = body.paymentType === 'CREDIT' && body.numberOfPayments > 0
+      ? parsePaymentAmounts(body.paymentAmounts, body.numberOfPayments, body.totalPrice - (body.downPayment || 0))
+      : { amounts: [] as number[] };
+    if ('error' in plan) return NextResponse.json({ error: plan.error }, { status: 400 });
+
+    // Montos editados sin regenerar el plan: validar contra lo ya abonado antes de guardar
+    const keepsPlan =
+      existing.paymentType === body.paymentType &&
+      existing.numberOfPayments === body.numberOfPayments &&
+      existing.downPayment === body.downPayment &&
+      existing.totalPrice === body.totalPrice;
+    const savedPlans = keepsPlan && body.paymentAmounts != null && plan.amounts.length
+      ? await prisma.paymentPlan.findMany({ where: { bookingId: id }, orderBy: { paymentNumber: 'asc' } })
+      : [];
+    if (savedPlans.length) {
+      const updateError = planUpdateError(savedPlans, plan.amounts);
+      if (updateError) return NextResponse.json({ error: updateError }, { status: 400 });
     }
 
     // Delete old payment plans and recreate
@@ -215,8 +241,6 @@ export async function PUT(
 
     if (body.paymentType === 'CREDIT' && body.numberOfPayments > 0 && existingPayments === 0) {
       const remaining = body.totalPrice - (body.downPayment || 0);
-      const paymentAmount = Math.floor(remaining / body.numberOfPayments);
-      const lastPayment = remaining - (paymentAmount * (body.numberOfPayments - 1));
       const payments = [];
 
       const frequency = body.paymentFrequency || 'QUINCENAL';
@@ -252,12 +276,32 @@ export async function PUT(
           bookingId: booking.id,
           paymentNumber: i + 1,
           dueDate,
-          amount: i === body.numberOfPayments - 1 ? lastPayment : paymentAmount,
+          amount: plan.amounts[i],
           status: 'PENDING',
         });
       }
 
       await prisma.paymentPlan.createMany({ data: payments });
+    }
+
+    // Actualizar montos del plan existente (se conservan fechas y abonos)
+    if (savedPlans.length) {
+      await prisma.$transaction(
+        savedPlans
+          .map((p, i) => ({ p, amount: plan.amounts[i] }))
+          .filter(({ p, amount }) => Math.abs(p.amount - amount) > 0.001)
+          .map(({ p, amount }) => {
+            const covered = p.paidAmount >= amount - 0.01;
+            return prisma.paymentPlan.update({
+              where: { id: p.id },
+              data: {
+                amount,
+                status: covered ? 'PAID' : p.status === 'PAID' ? 'PENDING' : p.status,
+                ...(covered && !p.paidDate && { paidDate: new Date() }),
+              },
+            });
+          })
+      );
     }
 
     const result = await prisma.booking.findUnique({

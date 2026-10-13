@@ -72,7 +72,8 @@ import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
 import { useCan } from '@/hooks/use-can';
 import { Switch } from '@/components/ui/switch';
-import { UsersRound } from 'lucide-react';
+import { UsersRound, CreditCard as CreditCardIcon, Copy as CopyIcon } from 'lucide-react';
+import { toast as sonnerToast } from 'sonner';
 import { PageSkeleton, RowsSkeleton } from '@/components/skeletons';
 
 const MEXICAN_BANKS = [
@@ -91,6 +92,8 @@ interface BankAccount {
   id: string;
   bankName: string;
   accountNumber: string;
+  cardNumber?: string | null;
+  clabe?: string | null;
   accountType: string;
   referenceName: string;
   initialBalance: number;
@@ -140,6 +143,8 @@ const datePresets = [
 interface AccountFormData {
   bankName: string;
   accountNumber: string;
+  cardNumber: string;
+  clabe: string;
   accountType: string;
   referenceName: string;
   initialBalance: string;
@@ -149,6 +154,8 @@ interface AccountFormData {
 const initialAccountForm: AccountFormData = {
   bankName: '',
   accountNumber: '',
+  cardNumber: '',
+  clabe: '',
   accountType: 'DEBITO',
   referenceName: '',
   initialBalance: '0',
@@ -296,6 +303,8 @@ export default function BanksPage() {
     setAccountForm({
       bankName: account.bankName,
       accountNumber: account.accountNumber,
+      cardNumber: account.cardNumber || '',
+      clabe: account.clabe || '',
       accountType: account.accountType,
       referenceName: account.referenceName,
       initialBalance: account.initialBalance.toString(),
@@ -305,6 +314,16 @@ export default function BanksPage() {
   };
 
   const handleSaveAccount = async () => {
+    const cardDigits = accountForm.cardNumber.replace(/\D/g, '');
+    const clabeDigits = accountForm.clabe.replace(/\D/g, '');
+    if (cardDigits && (cardDigits.length < 15 || cardDigits.length > 19)) {
+      toast({ title: 'Error', description: 'El número de tarjeta debe tener entre 15 y 19 dígitos', variant: 'destructive' });
+      return;
+    }
+    if (clabeDigits && clabeDigits.length !== 18) {
+      toast({ title: 'Error', description: 'La CLABE debe tener 18 dígitos', variant: 'destructive' });
+      return;
+    }
     if (!accountForm.bankName || !accountForm.accountNumber || !accountForm.referenceName) {
       toast({ title: 'Error', description: 'Completa los campos requeridos', variant: 'destructive' });
       return;
@@ -540,6 +559,7 @@ export default function BanksPage() {
               <p className="text-muted-foreground">
                 {selectedAccount.bankName} - {selectedAccount.accountNumber}
               </p>
+              <AccountExtras card={selectedAccount.cardNumber} clabe={selectedAccount.clabe} />
             </div>
           </div>
           <div className="text-right">
@@ -1152,6 +1172,7 @@ export default function BanksPage() {
               <p className="text-sm text-muted-foreground mb-1">
                 {account.accountNumber}
               </p>
+              <AccountExtras card={account.cardNumber} clabe={account.clabe} />
               <p className="text-2xl font-bold text-green-600 mb-3">
                 {formatCurrency(account.currentBalance)}
               </p>
@@ -1291,7 +1312,7 @@ export default function BanksPage() {
                 <Input
                   value={accountForm.accountNumber}
                   onChange={(e) => setAccountForm({ ...accountForm, accountNumber: e.target.value })}
-                  placeholder="Cuenta o CLABE"
+                  placeholder="Número de cuenta"
                 />
               </div>
               <div className="space-y-2">
@@ -1309,6 +1330,29 @@ export default function BanksPage() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Número de Tarjeta</Label>
+                <Input
+                  inputMode="numeric"
+                  autoComplete="off"
+                  value={accountForm.cardNumber}
+                  onChange={(e) => setAccountForm({ ...accountForm, cardNumber: e.target.value.replace(/[^\d ]/g, '').slice(0, 23) })}
+                  placeholder="16 dígitos (opcional)"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>CLABE</Label>
+                <Input
+                  inputMode="numeric"
+                  autoComplete="off"
+                  value={accountForm.clabe}
+                  onChange={(e) => setAccountForm({ ...accountForm, clabe: e.target.value.replace(/[^\d ]/g, '').slice(0, 22) })}
+                  placeholder="18 dígitos (opcional)"
+                />
               </div>
             </div>
 
@@ -1421,6 +1465,38 @@ export default function BanksPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+/** "4152313812345678" -> "4152 3138 1234 5678" */
+const groupDigits = (v: string, size: number) => v.replace(/\D/g, '').replace(new RegExp(`(\\d{${size}})(?=\\d)`, 'g'), '$1 ');
+
+/** Tarjeta y CLABE con boton para copiar (para compartirlas con clientes) */
+function AccountExtras({ card, clabe }: { card?: string | null; clabe?: string | null }) {
+  if (!card && !clabe) return null;
+  const copy = (label: string, value: string) => {
+    navigator.clipboard?.writeText(value.replace(/\D/g, '')).then(
+      () => sonnerToast.success(`${label} copiada`),
+      () => sonnerToast.error('No se pudo copiar')
+    );
+  };
+  return (
+    <div className="space-y-0.5 mb-2 text-xs text-muted-foreground">
+      {card && (
+        <button type="button" onClick={() => copy('Tarjeta', card)} className="flex items-center gap-1.5 hover:text-foreground" title="Copiar tarjeta">
+          <CreditCardIcon className="w-3.5 h-3.5" />
+          <span className="font-mono">{groupDigits(card, 4)}</span>
+          <CopyIcon className="w-3 h-3 opacity-60" />
+        </button>
+      )}
+      {clabe && (
+        <button type="button" onClick={() => copy('CLABE', clabe)} className="flex items-center gap-1.5 hover:text-foreground" title="Copiar CLABE">
+          <span className="font-semibold">CLABE</span>
+          <span className="font-mono">{groupDigits(clabe, 3)}</span>
+          <CopyIcon className="w-3 h-3 opacity-60" />
+        </button>
+      )}
     </div>
   );
 }

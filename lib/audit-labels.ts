@@ -83,7 +83,7 @@ export const FIELD_LABELS: Record<string, string> = {
   idRequirement: 'Identificación requerida', includes: 'Incluye', notIncludes: 'No incluye', images: 'Imágenes',
   webDescription: 'Descripción web', packagePrice: 'Precio de paquete', packageCurrency: 'Moneda', showInWeb: 'Visible en web',
   // Proveedores / bancos
-  serviceType: 'Tipo de servicio', bankName: 'Banco', accountNumber: 'Número de cuenta', accountType: 'Tipo de cuenta',
+  serviceType: 'Tipo de servicio', bankName: 'Banco', accountNumber: 'Número de cuenta', cardNumber: 'Número de tarjeta', clabe: 'CLABE', accountType: 'Tipo de cuenta',
   referenceName: 'Nombre de referencia', initialBalance: 'Saldo inicial',
   // Servicios
   origin: 'Origen', destination: 'Destino', direction: 'Dirección', departureTime: 'Hora de salida',

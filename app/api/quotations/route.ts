@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAccess, accessErrorResponse } from '@/lib/access';
+import { parsePaymentAmounts, planUpdateError } from '@/lib/payment-plan';
 import { resolveAgent } from '@/lib/booking-agent';
 import { getSessionUser } from '@/lib/get-tenant';
 import { prisma } from '@/lib/prisma';
@@ -110,6 +111,12 @@ export async function POST(request: NextRequest) {
     const agent = await resolveAgent(access, 'cotizaciones', body.sellerId, sessionUser?.id ?? access.userId);
     if ('error' in agent) return NextResponse.json({ error: agent.error }, { status: agent.status });
 
+    // Plan de pagos: montos personalizados del formulario (o reparto automatico)
+    const plan = body.paymentType === 'CREDIT' && body.numberOfPayments > 0
+      ? parsePaymentAmounts(body.paymentAmounts, body.numberOfPayments, body.totalPrice - (body.downPayment || 0))
+      : { amounts: [] as number[] };
+    if ('error' in plan) return NextResponse.json({ error: plan.error }, { status: 400 });
+
     const booking = await prisma.booking.create({
       data: {
         tenantId,
@@ -207,8 +214,6 @@ export async function POST(request: NextRequest) {
     // Create preview payment plan for credit quotations
     if (body.paymentType === 'CREDIT' && body.numberOfPayments > 0) {
       const remaining = body.totalPrice - (body.downPayment || 0);
-      const paymentAmount = Math.floor(remaining / body.numberOfPayments);
-      const lastPayment = remaining - (paymentAmount * (body.numberOfPayments - 1));
       const payments = [];
 
       const frequency = body.paymentFrequency || 'QUINCENAL';
@@ -250,7 +255,7 @@ export async function POST(request: NextRequest) {
           bookingId: booking.id,
           paymentNumber: i + 1,
           dueDate,
-          amount: i === body.numberOfPayments - 1 ? lastPayment : paymentAmount,
+          amount: plan.amounts[i],
           status: 'PENDING',
         });
       }

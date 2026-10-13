@@ -2,11 +2,20 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAccess, accessErrorResponse } from '@/lib/access';
 import { prisma } from '@/lib/prisma';
 import { encrypt, decrypt } from '@/lib/encryption';
+import { parseBankExtras } from '@/lib/bank-fields';
 
 export const dynamic = 'force-dynamic';
 
 /** Modulos que registran cobros/pagos y necesitan elegir una cuenta */
 const PAYMENT_MODULES = ['bancos', 'ventas', 'cotizaciones', 'proveedores', 'rifas'];
+
+function decryptAccount(a: { accountNumber: string; cardNumber: string | null; clabe: string | null }) {
+  return {
+    accountNumber: decrypt(a.accountNumber),
+    cardNumber: a.cardNumber ? decrypt(a.cardNumber) : null,
+    clabe: a.clabe ? decrypt(a.clabe) : null,
+  };
+}
 
 async function creatorNames(ids: (string | null)[]) {
   const unique = [...new Set(ids.filter(Boolean))] as string[];
@@ -46,7 +55,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         allAccounts.map((a) => ({
           ...a,
-          accountNumber: decrypt(a.accountNumber),
+          ...decryptAccount(a),
           creatorName: a.createdBy ? names[a.createdBy] || null : null,
           canManage: !access.ownOnly || a.createdBy === access.userId,
         }))
@@ -82,7 +91,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       data: accounts.map((a) => ({
         ...a,
-        accountNumber: decrypt(a.accountNumber),
+        ...decryptAccount(a),
         creatorName: a.createdBy ? names[a.createdBy] || null : null,
         canManage: !access.ownOnly || a.createdBy === access.userId,
       })),
@@ -110,6 +119,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Campos requeridos: banco, número de cuenta, tipo y nombre de referencia' }, { status: 400 });
     }
 
+    const extras = parseBankExtras(body);
+    if ('error' in extras) return NextResponse.json({ error: extras.error }, { status: 400 });
+
     const initialBalance = parseFloat(body.initialBalance) || 0;
 
     const account = await prisma.bankAccount.create({
@@ -117,6 +129,8 @@ export async function POST(request: NextRequest) {
         tenantId: access.tenantId,
         bankName: body.bankName,
         accountNumber: encrypt(body.accountNumber),
+        cardNumber: extras.cardNumber ? encrypt(extras.cardNumber) : null,
+        clabe: extras.clabe ? encrypt(extras.clabe) : null,
         accountType: body.accountType,
         referenceName: body.referenceName,
         initialBalance,
@@ -126,7 +140,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({ ...account, accountNumber: decrypt(account.accountNumber) }, { status: 201 });
+    return NextResponse.json({ ...account, ...decryptAccount(account) }, { status: 201 });
   } catch (error) {
     const accessError = accessErrorResponse(error);
     if (accessError) return accessError;

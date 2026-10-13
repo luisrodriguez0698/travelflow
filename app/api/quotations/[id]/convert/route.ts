@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAccess, accessErrorResponse } from '@/lib/access';
+import { planError, suggestedAmounts } from '@/lib/payment-plan';
+import { initialPaymentAmount, registerInitialPayment, validateInitialPaymentAccount } from '@/lib/initial-payment';
 import { hasPermission, getSessionUser } from '@/lib/get-tenant';
 import { notifyActivity, formatMoney } from '@/lib/activity';
 import { checkGoalReached } from '@/lib/goals';
@@ -31,6 +33,14 @@ export async function POST(
       return NextResponse.json({ error: 'Cotización no encontrada' }, { status: 404 });
     }
 
+    // Si hay anticipo (o es de contado), la cuenta donde entra es obligatoria
+    let initialAccount: string | null = null;
+    if (initialPaymentAmount(booking) > 0) {
+      const check = await validateInitialPaymentAccount(access, bankAccountId);
+      if ('error' in check) return NextResponse.json({ error: check.error }, { status: check.status });
+      initialAccount = check.bankAccountId;
+    }
+
     // Convert to sale
     await prisma.booking.update({
       where: { id },
@@ -42,41 +52,23 @@ export async function POST(
       },
     });
 
-    // Register down payment (anticipo) as bank income if bank selected and downPayment > 0
-    if (bankAccountId && booking.downPayment > 0) {
-      const bankAccount = await prisma.bankAccount.findFirst({
-        where: { id: bankAccountId, ...access.bankScope, isActive: true },
-      });
-
-      if (bankAccount) {
-        await prisma.$transaction([
-          prisma.bankTransaction.create({
-            data: {
-              tenantId,
-              bankAccountId,
-              type: 'INCOME',
-              amount: booking.downPayment,
-              description: `Anticipo - ${booking.client?.fullName || ''} - ${booking.destination?.name || ''}`,
-              reference: 'Conversión de cotización a venta',
-              bookingId: id,
-              date: new Date(),
-            },
-          }),
-          prisma.bankAccount.update({
-            where: { id: bankAccountId },
-            data: { currentBalance: { increment: booking.downPayment } },
-          }),
-        ]);
-      }
+    // Anticipo (o pago de contado): entra a la cuenta elegida
+    if (initialAccount) {
+      await registerInitialPayment({ tenantId, booking: { ...booking, saleDate: new Date() }, bankAccountId: initialAccount, clientName: booking.client?.fullName || 'Cliente' });
     }
 
     // Regenerate payment plan with fresh dates for credit sales
     if (booking.paymentType === 'CREDIT' && booking.numberOfPayments > 0) {
+      const remaining = booking.totalPrice - (booking.downPayment || 0);
+      // Se conservan los montos que se pactaron en la cotizacion (solo cambian las fechas)
+      const previous = await prisma.paymentPlan.findMany({ where: { bookingId: id }, orderBy: { paymentNumber: 'asc' } });
+      const previousAmounts = previous.map((p) => p.amount);
+      const amounts =
+        previousAmounts.length === booking.numberOfPayments && !planError(previousAmounts, remaining)
+          ? previousAmounts
+          : suggestedAmounts(remaining, booking.numberOfPayments);
       await prisma.paymentPlan.deleteMany({ where: { bookingId: id } });
 
-      const remaining = booking.totalPrice - (booking.downPayment || 0);
-      const paymentAmount = Math.floor(remaining / booking.numberOfPayments);
-      const lastPayment = remaining - (paymentAmount * (booking.numberOfPayments - 1));
       const payments = [];
       const frequency = booking.paymentFrequency || 'QUINCENAL';
 
@@ -111,7 +103,7 @@ export async function POST(
           bookingId: id,
           paymentNumber: i + 1,
           dueDate,
-          amount: i === booking.numberOfPayments - 1 ? lastPayment : paymentAmount,
+          amount: amounts[i],
           status: 'PENDING',
         });
       }

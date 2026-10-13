@@ -2,6 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAccess, accessErrorResponse } from '@/lib/access';
 import { prisma } from '@/lib/prisma';
 import { encrypt, decrypt } from '@/lib/encryption';
+import { parseBankExtras } from '@/lib/bank-fields';
+
+function decryptAccount(a: { accountNumber: string; cardNumber: string | null; clabe: string | null }) {
+  return {
+    accountNumber: decrypt(a.accountNumber),
+    cardNumber: a.cardNumber ? decrypt(a.cardNumber) : null,
+    clabe: a.clabe ? decrypt(a.clabe) : null,
+  };
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -28,7 +37,7 @@ export async function GET(
       return NextResponse.json({ error: 'Cuenta no encontrada' }, { status: 404 });
     }
 
-    return NextResponse.json({ ...account, accountNumber: decrypt(account.accountNumber) });
+    return NextResponse.json({ ...account, ...decryptAccount(account) });
   } catch (error) {
     const accessError = accessErrorResponse(error);
     if (accessError) return accessError;
@@ -55,9 +64,14 @@ export async function PUT(
       return NextResponse.json({ error: 'Cuenta no encontrada' }, { status: 404 });
     }
 
+    const extras = parseBankExtras(body);
+    if ('error' in extras) return NextResponse.json({ error: extras.error }, { status: 400 });
+
     const account = await prisma.bankAccount.update({
       where: { id },
       data: {
+        cardNumber: extras.cardNumber ? encrypt(extras.cardNumber) : null,
+        clabe: extras.clabe ? encrypt(extras.clabe) : null,
         bankName: body.bankName,
         accountNumber: encrypt(body.accountNumber),
         accountType: body.accountType,
@@ -66,7 +80,7 @@ export async function PUT(
       },
     });
 
-    return NextResponse.json({ ...account, accountNumber: decrypt(account.accountNumber) });
+    return NextResponse.json({ ...account, ...decryptAccount(account) });
   } catch (error) {
     const accessError = accessErrorResponse(error);
     if (accessError) return accessError;
@@ -217,7 +231,7 @@ export async function PATCH(
       data: { isActive: true, deletedAt: null },
     });
 
-    return NextResponse.json({ ...account, accountNumber: decrypt(account.accountNumber) });
+    return NextResponse.json({ ...account, ...decryptAccount(account) });
   } catch (error) {
     const accessError = accessErrorResponse(error);
     if (accessError) return accessError;

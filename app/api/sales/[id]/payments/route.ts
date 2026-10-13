@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAccess, accessErrorResponse } from '@/lib/access';
+import { bookingDestination } from '@/lib/booking-destination';
+import { findInitialPayment, initialPaymentAmount } from '@/lib/initial-payment';
 import { getSessionUser } from '@/lib/get-tenant';
 import { notifyActivity, formatMoney } from '@/lib/activity';
 import { prisma } from '@/lib/prisma';
@@ -184,7 +186,7 @@ export async function GET(
         tenant: true,
         supplier: true,
         items: {
-          include: { hotel: true },
+          include: { hotel: { include: { destination: { include: { season: true } } } }, destination: { include: { season: true } } },
           orderBy: { sortOrder: 'asc' },
         },
       },
@@ -204,7 +206,18 @@ export async function GET(
       creatorName = creator?.name || creator?.email || null;
     }
 
-    return NextResponse.json({ ...booking, creatorName });
+    // Destino general (ventas nuevas: el de sus servicios) para el detalle y el PDF
+    const derived = bookingDestination(booking);
+    const destination = booking.destination ?? (derived.name ? { name: derived.name, season: derived.season } : null);
+
+    // Anticipo / pago de contado: si ya entro a un banco
+    const initialTx = initialPaymentAmount(booking) > 0 ? await findInitialPayment(booking.id) : null;
+    const initialPayment = {
+      amount: initialPaymentAmount(booking),
+      account: initialTx ? { name: initialTx.bankAccount.referenceName, bank: initialTx.bankAccount.bankName, date: initialTx.date } : null,
+    };
+
+    return NextResponse.json({ ...booking, destination, creatorName, initialPayment });
   } catch (error) {
     const accessError = accessErrorResponse(error);
     if (accessError) return accessError;

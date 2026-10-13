@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAccess, accessErrorResponse } from '@/lib/access';
+import { parsePaymentAmounts, planUpdateError } from '@/lib/payment-plan';
 import { resolveAgent } from '@/lib/booking-agent';
+import { findInitialPayment, initialPaymentAmount } from '@/lib/initial-payment';
 import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
@@ -67,6 +69,21 @@ export async function PUT(
     const agent = await resolveAgent(access, 'ventas', body.sellerId, existing.createdBy);
     if ('error' in agent) return NextResponse.json({ error: agent.error }, { status: agent.status });
 
+    // Si el anticipo ya entro a un banco, no se puede cambiar su monto aqui (descuadraria la cuenta)
+    const registered = await findInitialPayment(id);
+    if (registered) {
+      const newInitial = initialPaymentAmount({ paymentType: body.paymentType, totalPrice: body.totalPrice, downPayment: body.downPayment || 0 });
+      if (Math.abs(newInitial - registered.amount) > 0.01) {
+        const what = existing.paymentType === 'CASH' ? 'pago de contado' : 'anticipo';
+        return NextResponse.json(
+          {
+            error: `El ${what} ya está registrado en ${registered.bankAccount.referenceName} por $${registered.amount.toLocaleString('es-MX')}. Para cambiarlo, primero cancela ese movimiento en Bancos.`,
+          },
+          { status: 400 }
+        );
+      }
+    }
+
     // Calculate net cost - from items if provided, otherwise from legacy fields
     const items: any[] = body.items || [];
     let netCost: number;
@@ -84,6 +101,26 @@ export async function PUT(
       netCost = items.reduce((sum: number, item: any) => sum + (item.cost || 0), 0);
     } else {
       netCost = (priceAdult * numAdults) + (priceChild * paidChildren) + (pricePerNight * numNights);
+    }
+
+    // Plan de pagos: montos personalizados del formulario (o reparto automatico)
+    const plan = body.paymentType === 'CREDIT' && body.numberOfPayments > 0
+      ? parsePaymentAmounts(body.paymentAmounts, body.numberOfPayments, body.totalPrice - (body.downPayment || 0))
+      : { amounts: [] as number[] };
+    if ('error' in plan) return NextResponse.json({ error: plan.error }, { status: 400 });
+
+    // Montos editados sin regenerar el plan: validar contra lo ya abonado antes de guardar
+    const keepsPlan =
+      existing.paymentType === body.paymentType &&
+      existing.numberOfPayments === body.numberOfPayments &&
+      existing.downPayment === body.downPayment &&
+      existing.totalPrice === body.totalPrice;
+    const savedPlans = keepsPlan && body.paymentAmounts != null && plan.amounts.length
+      ? await prisma.paymentPlan.findMany({ where: { bookingId: id }, orderBy: { paymentNumber: 'asc' } })
+      : [];
+    if (savedPlans.length) {
+      const updateError = planUpdateError(savedPlans, plan.amounts);
+      if (updateError) return NextResponse.json({ error: updateError }, { status: 400 });
     }
 
     // Delete old payment plans if payment type or number changed
@@ -216,8 +253,6 @@ export async function PUT(
 
     if (body.paymentType === 'CREDIT' && body.numberOfPayments > 0 && existingPayments === 0) {
       const remaining = body.totalPrice - (body.downPayment || 0);
-      const paymentAmount = Math.floor(remaining / body.numberOfPayments);
-      const lastPayment = remaining - (paymentAmount * (body.numberOfPayments - 1));
       const payments = [];
 
       const frequency = body.paymentFrequency || existing.paymentFrequency || 'QUINCENAL';
@@ -251,12 +286,32 @@ export async function PUT(
           bookingId: booking.id,
           paymentNumber: i + 1,
           dueDate,
-          amount: i === body.numberOfPayments - 1 ? lastPayment : paymentAmount,
+          amount: plan.amounts[i],
           status: 'PENDING',
         });
       }
 
       await prisma.paymentPlan.createMany({ data: payments });
+    }
+
+    // Actualizar montos del plan existente (se conservan fechas y abonos)
+    if (savedPlans.length) {
+      await prisma.$transaction(
+        savedPlans
+          .map((p, i) => ({ p, amount: plan.amounts[i] }))
+          .filter(({ p, amount }) => Math.abs(p.amount - amount) > 0.001)
+          .map(({ p, amount }) => {
+            const covered = p.paidAmount >= amount - 0.01;
+            return prisma.paymentPlan.update({
+              where: { id: p.id },
+              data: {
+                amount,
+                status: covered ? 'PAID' : p.status === 'PAID' ? 'PENDING' : p.status,
+                ...(covered && !p.paidDate && { paidDate: new Date() }),
+              },
+            });
+          })
+      );
     }
 
     const result = await prisma.booking.findUnique({

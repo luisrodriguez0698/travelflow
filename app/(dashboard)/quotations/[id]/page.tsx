@@ -46,6 +46,7 @@ import { useToast } from '@/hooks/use-toast';
 import { generateQuotationPdf } from '@/lib/generate-quotation-pdf';
 import { useCan } from '@/hooks/use-can';
 import { PageSkeleton } from '@/components/skeletons';
+import { InitialPaymentAccount } from '@/components/initial-payment-account';
 
 interface PaymentPlan {
   id: string;
@@ -169,6 +170,7 @@ export default function QuotationDetailPage() {
   const [loading, setLoading] = useState(true);
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [converting, setConverting] = useState(false);
+  const [convertBankAccountId, setConvertBankAccountId] = useState('');
   const [showConvertDialog, setShowConvertDialog] = useState(false);
 
   useEffect(() => {
@@ -227,17 +229,19 @@ export default function QuotationDetailPage() {
     try {
       const res = await fetch(`/api/quotations/${id}/convert`, {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bankAccountId: convertBankAccountId || null }),
       });
-      if (!res.ok) throw new Error('Error');
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || '');
       toast({
         title: 'Convertida a venta',
         description: 'La cotización se ha convertido a venta exitosamente',
       });
       router.push('/sales');
-    } catch {
+    } catch (err) {
       toast({
         title: 'Error',
-        description: 'No se pudo convertir la cotización',
+        description: (err as Error).message || 'No se pudo convertir la cotización',
         variant: 'destructive',
       });
     } finally {
@@ -921,6 +925,14 @@ export default function QuotationDetailPage() {
               <p className="text-sm text-amber-700 dark:text-amber-400">
                 Total: ${quotation.totalPrice?.toLocaleString('es-MX')}
               </p>
+            </div>
+            <div className="mt-4">
+              <InitialPaymentAccount
+                amount={quotation.paymentType === 'CASH' ? quotation.totalPrice : quotation.downPayment || 0}
+                cash={quotation.paymentType === 'CASH'}
+                value={convertBankAccountId}
+                onChange={setConvertBankAccountId}
+              />
             </div>
           </div>
           <DialogFooter>

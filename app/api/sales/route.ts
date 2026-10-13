@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAccess, accessErrorResponse } from '@/lib/access';
+import { parsePaymentAmounts, planUpdateError } from '@/lib/payment-plan';
 import { getSessionUser } from '@/lib/get-tenant';
 import { notifyActivity, formatMoney } from '@/lib/activity';
 import { checkGoalReached } from '@/lib/goals';
 import { addAutoTicketsForSale } from '@/lib/raffles';
 import { resolveAgent } from '@/lib/booking-agent';
+import { initialPaymentAmount, registerInitialPayment, validateInitialPaymentAccount } from '@/lib/initial-payment';
 import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
@@ -117,6 +119,21 @@ export async function POST(request: NextRequest) {
     const agent = await resolveAgent(access, 'ventas', body.sellerId, sessionUser?.id ?? access.userId);
     if ('error' in agent) return NextResponse.json({ error: agent.error }, { status: agent.status });
 
+    // Plan de pagos: montos personalizados del formulario (o reparto automatico)
+    const plan = body.paymentType === 'CREDIT' && body.numberOfPayments > 0
+      ? parsePaymentAmounts(body.paymentAmounts, body.numberOfPayments, body.totalPrice - (body.downPayment || 0))
+      : { amounts: [] as number[] };
+    if ('error' in plan) return NextResponse.json({ error: plan.error }, { status: 400 });
+
+    // El anticipo (o el pago de contado) entra a una cuenta bancaria: es obligatoria
+    const initialAmount = initialPaymentAmount({ paymentType: body.paymentType, totalPrice: body.totalPrice, downPayment: body.downPayment || 0 });
+    let initialAccount: string | null = null;
+    if (initialAmount > 0) {
+      const check = await validateInitialPaymentAccount(access, body.bankAccountId);
+      if ('error' in check) return NextResponse.json({ error: check.error }, { status: check.status });
+      initialAccount = check.bankAccountId;
+    }
+
     const booking = await prisma.booking.create({
       data: {
         tenantId,
@@ -226,8 +243,6 @@ export async function POST(request: NextRequest) {
     // Create payment plan for credit sales
     if (body.paymentType === 'CREDIT' && body.numberOfPayments > 0) {
       const remaining = body.totalPrice - (body.downPayment || 0);
-      const paymentAmount = Math.floor(remaining / body.numberOfPayments);
-      const lastPayment = remaining - (paymentAmount * (body.numberOfPayments - 1));
       const payments = [];
 
       const frequency = body.paymentFrequency || 'QUINCENAL';
@@ -266,12 +281,17 @@ export async function POST(request: NextRequest) {
           bookingId: booking.id,
           paymentNumber: i + 1,
           dueDate,
-          amount: i === body.numberOfPayments - 1 ? lastPayment : paymentAmount,
+          amount: plan.amounts[i],
           status: 'PENDING',
         });
       }
 
       await prisma.paymentPlan.createMany({ data: payments });
+    }
+
+    if (initialAccount) {
+      const client = await prisma.client.findUnique({ where: { id: booking.clientId }, select: { fullName: true } });
+      await registerInitialPayment({ tenantId, booking, bankAccountId: initialAccount, clientName: client?.fullName || 'Cliente' });
     }
 
     const result = await prisma.booking.findUnique({
