@@ -27,6 +27,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { DangerZone } from '@/components/danger-zone';
+import { CustomDomainCard } from '@/components/custom-domain-card';
 import { useCan } from '@/hooks/use-can';
 import { PageSkeleton } from '@/components/skeletons';
 
@@ -443,6 +444,9 @@ export default function SettingsPage() {
           </div>
         </div>
       </Card>
+
+      {/* Dominio propio: pagina web y links a clientes con la marca de la agencia */}
+      <CustomDomainCard />
 
       {/* Restablecer / eliminar agencia (solo propietario) */}
       <DangerZone />

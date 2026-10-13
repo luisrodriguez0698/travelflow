@@ -96,7 +96,7 @@ export function ClientLinkButton({ saleId }: { saleId: string }) {
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-lg overflow-hidden">
           <DialogHeader>
             <DialogTitle>Link para el cliente</DialogTitle>
             <DialogDescription>
@@ -120,13 +120,15 @@ export function ClientLinkButton({ saleId }: { saleId: string }) {
               )}
             </div>
           ) : (
-            <div className="space-y-4 py-2">
-              <div className="flex items-center gap-2 rounded-lg border bg-muted/40 p-2">
-                <p className="flex-1 truncate font-mono text-xs px-1">{info.url}</p>
-                <Button size="sm" variant="outline" onClick={copy}>
+            <div className="space-y-4 py-2 min-w-0">
+              <div className="flex items-center gap-2 rounded-lg border bg-muted/40 p-2 min-w-0">
+                <p className="flex-1 min-w-0 truncate font-mono text-xs px-1" title={info.url ?? ''}>
+                  {info.url}
+                </p>
+                <Button size="sm" variant="outline" onClick={copy} className="shrink-0" title="Copiar link">
                   {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                 </Button>
-                <a href={info.url ?? '#'} target="_blank" rel="noopener noreferrer">
+                <a href={info.url ?? '#'} target="_blank" rel="noopener noreferrer" className="shrink-0">
                   <Button size="sm" variant="outline" title="Abrir">
                     <ExternalLink className="w-3.5 h-3.5" />
                   </Button>
@@ -135,13 +137,13 @@ export function ClientLinkButton({ saleId }: { saleId: string }) {
 
               <a href={whatsappTo(info.clientPhone, message)} target="_blank" rel="noopener noreferrer" className="block">
                 <Button className="w-full bg-emerald-500 hover:bg-emerald-600 text-white">
-                  <MessageCircle className="w-4 h-4 mr-2" />
-                  Enviar por WhatsApp a {firstName}
+                  <MessageCircle className="w-4 h-4 mr-2 shrink-0" />
+                  <span className="truncate">Enviar por WhatsApp a {firstName}</span>
                 </Button>
               </a>
 
               <div className="rounded-lg border p-3 flex items-start justify-between gap-3">
-                <div>
+                <div className="min-w-0">
                   <p className="text-sm font-medium flex items-center gap-1.5">
                     <KeyRound className="w-4 h-4 text-primary" />
                     Pedir los 4 últimos dígitos del teléfono
@@ -153,6 +155,7 @@ export function ClientLinkButton({ saleId }: { saleId: string }) {
                   </p>
                 </div>
                 <Switch
+                  className="shrink-0"
                   checked={info.pinRequired}
                   disabled={!info.pinAvailable || busy || !canEdit}
                   onCheckedChange={(v) => act('pin', { pinRequired: v })}

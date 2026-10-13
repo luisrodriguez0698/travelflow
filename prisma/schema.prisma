@@ -25,6 +25,8 @@ model Tenant {
 
   // ── Landing page & custom domains ──
   customDomain      String? @unique
+  // Cuando se comprobo que el dominio responde desde este servidor (null = pendiente)
+  customDomainVerifiedAt DateTime?
   subdomain         String? @unique
   landingTemplate   String  @default("default")
   facebookReviewUrl String?
