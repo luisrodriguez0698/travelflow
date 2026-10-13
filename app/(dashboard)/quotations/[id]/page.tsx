@@ -48,6 +48,7 @@ import { useCan } from '@/hooks/use-can';
 import { ItemPriceBlock, ItemPriceCells, ItemPriceHeads } from '@/components/item-price';
 import { PageSkeleton } from '@/components/skeletons';
 import { InitialPaymentAccount } from '@/components/initial-payment-account';
+import { SupplierAllocation, useSupplierDebts, type AllocationValue } from '@/components/supplier-allocation';
 
 interface PaymentPlan {
   id: string;
@@ -173,6 +174,8 @@ export default function QuotationDetailPage() {
   const [converting, setConverting] = useState(false);
   const [convertBankAccountId, setConvertBankAccountId] = useState('');
   const [showConvertDialog, setShowConvertDialog] = useState(false);
+  const [convertAllocations, setConvertAllocations] = useState<AllocationValue[]>([]);
+  const convertDebts = useSupplierDebts(id, showConvertDialog);
 
   useEffect(() => {
     fetchQuotation();
@@ -231,7 +234,7 @@ export default function QuotationDetailPage() {
       const res = await fetch(`/api/quotations/${id}/convert`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bankAccountId: convertBankAccountId || null }),
+        body: JSON.stringify({ bankAccountId: convertBankAccountId || null, supplierAllocations: convertBankAccountId ? convertAllocations : [] }),
       });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || '');
       toast({
@@ -934,6 +937,16 @@ export default function QuotationDetailPage() {
                 value={convertBankAccountId}
                 onChange={setConvertBankAccountId}
               />
+              {convertBankAccountId && (
+                <div className="mt-3">
+                  <SupplierAllocation
+                    amount={quotation.paymentType === 'CASH' ? quotation.totalPrice : quotation.downPayment || 0}
+                    debts={convertDebts}
+                    value={convertAllocations}
+                    onChange={setConvertAllocations}
+                  />
+                </div>
+              )}
             </div>
           </div>
           <DialogFooter>

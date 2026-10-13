@@ -72,7 +72,7 @@ import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
 import { useCan } from '@/hooks/use-can';
 import { Switch } from '@/components/ui/switch';
-import { UsersRound, CreditCard as CreditCardIcon, Copy as CopyIcon } from 'lucide-react';
+import { UsersRound, CreditCard as CreditCardIcon, Copy as CopyIcon, ArrowLeftRight as MoveIcon } from 'lucide-react';
 import { toast as sonnerToast } from 'sonner';
 import { PageSkeleton, RowsSkeleton } from '@/components/skeletons';
 
@@ -198,6 +198,9 @@ export default function BanksPage() {
 
   // Cancel transaction
   const [cancellingTx, setCancellingTx] = useState<BankTransaction | null>(null);
+  // Corregir la cuenta de un movimiento registrado en la cuenta equivocada
+  const [movingTx, setMovingTx] = useState<BankTransaction | null>(null);
+  const [moveTargetId, setMoveTargetId] = useState('');
 
   // Detail modal
   const [selectedTx, setSelectedTx] = useState<BankTransaction | null>(null);
@@ -494,6 +497,29 @@ export default function BanksPage() {
     }
   };
 
+  const handleMoveTransaction = async () => {
+    if (!movingTx || !selectedAccount || !moveTargetId) return;
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/bank-accounts/${selectedAccount.id}/transactions/move`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transactionId: movingTx.id, targetAccountId: moveTargetId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Error');
+      const target = accounts.find((a) => a.id === moveTargetId);
+      toast({ title: 'Movimiento corregido', description: `Se pasó a ${target?.referenceName || 'la otra cuenta'} y los saldos se ajustaron.` });
+      setMovingTx(null);
+      fetchTransactions(selectedAccount.id, txPage, txFilter);
+      fetchAccounts();
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message || 'No se pudo mover', variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleCancelTransaction = async () => {
     if (!cancellingTx || !selectedAccount) return;
     setSaving(true);
@@ -739,6 +765,11 @@ export default function BanksPage() {
                               <Eye className="w-4 h-4" />
                             </Button>
                           )}
+                          {!isCancelled && (tx.type === 'INCOME' || tx.type === 'EXPENSE') && selectedAccount.isActive !== false && selectedAccount.canManage !== false && can('bancos', 'edit') && (
+                            <Button size="sm" variant="outline" title="Mover a otra cuenta" onClick={() => { setMovingTx(tx); setMoveTargetId(''); }}>
+                              <MoveIcon className="w-4 h-4" />
+                            </Button>
+                          )}
                           {!isCancelled && selectedAccount.isActive !== false && selectedAccount.canManage !== false && can('bancos', 'delete') && (
                             <Button
                               size="sm"
@@ -798,6 +829,11 @@ export default function BanksPage() {
                                 title="Ver detalle"
                               >
                                 <Eye className="w-4 h-4" />
+                              </Button>
+                            )}
+                            {!isCancelled && (tx.type === 'INCOME' || tx.type === 'EXPENSE') && selectedAccount.isActive !== false && selectedAccount.canManage !== false && can('bancos', 'edit') && (
+                              <Button size="sm" variant="outline" title="Mover a otra cuenta" onClick={() => { setMovingTx(tx); setMoveTargetId(''); }}>
+                                <MoveIcon className="w-4 h-4" />
                               </Button>
                             )}
                             {!isCancelled && selectedAccount.isActive !== false && selectedAccount.canManage !== false && can('bancos', 'delete') && (
@@ -931,6 +967,55 @@ export default function BanksPage() {
           </DialogContent>
         </Dialog>
 
+        {/* Mover movimiento a la cuenta correcta */}
+        <Dialog open={movingTx !== null} onOpenChange={(open) => { if (!open) setMovingTx(null); }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Mover a otra cuenta</DialogTitle>
+              <DialogDescription>
+                Para corregir un movimiento registrado en la cuenta equivocada. La venta, sus abonos y la deuda del proveedor no cambian: solo la cuenta.
+              </DialogDescription>
+            </DialogHeader>
+            {movingTx && (
+              <div className="space-y-4 py-2">
+                <div className="rounded-lg bg-muted/50 p-3 text-sm">
+                  <p className="font-medium">{movingTx.description}</p>
+                  <p className="text-muted-foreground">
+                    {movingTx.type === 'INCOME' ? 'Ingreso' : 'Egreso'} de <b>{formatCurrency(movingTx.amount)}</b> · {formatDate(movingTx.date)}
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label>Cuenta correcta *</Label>
+                  <Select value={moveTargetId} onValueChange={setMoveTargetId}>
+                    <SelectTrigger><SelectValue placeholder="Selecciona la cuenta" /></SelectTrigger>
+                    <SelectContent>
+                      {accounts
+                        .filter((a) => a.id !== selectedAccount?.id && a.isActive !== false)
+                        .map((a) => (
+                          <SelectItem key={a.id} value={a.id}>
+                            {a.referenceName} · {a.bankName} ({formatCurrency(a.currentBalance)})
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    {movingTx.type === 'INCOME'
+                      ? `Se restan ${formatCurrency(movingTx.amount)} de ${selectedAccount?.referenceName} y se suman a la cuenta elegida.`
+                      : `Se devuelven ${formatCurrency(movingTx.amount)} a ${selectedAccount?.referenceName} y se descuentan de la cuenta elegida.`}
+                  </p>
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setMovingTx(null)} disabled={saving}>Cancelar</Button>
+              <Button onClick={handleMoveTransaction} disabled={saving || !moveTargetId}>
+                {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                Mover movimiento
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         {/* Cancel Transaction Confirmation */}
         <AlertDialog open={cancellingTx !== null} onOpenChange={(open) => { if (!open) setCancellingTx(null); }}>
           <AlertDialogContent>
@@ -947,7 +1032,12 @@ export default function BanksPage() {
                     {cancellingTx.bookingId && (
                       <>
                         <br /><br />
-                        <strong>Este movimiento está vinculado a una venta.</strong> El abono también se revertirá en el plan de pagos.
+                        <strong>Este movimiento está vinculado a una venta.</strong>{' '}
+                        {cancellingTx.type === 'INCOME'
+                          ? 'Si es un abono, también se revierte en el plan de pagos. Si es el anticipo, la venta vuelve a mostrar "anticipo sin banco".'
+                          : 'Si es un pago a proveedor, la deuda con el proveedor vuelve a quedar pendiente.'}
+                        <br /><br />
+                        ¿Solo se registró en la cuenta equivocada? Mejor usa <strong>Mover a otra cuenta</strong>.
                       </>
                     )}
                     <br /><br />

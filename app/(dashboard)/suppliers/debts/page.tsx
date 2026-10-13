@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { DatePicker } from '@/components/ui/date-picker';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -61,7 +62,7 @@ import {
   XCircle,
   AlertTriangle,
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -780,10 +781,9 @@ export default function SupplierDebtsPage() {
               </div>
               <div className="grid gap-2">
                 <Label>Fecha</Label>
-                <Input
-                  type="date"
-                  value={paymentDate}
-                  onChange={(e) => setPaymentDate(e.target.value)}
+                <DatePicker
+                  value={paymentDate ? parseISO(paymentDate) : null}
+                  onChange={(d) => setPaymentDate(d ? format(d, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'))}
                 />
               </div>
               <div className="grid gap-2">

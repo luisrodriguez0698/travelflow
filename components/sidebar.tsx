@@ -25,6 +25,7 @@ import {
   Hotel,
   Target,
   LayoutTemplate,
+  ReceiptText,
   Ticket,
   History,
 } from 'lucide-react';
@@ -76,6 +77,7 @@ const menuGroups: MenuGroup[] = [
       { title: 'Proveedores', icon: Truck, href: '/suppliers', module: 'proveedores' },
       { title: 'Deudas', icon: Wallet, href: '/suppliers/debts', module: 'proveedores' },
       { title: 'Bancos', icon: Landmark, href: '/banks', module: 'bancos' },
+      { title: 'Gastos fijos', icon: ReceiptText, href: '/expenses', module: 'gastos' },
     ],
   },
   {

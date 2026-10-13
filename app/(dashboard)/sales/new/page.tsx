@@ -32,6 +32,8 @@ import { PageSkeleton } from '@/components/skeletons';
 import { AgentSelect } from '@/components/agent-select';
 import { PaymentPlanEditor } from '@/components/payment-plan-editor';
 import { InitialPaymentAccount } from '@/components/initial-payment-account';
+import { MoneySummary } from '@/components/money-summary';
+import { SupplierAllocation, allocationError, type AllocationValue } from '@/components/supplier-allocation';
 import { planError } from '@/lib/payment-plan';
 import { saleTotalFromItems } from '@/lib/booking-pricing';
 
@@ -68,6 +70,10 @@ export default function NewSalePage() {
   const [paymentAmounts, setPaymentAmounts] = useState<number[] | null>(null);
   // Cuenta donde entra el anticipo / pago de contado (obligatoria si hay dinero)
   const [bankAccountId, setBankAccountId] = useState('');
+  const [bankAccountName, setBankAccountName] = useState('');
+  // Resumen de a donde va el dinero, antes de crear la venta
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [supplierAllocations, setSupplierAllocations] = useState<AllocationValue[]>([]);
   const [loading, setLoading] = useState(true);
   const [clients, setClients] = useState<Client[]>([]);
   const [destinations, setDestinations] = useState<Destination[]>([]);
@@ -100,6 +106,16 @@ export default function NewSalePage() {
   const netCost = bookingItems.reduce((sum, item) => sum + (item.cost || 0), 0);
   // Con precio de venta por servicio, el total es la suma de los servicios
   const servicesTotal = saleTotalFromItems(bookingItems);
+  // Lo que se le debera a cada proveedor (costo de sus servicios) para repartir el anticipo
+  const formSupplierDebts = Object.values(
+    bookingItems.reduce<Record<string, { supplierId: string; name: string; pending: number }>>((acc, item) => {
+      const supplierId = (item as { supplierId?: string }).supplierId;
+      if (!supplierId || !(item.cost > 0)) return acc;
+      const name = suppliers.find((s) => s.id === supplierId)?.name || 'Proveedor';
+      acc[supplierId] = { supplierId, name, pending: (acc[supplierId]?.pending || 0) + item.cost };
+      return acc;
+    }, {})
+  );
   useEffect(() => {
     if (servicesTotal !== null) setFormData((p) => (p.totalPrice === servicesTotal ? p : { ...p, totalPrice: servicesTotal }));
   }, [servicesTotal]);
@@ -123,7 +139,7 @@ export default function NewSalePage() {
   const profit = formData.totalPrice - netCost;
   const profitPercent = netCost > 0 ? ((profit / netCost) * 100) : 0;
 
-  const handleSave = async () => {
+  const handleSave = async (confirmed = false) => {
     if (!formData.clientId) {
       toast({ title: 'Error', description: 'Selecciona un cliente', variant: 'destructive' });
       return;
@@ -145,12 +161,21 @@ export default function NewSalePage() {
       });
       return;
     }
+    const allocIssue = allocationError(supplierAllocations, formSupplierDebts, initialAmount);
+    if (allocIssue) {
+      toast({ title: 'Pago a proveedores', description: allocIssue, variant: 'destructive' });
+      return;
+    }
     if (formData.paymentType === 'CREDIT' && paymentAmounts) {
       const planIssue = planError(paymentAmounts, formData.totalPrice - (formData.downPayment || 0));
       if (planIssue) {
         toast({ title: 'Plan de pagos', description: planIssue, variant: 'destructive' });
         return;
       }
+    }
+    if (initialAmount > 0 && !confirmed) {
+      setConfirmOpen(true);
+      return;
     }
     setSaving(true);
     try {
@@ -162,6 +187,7 @@ export default function NewSalePage() {
           sellerId,
           paymentAmounts: formData.paymentType === 'CREDIT' ? paymentAmounts : null,
           bankAccountId: bankAccountId || null,
+          supplierAllocations: bankAccountId ? supplierAllocations : [],
           departureDate: formData.departureDate?.toISOString() || null,
           returnDate: formData.returnDate?.toISOString() || null,
           totalPrice: formData.totalPrice,
@@ -244,7 +270,7 @@ export default function NewSalePage() {
         </div>
         <div data-tour="form-actions" className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center justify-end gap-2 w-full sm:w-auto">
           <TemplateActions items={bookingItems} totalPrice={formData.totalPrice} notes={formData.notes} onApply={handleApplyTemplate} />
-          <Button onClick={handleSave} disabled={saving} variant="gradient" className="w-full sm:w-auto">
+          <Button onClick={() => handleSave()} disabled={saving} variant="gradient" className="w-full sm:w-auto">
             {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
             Crear Venta
           </Button>
@@ -419,7 +445,16 @@ export default function NewSalePage() {
               cash={formData.paymentType === 'CASH'}
               value={bankAccountId}
               onChange={setBankAccountId}
+              onAccountName={setBankAccountName}
             />
+            {bankAccountId && (
+              <SupplierAllocation
+                amount={formData.paymentType === 'CASH' ? formData.totalPrice : formData.downPayment || 0}
+                debts={formSupplierDebts}
+                value={supplierAllocations}
+                onChange={setSupplierAllocations}
+              />
+            )}
 
           </Card>
 
@@ -499,6 +534,42 @@ export default function NewSalePage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowClientModal(false)}>Cancelar</Button>
             <Button onClick={handleSaveClient} disabled={savingInline}>{savingInline && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}{editingClientId ? 'Guardar Cambios' : 'Crear Cliente'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Confirmacion: a donde va el dinero */}
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirma antes de crear la venta</DialogTitle>
+            <DialogDescription>Revisa a dónde va el dinero. Después solo se corrige desde Bancos.</DialogDescription>
+          </DialogHeader>
+          <MoneySummary
+            concept={formData.paymentType === 'CASH' ? 'Pago de contado' : 'Anticipo'}
+            clientName={clients.find((c) => c.id === formData.clientId)?.fullName}
+            amount={formData.paymentType === 'CASH' ? formData.totalPrice : formData.downPayment || 0}
+            accountName={bankAccountName || 'Cuenta seleccionada'}
+            allocations={supplierAllocations.map((a) => ({
+              name: formSupplierDebts.find((d) => d.supplierId === a.supplierId)?.name || 'Proveedor',
+              amount: a.amount,
+            }))}
+            extra={
+              formData.paymentType === 'CREDIT'
+                ? [`Resto a crédito: $${(formData.totalPrice - (formData.downPayment || 0)).toLocaleString('es-MX')} en ${formData.numberOfPayments} pago(s) ${formData.paymentFrequency === 'MENSUAL' ? 'mensuales' : 'quincenales'}.`]
+                : undefined
+            }
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmOpen(false)} disabled={saving}>Revisar</Button>
+            <Button
+              onClick={() => {
+                setConfirmOpen(false);
+                handleSave(true);
+              }}
+              disabled={saving}
+            >
+              Confirmar y crear venta
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

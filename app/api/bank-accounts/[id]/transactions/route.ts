@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSessionUser } from '@/lib/get-tenant';
 import { requireAccess, accessErrorResponse } from '@/lib/access';
 import { decryptAccountFields } from '@/lib/bank-fields';
+import { INITIAL_PAYMENT_REFS } from '@/lib/initial-payment';
 import { notifyActivity, formatMoney } from '@/lib/activity';
 import { prisma } from '@/lib/prisma';
 import { logAudit } from '@/lib/audit';
@@ -350,8 +351,10 @@ export async function PATCH(
         })
       );
 
-      // If linked to a booking payment, reverse the payment
-      if (transaction.bookingId) {
+      // Si es un abono de la venta, se revierte en el plan de pagos. El anticipo y el
+      // pago de contado NO son abonos del plan: solo vuelven a quedar "sin banco".
+      const isInitialPayment = (Object.values(INITIAL_PAYMENT_REFS) as string[]).includes(transaction.reference ?? '');
+      if (transaction.bookingId && !isInitialPayment) {
         // Get the booking payments
         const payments = await prisma.paymentPlan.findMany({
           where: { bookingId: transaction.bookingId },
@@ -395,6 +398,13 @@ export async function PATCH(
         prisma.bankAccount.update({
           where: { id: accountId },
           data: { currentBalance: { increment: transaction.amount } },
+        })
+      );
+      // Si era un pago a proveedor, se cancela tambien: la deuda vuelve a quedar pendiente
+      operations.push(
+        prisma.supplierPayment.updateMany({
+          where: { bankTransactionId: transaction.id, status: 'ACTIVE' },
+          data: { status: 'CANCELLED' },
         })
       );
     } else if (transaction.type === 'TRANSFER') {

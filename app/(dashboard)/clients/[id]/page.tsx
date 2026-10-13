@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DatePicker } from '@/components/ui/date-picker';
+import { format, parseISO } from 'date-fns';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { ArrowLeft, Save, Loader2, Trash2 } from 'lucide-react';
@@ -213,14 +215,15 @@ export default function EditClientPage() {
             </div>
 
             <div>
-              <Label htmlFor="birthDate">Fecha de Nacimiento</Label>
-              <Input
-                id="birthDate"
-                name="birthDate"
-                type="date"
-                value={formData.birthDate}
-                onChange={handleChange}
+              <Label>Fecha de Nacimiento</Label>
+              <DatePicker
+                value={formData.birthDate ? parseISO(formData.birthDate) : null}
+                onChange={(d) => setFormData({ ...formData, birthDate: d ? format(d, 'yyyy-MM-dd') : '' })}
                 disabled={saving}
+                placeholder="Selecciona la fecha de nacimiento"
+                fromYear={1920}
+                toYear={new Date().getFullYear()}
+                maxDate={new Date()}
               />
             </div>
 

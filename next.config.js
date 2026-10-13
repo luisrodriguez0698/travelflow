@@ -32,6 +32,8 @@ const nextConfig = {
   output: process.env.NEXT_OUTPUT_MODE,
   experimental: {
     outputFileTracingRoot: path.join(__dirname, '../'),
+    // instrumentation.ts: programador de recordatorios (gastos fijos)
+    instrumentationHook: true,
   },
   eslint: {
     ignoreDuringBuilds: true,

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useCan } from '@/hooks/use-can';
 import { InitialPaymentAccount } from '@/components/initial-payment-account';
+import { SupplierAllocation, allocationError, useSupplierDebts, type AllocationValue } from '@/components/supplier-allocation';
 
 export interface InitialPaymentInfo {
   amount: number;
@@ -32,6 +33,9 @@ export function InitialPaymentBanner({
   const { toast } = useToast();
   const [accountId, setAccountId] = useState('');
   const [saving, setSaving] = useState(false);
+  const [allocations, setAllocations] = useState<AllocationValue[]>([]);
+  const pendingRegistration = !!info && info.amount > 0 && !info.account;
+  const debts = useSupplierDebts(saleId, pendingRegistration);
 
   if (!info || info.amount <= 0) return null;
   const what = cash ? 'pago de contado' : 'anticipo';
@@ -47,12 +51,17 @@ export function InitialPaymentBanner({
   }
 
   const register = async () => {
+    const allocIssue = allocationError(allocations, debts, info.amount);
+    if (allocIssue) {
+      toast({ title: 'Pago a proveedores', description: allocIssue, variant: 'destructive' });
+      return;
+    }
     setSaving(true);
     try {
       const res = await fetch(`/api/sales/${saleId}/initial-payment`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bankAccountId: accountId }),
+        body: JSON.stringify({ bankAccountId: accountId, supplierAllocations: allocations }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error);
@@ -89,6 +98,9 @@ export function InitialPaymentBanner({
         </div>
       ) : (
         <p className="text-xs text-muted-foreground">Pide a alguien con permiso de registrar abonos que lo asigne.</p>
+      )}
+      {can('ventas', 'payments') && accountId && (
+        <SupplierAllocation amount={info.amount} debts={debts} value={allocations} onChange={setAllocations} />
       )}
     </Card>
   );

@@ -14,6 +14,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Bell, X, CheckCheck, Truck, Clock, AlertTriangle, ShoppingCart, Wallet, Landmark, Volume2, VolumeX, Activity, Trophy,
+  ReceiptText,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -59,6 +60,7 @@ const ACTIVITY_STYLE: Record<string, { icon: typeof ShoppingCart; className: str
   PAYMENT_RECEIVED: { icon: Wallet, className: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-400' },
   BANK_INCOME: { icon: Landmark, className: 'bg-violet-100 text-violet-600 dark:bg-violet-900/40 dark:text-violet-400' },
   GOAL_REACHED: { icon: Trophy, className: 'bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400' },
+  FIXED_EXPENSE: { icon: ReceiptText, className: 'bg-rose-100 text-rose-600 dark:bg-rose-900/40 dark:text-rose-400' },
 };
 
 function relativeTime(date: string) {

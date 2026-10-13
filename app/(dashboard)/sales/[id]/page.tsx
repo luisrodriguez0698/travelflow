@@ -49,6 +49,9 @@ import { es } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import { generateReceiptPdf } from '@/lib/generate-receipt-pdf';
 import { InitialPaymentBanner, type InitialPaymentInfo } from '@/components/initial-payment-banner';
+import { MoneySummary } from '@/components/money-summary';
+import { SaleCollections } from '@/components/sale-collections';
+import { SupplierAllocation, allocationError, useSupplierDebts, type AllocationValue } from '@/components/supplier-allocation';
 import { DatePicker } from '@/components/ui/date-picker';
 import { HistoryButton } from '@/components/record-history';
 import { useCan } from '@/hooks/use-can';
@@ -194,6 +197,11 @@ export default function SaleDetailPage() {
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<PaymentPlan | null>(null);
   const [paymentAmount, setPaymentAmount] = useState('');
+  // Parte del abono que se paga en ese momento a proveedores
+  const [paymentAllocations, setPaymentAllocations] = useState<AllocationValue[]>([]);
+  // Segundo paso del modal: resumen antes de registrar
+  const [paymentConfirming, setPaymentConfirming] = useState(false);
+  const supplierDebts = useSupplierDebts(id, isPaymentModalOpen);
   const [paymentNotes, setPaymentNotes] = useState('');
   const [editingDeadline, setEditingDeadline] = useState(false);
   const [deadlineValue, setDeadlineValue] = useState<Date | undefined>(undefined);
@@ -245,6 +253,8 @@ export default function SaleDetailPage() {
     setPaymentAmount(pendingAmount.toString());
     setPaymentNotes('');
     setSelectedBankAccountId('');
+    setPaymentAllocations([]);
+    setPaymentConfirming(false);
     setIsPaymentModalOpen(true);
   };
 
@@ -270,6 +280,12 @@ export default function SaleDetailPage() {
       return;
     }
 
+    const allocIssue = allocationError(paymentAllocations, supplierDebts, amount);
+    if (allocIssue) {
+      toast({ title: 'Pago a proveedores', description: allocIssue, variant: 'destructive' });
+      return;
+    }
+
     // Validar que no exceda el saldo total pendiente
     if (amount > remaining) {
       toast({
@@ -277,6 +293,11 @@ export default function SaleDetailPage() {
         description: `El monto máximo es el saldo total pendiente: $${remaining.toLocaleString('es-MX')}`,
         variant: 'destructive',
       });
+      return;
+    }
+
+    if (!paymentConfirming) {
+      setPaymentConfirming(true);
       return;
     }
 
@@ -290,10 +311,11 @@ export default function SaleDetailPage() {
           amount,
           notes: paymentNotes,
           bankAccountId: selectedBankAccountId,
+          supplierAllocations: paymentAllocations,
         }),
       });
 
-      if (!res.ok) throw new Error('Error');
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || '');
 
       const data = await res.json();
 
@@ -307,7 +329,7 @@ export default function SaleDetailPage() {
     } catch (error) {
       toast({
         title: 'Error',
-        description: 'No se pudo registrar el abono',
+        description: (error as Error).message || 'No se pudo registrar el abono',
         variant: 'destructive',
       });
     } finally {
@@ -833,6 +855,9 @@ export default function SaleDetailPage() {
       {/* Anticipo / pago de contado: en que banco entro */}
       <InitialPaymentBanner saleId={sale.id} cash={isCash} info={sale.initialPayment} onRegistered={fetchSale} />
 
+      {/* Cobros registrados: corregir cuenta/proveedor o anular en un paso */}
+      <SaleCollections saleId={sale.id} clientName={sale.client?.fullName} accounts={bankAccounts} refreshKey={sale} onChanged={fetchSale} />
+
       {/* Financial Summary */}
       {isCash ? (
         <Card className="p-6 bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800">
@@ -1024,6 +1049,24 @@ export default function SaleDetailPage() {
             </DialogDescription>
           </DialogHeader>
 
+          {paymentConfirming ? (
+            <div className="py-4">
+              <MoneySummary
+                concept="Abono"
+                clientName={sale.client?.fullName}
+                amount={parseFloat(paymentAmount) || 0}
+                accountName={(() => {
+                  const acc = bankAccounts.find((a) => a.id === selectedBankAccountId);
+                  return acc ? `${acc.referenceName} · ${acc.bankName}` : 'Cuenta seleccionada';
+                })()}
+                allocations={paymentAllocations.map((a) => ({
+                  name: supplierDebts.find((d) => d.supplierId === a.supplierId)?.name || 'Proveedor',
+                  amount: a.amount,
+                }))}
+                extra={[`Se aplica desde el pago #${selectedPayment?.paymentNumber}; si sobra, pasa a los siguientes.`]}
+              />
+            </div>
+          ) : (
           <div className="space-y-4 py-4">
             <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
               <p className="text-sm text-blue-700 dark:text-blue-300">
@@ -1066,6 +1109,12 @@ export default function SaleDetailPage() {
                 Mínimo: $1 | Máximo: ${remaining.toLocaleString('es-MX')} (para liquidar)
               </p>
             </div>
+            <SupplierAllocation
+              amount={parseFloat(paymentAmount) || 0}
+              debts={supplierDebts}
+              value={paymentAllocations}
+              onChange={setPaymentAllocations}
+            />
             <div className="space-y-2">
               <Label>Notas (opcional)</Label>
               <Textarea
@@ -1077,17 +1126,19 @@ export default function SaleDetailPage() {
             </div>
           </div>
 
+          )}
+
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setIsPaymentModalOpen(false)}
+              onClick={() => (paymentConfirming ? setPaymentConfirming(false) : setIsPaymentModalOpen(false))}
               disabled={saving}
             >
-              Cancelar
+              {paymentConfirming ? 'Volver' : 'Cancelar'}
             </Button>
             <Button onClick={handleRegisterPayment} disabled={saving}>
               {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              Registrar Abono
+              {paymentConfirming ? 'Confirmar abono' : 'Continuar'}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -244,6 +244,16 @@ export const SECTION_TOURS: TourDef[] = [
     ],
   },
   {
+    id: 'expenses',
+    title: 'Gastos fijos',
+    path: '/expenses',
+    module: 'gastos',
+    steps: [
+      { element: 'page-action', title: 'Nuevo gasto', description: 'Luz, agua, renta, internet… eliges el tipo, el monto, cada cuándo se paga y cuántos días antes quieres el aviso.' },
+      { element: 'page-list', title: 'Pagar y recordatorios', description: 'Te avisamos en la campana y en el celular antes de que venza. Con <b>Pagar</b> se descuenta de la cuenta y pasa al siguiente vencimiento.' },
+    ],
+  },
+  {
     id: 'suppliers',
     title: 'Proveedores',
     path: '/suppliers',

@@ -52,6 +52,8 @@ model Tenant {
   packageTemplates PackageTemplate[]
   activityNotifications ActivityNotification[]
   raffles          Raffle[]
+  fixedExpenses    FixedExpense[]
+  fixedExpensePayments FixedExpensePayment[]
 
   @@map("tenants")
 }
@@ -680,6 +682,7 @@ model BankAccount {
   transactions     BankTransaction[]
   supplierPayments SupplierPayment[]
   raffles          Raffle[]
+  fixedExpenses    FixedExpense[]
 
   @@index([tenantId])
   @@index([tenantId, isActive])
@@ -696,6 +699,8 @@ model BankTransaction {
   reference            String?  // Referencia opcional
   bookingId            String?  // Vinculado a una venta (opcional)
   destinationAccountId String?  // Para transferencias: cuenta destino
+  // Pago a proveedor hecho desde un cobro: id del ingreso (anticipo/abono) de donde salio
+  sourceTransactionId  String?
   status               String   @default("ACTIVE") // ACTIVE, CANCELLED
   date                 DateTime @default(now())
   createdAt            DateTime @default(now())
@@ -709,6 +714,7 @@ model BankTransaction {
   @@index([tenantId])
   @@index([bankAccountId])
   @@index([bookingId])
+  @@index([sourceTransactionId])
   @@map("bank_transactions")
 }
 
@@ -877,4 +883,57 @@ model SalesGoal {
   @@index([tenantId])
   @@index([tenantId, year, month])
   @@map("sales_goals")
+}
+
+// ─── Gastos fijos (luz, agua, renta...) con recordatorios ────────────────────
+model FixedExpense {
+  id               String    @id @default(cuid())
+  tenantId         String
+  name             String
+  category         String    // LUZ, AGUA, RENTA, INTERNET, TELEFONO, GAS, NOMINA, IMPUESTOS, SEGURO, SOFTWARE, MANTENIMIENTO, OTRO
+  amount           Float
+  frequency        String    @default("MONTHLY") // WEEKLY, BIWEEKLY, MONTHLY, BIMONTHLY, QUARTERLY, SEMIANNUAL, YEARLY
+  dueDay           Int?      // dia del mes en que vence (frecuencias por meses)
+  nextDueDate      DateTime
+  notify           Boolean   @default(true)
+  remindDaysBefore Int       @default(3)
+  bankAccountId    String?   // cuenta con la que normalmente se paga
+  notes            String?   @db.Text
+  isActive         Boolean   @default(true)
+  // Control de recordatorios (para no repetir el mismo aviso)
+  lastReminderDue   DateTime?
+  lastReminderStage String?  // BEFORE, DUE, OVERDUE
+  lastReminderAt    DateTime?
+  createdBy        String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  tenant      Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  bankAccount BankAccount?          @relation(fields: [bankAccountId], references: [id], onDelete: SetNull)
+  payments    FixedExpensePayment[]
+
+  @@index([tenantId, isActive])
+  @@index([nextDueDate])
+  @@map("fixed_expenses")
+}
+
+model FixedExpensePayment {
+  id                String   @id @default(cuid())
+  tenantId          String
+  fixedExpenseId    String
+  dueDate           DateTime // vencimiento que se pago
+  amount            Float
+  paidAt            DateTime @default(now())
+  bankAccountId     String?
+  bankTransactionId String?  // egreso registrado en Bancos (si se eligio cuenta)
+  status            String   @default("ACTIVE") // ACTIVE, CANCELLED
+  notes             String?  @db.Text
+  createdBy         String?
+  createdAt         DateTime @default(now())
+
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  fixedExpense FixedExpense @relation(fields: [fixedExpenseId], references: [id], onDelete: Cascade)
+
+  @@index([fixedExpenseId])
+  @@map("fixed_expense_payments")
 }

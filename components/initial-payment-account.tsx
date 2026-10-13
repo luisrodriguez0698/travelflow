@@ -23,11 +23,14 @@ export function InitialPaymentAccount({
   cash,
   value,
   onChange,
+  onAccountName,
 }: {
   amount: number;
   cash: boolean;
   value: string;
   onChange: (id: string) => void;
+  /** Nombre legible de la cuenta elegida (para el resumen antes de guardar) */
+  onAccountName?: (name: string) => void;
 }) {
   const can = useCan();
   const [accounts, setAccounts] = useState<Account[] | null>(null);
@@ -38,6 +41,12 @@ export function InitialPaymentAccount({
       .then((data) => setAccounts(Array.isArray(data) ? data : []))
       .catch(() => setAccounts([]));
   }, []);
+
+  useEffect(() => {
+    const acc = accounts?.find((a) => a.id === value);
+    if (onAccountName) onAccountName(acc ? `${acc.referenceName} · ${acc.bankName}` : '');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accounts, value]);
 
   if (amount <= 0) return null;
   const what = cash ? 'el pago de contado' : 'el anticipo';

@@ -7,6 +7,7 @@ import { notifyActivity, formatMoney } from '@/lib/activity';
 import { checkGoalReached } from '@/lib/goals';
 import { addAutoTicketsForSale } from '@/lib/raffles';
 import { resolveAgent } from '@/lib/booking-agent';
+import { allocationPermissionError, debtsFromFormItems, paySuppliersFromIncome, validateAllocations, type Allocation, type SupplierDebt } from '@/lib/supplier-allocation';
 import { initialPaymentAmount, registerInitialPayment, validateInitialPaymentAccount } from '@/lib/initial-payment';
 import { prisma } from '@/lib/prisma';
 
@@ -136,6 +137,18 @@ export async function POST(request: NextRequest) {
       const check = await validateInitialPaymentAccount(access, body.bankAccountId);
       if ('error' in check) return NextResponse.json({ error: check.error }, { status: check.status });
       initialAccount = check.bankAccountId;
+    }
+
+    // Parte del anticipo / pago de contado que se paga en ese momento a proveedores
+    let supplierDebts: SupplierDebt[] = [];
+    let allocations: Allocation[] = [];
+    if (initialAccount && Array.isArray(body.supplierAllocations) && body.supplierAllocations.length) {
+      supplierDebts = await debtsFromFormItems(items, tenantId);
+      const alloc = validateAllocations(body.supplierAllocations, supplierDebts, initialAmount);
+      if ('error' in alloc) return NextResponse.json({ error: alloc.error }, { status: 400 });
+      const permError = allocationPermissionError(access, alloc.allocations);
+      if (permError) return NextResponse.json({ error: permError }, { status: 403 });
+      allocations = alloc.allocations;
     }
 
     const booking = await prisma.booking.create({
@@ -296,7 +309,17 @@ export async function POST(request: NextRequest) {
 
     if (initialAccount) {
       const client = await prisma.client.findUnique({ where: { id: booking.clientId }, select: { fullName: true } });
-      await registerInitialPayment({ tenantId, booking, bankAccountId: initialAccount, clientName: client?.fullName || 'Cliente' });
+      const income = await registerInitialPayment({ tenantId, booking, bankAccountId: initialAccount, clientName: client?.fullName || 'Cliente' });
+      await paySuppliersFromIncome({
+        sourceTransactionId: income?.id,
+        access,
+        bookingId: booking.id,
+        bankAccountId: initialAccount,
+        allocations,
+        debts: supplierDebts,
+        source: booking.paymentType === 'CASH' ? 'pago de contado' : 'anticipo',
+        user: sessionUser ? { id: sessionUser.id, name: sessionUser.name } : null,
+      });
     }
 
     const result = await prisma.booking.findUnique({

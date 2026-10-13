@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAccess, accessErrorResponse } from '@/lib/access';
 import { bookingDestination } from '@/lib/booking-destination';
 import { findInitialPayment, initialPaymentAmount } from '@/lib/initial-payment';
+import { allocationPermissionError, bookingSupplierDebts, paySuppliersFromIncome, validateAllocations } from '@/lib/supplier-allocation';
 import { getSessionUser } from '@/lib/get-tenant';
 import { notifyActivity, formatMoney } from '@/lib/activity';
 import { prisma } from '@/lib/prisma';
@@ -52,6 +53,13 @@ export async function POST(
     if (!bankAccount) {
       return NextResponse.json({ error: 'Cuenta bancaria no encontrada' }, { status: 404 });
     }
+
+    // Parte del abono que se paga en ese momento a proveedores (se valida antes de tocar nada)
+    const supplierDebts = await bookingSupplierDebts(bookingId, tenantId);
+    const alloc = validateAllocations(body.supplierAllocations, supplierDebts, amount);
+    if ('error' in alloc) return NextResponse.json({ error: alloc.error }, { status: 400 });
+    const permError = allocationPermissionError(access, alloc.allocations);
+    if (permError) return NextResponse.json({ error: permError }, { status: 403 });
 
     // Get all pending payments ordered by payment number
     const allPayments = await prisma.paymentPlan.findMany({
@@ -113,7 +121,7 @@ export async function POST(
       include: { client: true, destination: true },
     });
 
-    await prisma.$transaction([
+    const [incomeTx] = await prisma.$transaction([
       prisma.bankTransaction.create({
         data: {
           tenantId,
@@ -133,6 +141,16 @@ export async function POST(
     ]);
 
     const actor = await getSessionUser();
+    await paySuppliersFromIncome({
+      sourceTransactionId: incomeTx.id,
+      access,
+      bookingId,
+      bankAccountId,
+      allocations: alloc.allocations,
+      debts: supplierDebts,
+      source: 'abono',
+      user: actor ? { id: actor.id, name: actor.name } : null,
+    });
     if (actor) {
       await notifyActivity({
         tenantId,
