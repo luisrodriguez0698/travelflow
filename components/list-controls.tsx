@@ -28,10 +28,13 @@ export function PeriodSelect({ value, onChange, className }: { value: Range; onC
   return (
     <Select value={current} onValueChange={(k) => k !== 'custom' && onChange(PERIODS.find((p) => p.key === k)!.range())}>
       <SelectTrigger className={cn('w-full sm:w-44', className)}>
-        <span className="flex items-center gap-2">
-          <CalendarRange className="w-4 h-4 text-muted-foreground" />
-          <SelectValue />
-        </span>
+        {/* div (no span): el SelectTrigger recorta sus <span> hijos y apilaba icono y texto */}
+        <div className="flex items-center gap-2 min-w-0">
+          <CalendarRange className="w-4 h-4 text-muted-foreground shrink-0" />
+          <span className="truncate">
+            <SelectValue />
+          </span>
+        </div>
       </SelectTrigger>
       <SelectContent>
         {PERIODS.map((p) => (
@@ -134,10 +137,12 @@ export function SortSelect<K extends string>({
       }}
     >
       <SelectTrigger className={cn('w-full sm:w-56', className)}>
-        <span className="flex items-center gap-2 min-w-0">
+        <div className="flex items-center gap-2 min-w-0">
           <ArrowUpDown className="w-4 h-4 text-muted-foreground shrink-0" />
-          <SelectValue />
-        </span>
+          <span className="truncate">
+            <SelectValue />
+          </span>
+        </div>
       </SelectTrigger>
       <SelectContent>
         {options.flatMap((o) => [

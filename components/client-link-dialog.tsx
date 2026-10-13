@@ -14,7 +14,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useCan } from '@/hooks/use-can';
 
-interface ShareInfo {
+export interface ShareInfo {
   enabled: boolean;
   url: string | null;
   pinRequired: boolean;
@@ -26,20 +26,40 @@ interface ShareInfo {
   lastViewedAt: string | null;
 }
 
-function whatsappTo(phone: string | null, text: string) {
+export function whatsappTo(phone: string | null, text: string) {
   let digits = (phone ?? '').replace(/\D/g, '');
   if (digits.length === 10) digits = `52${digits}`;
   return `https://wa.me/${digits}?text=${encodeURIComponent(text)}`;
+}
+
+/** Mensaje de WhatsApp con el link (y la instruccion del PIN si aplica). */
+export function shareMessage(info: ShareInfo) {
+  const firstName = info.clientName.split(/\s+/)[0] ?? '';
+  return info.url
+    ? `¡Hola ${firstName}! ✈️ Aquí puedes ver tu viaje y tus pagos, siempre actualizados:\n${info.url}${
+        info.pinRequired ? '\n\nPara entrar escribe los 4 últimos dígitos de tu teléfono.' : ''
+      }`
+    : '';
 }
 
 /**
  * Link del cliente: pagina con su viaje y pagos (siempre actualizada).
  * Activar/desactivar, PIN con los 4 ultimos digitos, copiar, WhatsApp y regenerar.
  */
-export function ClientLinkButton({ saleId }: { saleId: string }) {
+export function ClientLinkDialog({
+  saleId,
+  open,
+  onOpenChange: setOpen,
+  onChanged,
+}: {
+  saleId: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  /** Avisar cuando se activa/desactiva (p. ej. para refrescar la tabla) */
+  onChanged?: () => void;
+}) {
   const can = useCan();
   const { toast } = useToast();
-  const [open, setOpen] = useState(false);
   const [info, setInfo] = useState<ShareInfo | null>(null);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -65,6 +85,7 @@ export function ClientLinkButton({ saleId }: { saleId: string }) {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error);
       setInfo(data);
+      onChanged?.();
       if (action === 'regenerate') toast({ title: 'Link nuevo generado', description: 'El anterior ya no funciona.' });
     } catch (err) {
       toast({ title: 'Error', description: (err as Error).message || 'No se pudo actualizar', variant: 'destructive' });
@@ -82,19 +103,10 @@ export function ClientLinkButton({ saleId }: { saleId: string }) {
   };
 
   const firstName = info?.clientName.split(/\s+/)[0] ?? '';
-  const message = info?.url
-    ? `¡Hola ${firstName}! ✈️ Aquí puedes ver tu viaje y tus pagos, siempre actualizados:\n${info.url}${
-        info.pinRequired ? '\n\nPara entrar escribe los 4 últimos dígitos de tu teléfono.' : ''
-      }`
-    : '';
+  const message = info ? shareMessage(info) : '';
 
   return (
     <>
-      <Button variant="outline" onClick={() => setOpen(true)}>
-        <Link2 className="w-4 h-4 mr-2" />
-        Link para el cliente
-      </Button>
-
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-lg overflow-hidden">
           <DialogHeader>
@@ -184,6 +196,20 @@ export function ClientLinkButton({ saleId }: { saleId: string }) {
           )}
         </DialogContent>
       </Dialog>
+    </>
+  );
+}
+
+/** Boton "Link para el cliente" (detalle de la venta). */
+export function ClientLinkButton({ saleId }: { saleId: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Button variant="outline" onClick={() => setOpen(true)}>
+        <Link2 className="w-4 h-4 mr-2" />
+        Link para el cliente
+      </Button>
+      <ClientLinkDialog saleId={saleId} open={open} onOpenChange={setOpen} />
     </>
   );
 }

@@ -29,6 +29,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Plus, Search, Pencil, Trash2, ShoppingCart, Loader2, Eye, TrendingUp, Check, ChevronsUpDown, ChevronDown, DollarSign, X, Filter, Hotel, UserPlus, Target, Plane, MapPin } from 'lucide-react';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { PeriodSelect, SortableHead, SortSelect, useListSort } from '@/components/list-controls';
+import { SaleLinkMenu } from '@/components/sale-link-menu';
 import { DateRange } from 'react-day-picker';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
@@ -98,6 +99,8 @@ interface Sale {
   supplierDeadline?: string;
   createdBy?: string;
   creatorName?: string;
+  shareEnabled?: boolean;
+  shareToken?: string | null;
   client: Client;
   destination?: Destination;
   supplier?: Supplier;
@@ -802,6 +805,7 @@ export default function SalesPage() {
                 </div>
 
                 <div className="flex items-center justify-end gap-2 pt-1">
+                  <SaleLinkMenu saleId={sale.id} active={!!sale.shareEnabled && !!sale.shareToken} onChanged={fetchSales} />
                   <Link href={`/sales/${sale.id}`}>
                     <Button size="sm" variant="outline"><Eye className="w-4 h-4 mr-1" />Ver</Button>
                   </Link>
@@ -894,6 +898,7 @@ export default function SalesPage() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
+                      <SaleLinkMenu saleId={sale.id} active={!!sale.shareEnabled && !!sale.shareToken} onChanged={fetchSales} />
                       <Link href={`/sales/${sale.id}`}>
                         <Button size="sm" variant="outline" title="Ver detalle"><Eye className="w-4 h-4" /></Button>
                       </Link>
