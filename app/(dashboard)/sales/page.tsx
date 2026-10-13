@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { PhoneInput } from '@/components/ui/phone-input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
@@ -27,6 +28,7 @@ import { Switch } from '@/components/ui/switch';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Plus, Search, Pencil, Trash2, ShoppingCart, Loader2, Eye, TrendingUp, Check, ChevronsUpDown, ChevronDown, DollarSign, X, Filter, Hotel, UserPlus, Target, Plane, MapPin } from 'lucide-react';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
+import { PeriodSelect, SortableHead, SortSelect, useListSort } from '@/components/list-controls';
 import { DateRange } from 'react-day-picker';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
@@ -102,11 +104,16 @@ interface Sale {
   items?: { type: string }[];
 }
 
-const datePresets = [
-  { label: 'Este mes', getRange: () => ({ from: startOfMonth(new Date()), to: endOfMonth(new Date()) }) },
-  { label: 'Mes pasado', getRange: () => ({ from: startOfMonth(subMonths(new Date(), 1)), to: endOfMonth(subMonths(new Date(), 1)) }) },
-  { label: 'Últimos 3 meses', getRange: () => ({ from: startOfMonth(subMonths(new Date(), 2)), to: endOfMonth(new Date()) }) },
-  { label: 'Este año', getRange: () => ({ from: startOfYear(new Date()), to: endOfMonth(new Date()) }) },
+type SaleSortField = 'createdAt' | 'client' | 'departure' | 'paymentType' | 'total' | 'status' | 'agent';
+
+const SALE_SORT_OPTIONS: { field: SaleSortField; label: string; ascLabel?: string; descLabel?: string }[] = [
+  { field: 'createdAt', label: 'Fecha de creación', ascLabel: '(más antiguas)', descLabel: '(más recientes)' },
+  { field: 'client', label: 'Cliente' },
+  { field: 'departure', label: 'Salida', ascLabel: '(más próximas)', descLabel: '(más lejanas)' },
+  { field: 'total', label: 'Total', ascLabel: '(menor a mayor)', descLabel: '(mayor a menor)' },
+  { field: 'paymentType', label: 'Tipo' },
+  { field: 'status', label: 'Estado' },
+  { field: 'agent', label: 'Agente' },
 ];
 
 interface FormData {
@@ -292,8 +299,27 @@ export default function SalesPage() {
     setLoading(false);
   };
 
-  const totalPages = Math.ceil(sales.length / itemsPerPage);
-  const paginatedSales = sales.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  // Orden de la lista (en el navegador: la lista ya viene completa del periodo)
+  const { sorted: sortedSales, sort: saleSort, setSort: setSaleSort, toggle: toggleSaleSort } = useListSort<Sale, SaleSortField>(
+    sales,
+    {
+      createdAt: (s) => (s.createdAt ? new Date(s.createdAt) : null),
+      client: (s) => s.client?.fullName,
+      departure: (s) => (s.departureDate ? new Date(s.departureDate) : null),
+      paymentType: (s) => (s.paymentType === 'CASH' ? 'Contado' : 'Crédito'),
+      total: (s) => s.totalPrice,
+      status: (s) => s.status,
+      agent: (s) => s.creatorName,
+    },
+    { field: 'createdAt', dir: 'desc' }
+  );
+  const onSaleSort = (field: SaleSortField) => {
+    toggleSaleSort(field);
+    setCurrentPage(1);
+  };
+
+  const totalPages = Math.ceil(sortedSales.length / itemsPerPage);
+  const paginatedSales = sortedSales.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   const hasActiveFilters = filterClientId || folioSearch.trim();
 
@@ -674,21 +700,13 @@ export default function SalesPage() {
       {/* Filters */}
       <Card className="p-4">
         <div className="space-y-3">
-          {/* Date range + presets */}
-          <div className="flex flex-wrap items-center gap-3">
-            <DateRangePicker value={dateRange} onChange={setDateRange} />
-            <div className="flex flex-wrap gap-2">
-              {datePresets.map((preset) => (
-                <Button key={preset.label} variant="outline" size="sm" onClick={() => setDateRange(preset.getRange())}>
-                  {preset.label}
-                </Button>
-              ))}
-            </div>
+          {/* Fechas: rango + periodo rapido */}
+          <div className="flex flex-col sm:flex-row gap-3">
+            <DateRangePicker value={dateRange} onChange={setDateRange} className="w-full sm:w-auto" />
+            <PeriodSelect value={dateRange} onChange={setDateRange} />
           </div>
-          {/* Entity filters + folio search */}
-          <div className="flex flex-wrap items-center gap-3">
-            {/* Folio search */}
-            <div className="relative w-44">
+          {/* Busqueda por folio: fila completa */}
+            <div className="relative w-full">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
               <Input data-tour="page-filters"
                 placeholder="Buscar folio..."
@@ -697,10 +715,12 @@ export default function SalesPage() {
                 className="pl-10 h-9"
               />
             </div>
+          {/* Cliente, orden y limpiar */}
+          <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3">
             {/* Client filter */}
             <Popover open={filterClientOpen} onOpenChange={setFilterClientOpen}>
               <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className={cn('justify-between gap-2 min-w-[160px]', filterClientId && 'border-blue-500 bg-blue-50 dark:bg-blue-950/20')}>
+                <Button variant="outline" size="sm" className={cn('justify-between gap-2 w-full sm:w-auto sm:min-w-[160px] h-9', filterClientId && 'border-blue-500 bg-blue-50 dark:bg-blue-950/20')}>
                   <span className="truncate max-w-[120px]">
                     {filterClientId ? clients.find((c) => c.id === filterClientId)?.fullName || 'Cliente' : 'Cliente'}
                   </span>
@@ -728,6 +748,14 @@ export default function SalesPage() {
                 </Command>
               </PopoverContent>
             </Popover>
+            <SortSelect
+              options={SALE_SORT_OPTIONS}
+              sort={saleSort}
+              onChange={(v) => {
+                setSaleSort(v);
+                setCurrentPage(1);
+              }}
+            />
             {/* Clear filters */}
             {hasActiveFilters && (
               <Button variant="ghost" size="sm" onClick={clearFilters} className="text-muted-foreground">
@@ -799,14 +827,14 @@ export default function SalesPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Folio</TableHead>
-                <TableHead>Fecha Creación</TableHead>
-                <TableHead>Cliente</TableHead>
+                <SortableHead label="Fecha Creación" field="createdAt" sort={saleSort} onSort={onSaleSort} />
+                <SortableHead label="Cliente" field="client" sort={saleSort} onSort={onSaleSort} />
                 <TableHead>Servicios</TableHead>
-                <TableHead>Salida</TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead className="text-right">Total</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead className="text-center">Agente</TableHead>
+                <SortableHead label="Salida" field="departure" sort={saleSort} onSort={onSaleSort} />
+                <SortableHead label="Tipo" field="paymentType" sort={saleSort} onSort={onSaleSort} />
+                <SortableHead label="Total" field="total" sort={saleSort} onSort={onSaleSort} className="text-right" />
+                <SortableHead label="Estado" field="status" sort={saleSort} onSort={onSaleSort} />
+                <SortableHead label="Agente" field="agent" sort={saleSort} onSort={onSaleSort} className="text-center" />
                 <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
@@ -1480,7 +1508,7 @@ export default function SalesPage() {
             </div>
             <div className="space-y-2">
               <Label>Teléfono</Label>
-              <Input value={newClient.phone} onChange={(e) => setNewClient((p) => ({ ...p, phone: e.target.value }))} placeholder="Teléfono" />
+              <PhoneInput value={newClient.phone} onChange={(v) => setNewClient((p) => ({ ...p, phone: v }))} />
             </div>
             <div className="space-y-2">
               <Label>Email</Label>

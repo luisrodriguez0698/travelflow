@@ -22,6 +22,8 @@ export const metadata: Metadata = {
     statusBarStyle: 'default',
     title: 'TravelFlow',
   },
+  // Chrome pide esta etiqueta ademas de la de Apple (apple-mobile-web-app-capable)
+  other: { 'mobile-web-app-capable': 'yes' },
   openGraph: {
     title: 'TravelFlow - Gestión de Agencias de Viajes',
     description: 'SaaS multitenant para la gestión operativa de agencias de viajes',

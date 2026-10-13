@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAccess, accessErrorResponse } from '@/lib/access';
 import { getSessionUser } from '@/lib/get-tenant';
 import { prisma } from '@/lib/prisma';
+import { creatorOptions, creatorWhere, idsSortedByCreator, inIdOrder, parseSort, userNames } from '@/lib/list-query';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,19 +17,32 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search') || '';
     const skip = (page - 1) * limit;
 
-    const where: any = {
-      tenantId,
-      ...(search
-        ? {
-            OR: [
-              { name: { contains: search, mode: 'insensitive' as const } },
-              { email: { contains: search, mode: 'insensitive' as const } },
-              { phone: { contains: search, mode: 'insensitive' as const } },
-              { serviceType: { contains: search, mode: 'insensitive' as const } },
-            ],
-          }
-        : {}),
-    };
+    // Opciones del filtro "Creado por"
+    if (searchParams.get('creators') === 'true') {
+      const groups = await prisma.supplier.groupBy({ by: ['createdBy'], where: { tenantId }, _count: { _all: true } });
+      return NextResponse.json(await creatorOptions(groups, tenantId));
+    }
+
+    const and: object[] = [];
+    if (search) {
+      and.push({
+        OR: [
+          { name: { contains: search, mode: 'insensitive' as const } },
+          { email: { contains: search, mode: 'insensitive' as const } },
+          { phone: { contains: search, mode: 'insensitive' as const } },
+          { serviceType: { contains: search, mode: 'insensitive' as const } },
+        ],
+      });
+    }
+    const serviceType = searchParams.get('serviceType');
+    if (serviceType) and.push({ serviceType });
+    const byCreator = creatorWhere(searchParams);
+    if (byCreator) and.push(byCreator);
+    const where = { tenantId, ...(and.length ? { AND: and } : {}) };
+    const sort = parseSort(searchParams, ['name', 'phone', 'email', 'serviceType', 'createdBy', 'createdAt'] as const, {
+      field: 'createdAt',
+      dir: 'desc',
+    });
 
     if (all) {
       const suppliers = await prisma.supplier.findMany({
@@ -39,25 +53,29 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(suppliers);
     }
 
-    const [suppliers, total] = await Promise.all([
-      prisma.supplier.findMany({
-        where,
-        orderBy: { createdAt: 'desc' },
-        skip,
-        take: limit,
-      }),
-      prisma.supplier.count({ where }),
-    ]);
+    let suppliers;
+    let total: number;
+    if (sort.field === 'createdBy') {
+      const rows = await prisma.supplier.findMany({ where, select: { id: true, createdBy: true, name: true } });
+      const sorted = await idsSortedByCreator(rows.map((r) => ({ ...r, label: r.name })), tenantId, sort.dir, skip, limit);
+      total = sorted.total;
+      suppliers = inIdOrder(await prisma.supplier.findMany({ where: { id: { in: sorted.pageIds } } }), sorted.pageIds);
+    } else {
+      const orderBy =
+        sort.field === 'phone' || sort.field === 'email'
+          ? [{ [sort.field]: { sort: sort.dir, nulls: 'last' as const } }, { name: 'asc' as const }]
+          : sort.field === 'serviceType'
+            ? [{ serviceType: sort.dir }, { name: 'asc' as const }]
+            : sort.field === 'name'
+              ? [{ name: sort.dir }]
+              : [{ createdAt: sort.dir }];
+      [suppliers, total] = await Promise.all([
+        prisma.supplier.findMany({ where, orderBy, skip, take: limit }),
+        prisma.supplier.count({ where }),
+      ]);
+    }
 
-    // Fetch creator names
-    const creatorIds = [...new Set(suppliers.map((s) => s.createdBy).filter(Boolean))] as string[];
-    const creators = creatorIds.length > 0
-      ? await prisma.user.findMany({
-          where: { id: { in: creatorIds } },
-          select: { id: true, name: true, email: true },
-        })
-      : [];
-    const creatorMap = Object.fromEntries(creators.map((u) => [u.id, u.name || u.email || 'Usuario']));
+    const creatorMap = await userNames(suppliers.map((s) => s.createdBy), tenantId);
 
     return NextResponse.json({
       data: suppliers.map((s) => ({

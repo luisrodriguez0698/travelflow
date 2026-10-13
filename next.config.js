@@ -22,6 +22,13 @@ const withPWA = require('@ducanh2912/next-pwa').default({
         handler: 'NetworkOnly',
         method: 'GET',
       },
+      {
+        // Manifest de la app: siempre el del servidor (una copia vieja en cache
+        // provocaba "Manifest: Line 1, column 1, Syntax error")
+        urlPattern: ({ url }) => url.pathname === '/manifest.json',
+        handler: 'NetworkOnly',
+        method: 'GET',
+      },
     ],
   },
 });

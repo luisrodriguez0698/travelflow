@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { PhoneInput } from '@/components/ui/phone-input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
@@ -528,7 +529,7 @@ export default function NewSalePage() {
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2"><Label>Nombre completo *</Label><Input value={newClient.fullName} onChange={(e) => setNewClient(p => ({ ...p, fullName: e.target.value }))} placeholder="Nombre completo" /></div>
-            <div className="space-y-2"><Label>Telefono</Label><Input value={newClient.phone} onChange={(e) => setNewClient(p => ({ ...p, phone: e.target.value }))} placeholder="Telefono" /></div>
+            <div className="space-y-2"><Label>Telefono</Label><PhoneInput value={newClient.phone} onChange={(v) => setNewClient(p => ({ ...p, phone: v }))} /></div>
             <div className="space-y-2"><Label>Email</Label><Input value={newClient.email} onChange={(e) => setNewClient(p => ({ ...p, email: e.target.value }))} placeholder="Email (opcional)" /></div>
           </div>
           <DialogFooter>

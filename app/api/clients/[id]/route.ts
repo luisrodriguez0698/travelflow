@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { phoneError } from '@/lib/phone';
 import { requireAccess, accessErrorResponse } from '@/lib/access';
 import { prisma } from '@/lib/prisma';
 
@@ -50,6 +51,12 @@ async function updateClient(
         { error: 'El nombre es requerido' },
         { status: 400 }
       );
+    }
+
+    // Telefono con clave de pais ("+52 9611234567"): debe tener los digitos del pais
+    const phoneIssue = phoneError(phone);
+    if (phoneIssue) {
+      return NextResponse.json({ error: `Teléfono: ${phoneIssue}` }, { status: 400 });
     }
 
     const client = await prisma.client.updateMany({

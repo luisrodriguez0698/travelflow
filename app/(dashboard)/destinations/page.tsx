@@ -23,6 +23,8 @@ import { CreatorHistoryButton } from '@/components/record-history';
 import { Plus, Search, Pencil, Trash2, MapPin, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useCan } from '@/hooks/use-can';
+import { CreatorFilter, type CreatorOption } from '@/components/creator-filter';
+import { SortableHead, SortSelect, type SortState } from '@/components/list-controls';
 import { PageSkeleton } from '@/components/skeletons';
 import { EmptyState } from '@/components/empty-state';
 
@@ -42,6 +44,16 @@ interface Destination {
   creatorName?: string | null;
 }
 
+type DestSortField = 'name' | 'season' | 'sales' | 'createdBy' | 'createdAt';
+
+const DEST_SORT_OPTIONS: { field: DestSortField; label: string; ascLabel?: string; descLabel?: string }[] = [
+  { field: 'name', label: 'Destino' },
+  { field: 'season', label: 'Temporada' },
+  { field: 'sales', label: 'Ventas', ascLabel: '(menos a más)', descLabel: '(más a menos)' },
+  { field: 'createdBy', label: 'Creado por' },
+  { field: 'createdAt', label: 'Fecha de alta', ascLabel: '(más antiguos)', descLabel: '(más recientes)' },
+];
+
 export default function DestinationsPage() {
   const can = useCan();
   const [destinations, setDestinations] = useState<Destination[]>([]);
@@ -54,6 +66,20 @@ export default function DestinationsPage() {
   const [saving, setSaving] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
+  // Filtro "Creado por" y orden (los aplica el servidor, con la paginacion)
+  const [creatorFilter, setCreatorFilter] = useState<string[]>([]);
+  const [creatorOptions, setCreatorOptions] = useState<CreatorOption[]>([]);
+  useEffect(() => {
+    fetch('/api/destinations?creators=true')
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d) => setCreatorOptions(Array.isArray(d) ? d : []))
+      .catch(() => {});
+  }, []);
+  const [sort, setSort] = useState<SortState<DestSortField>>({ field: 'name', dir: 'asc' });
+  const onSort = (field: DestSortField) => {
+    setSort((s) => (s.field === field ? { field, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { field, dir: 'asc' }));
+    setPage(1);
+  };
   const [limit, setLimit] = useState(20);
   const [pagination, setPagination] = useState({ total: 0, totalPages: 1 });
 
@@ -64,6 +90,9 @@ export default function DestinationsPage() {
       if (search) params.set('search', search);
       params.set('page', String(currentPage));
       params.set('limit', String(limit));
+      params.set('sort', sort.field);
+      params.set('dir', sort.dir);
+      if (creatorFilter.length) params.set('createdBy', creatorFilter.join(','));
 
       const [destRes, seasRes] = await Promise.all([
         fetch(`/api/destinations?${params.toString()}`),
@@ -82,7 +111,7 @@ export default function DestinationsPage() {
     }
   };
 
-  useEffect(() => { fetchData(page); }, [page, limit]);
+  useEffect(() => { fetchData(page); }, [page, limit, creatorFilter, sort]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Debounce search, then jump back to page 1
   useEffect(() => {
@@ -200,6 +229,10 @@ export default function DestinationsPage() {
             className="pl-10"
           />
         </div>
+        <div className="mt-3 flex flex-col sm:flex-row sm:flex-wrap gap-3">
+          <CreatorFilter options={creatorOptions} value={creatorFilter} onChange={(v) => { setCreatorFilter(v); setPage(1); }} />
+          <SortSelect options={DEST_SORT_OPTIONS} sort={sort} onChange={(v) => { setSort(v); setPage(1); }} />
+        </div>
       </Card>
 
       <Card>
@@ -252,11 +285,11 @@ export default function DestinationsPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Destino</TableHead>
+              <SortableHead label="Destino" field="name" sort={sort} onSort={onSort} />
               <TableHead>Descripción</TableHead>
-              <TableHead>Temporada</TableHead>
-              <TableHead className="text-center">Ventas</TableHead>
-              <TableHead className="text-center">Creado por</TableHead>
+              <SortableHead label="Temporada" field="season" sort={sort} onSort={onSort} />
+              <SortableHead label="Ventas" field="sales" sort={sort} onSort={onSort} className="text-center" />
+              <SortableHead label="Creado por" field="createdBy" sort={sort} onSort={onSort} className="text-center" />
               <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>

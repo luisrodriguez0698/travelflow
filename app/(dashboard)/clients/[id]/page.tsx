@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PhoneInput } from '@/components/ui/phone-input';
 import { DatePicker } from '@/components/ui/date-picker';
 import { format, parseISO } from 'date-fns';
 import { Label } from '@/components/ui/label';
@@ -191,14 +192,7 @@ export default function EditClientPage() {
 
             <div>
               <Label htmlFor="phone">Teléfono</Label>
-              <Input
-                id="phone"
-                name="phone"
-                placeholder="9611234567"
-                value={formData.phone}
-                onChange={handleChange}
-                disabled={saving}
-              />
+              <PhoneInput id="phone" value={formData.phone} onChange={(v) => setFormData({ ...formData, phone: v })} disabled={saving} />
             </div>
 
             <div>

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAccess, accessErrorResponse } from '@/lib/access';
 import { requirePermission, getSessionUser } from '@/lib/get-tenant';
 import { prisma } from '@/lib/prisma';
+import { creatorOptions, creatorWhere, idsSortedByCreator, inIdOrder, parseSort, userNames } from '@/lib/list-query';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,6 +11,13 @@ export async function GET(request: NextRequest) {
     const access = await requireAccess(['destinos', 'ventas', 'cotizaciones']);
     const tenantId = access.tenantId;
     const { searchParams } = new URL(request.url);
+
+    // Opciones del filtro "Creado por"
+    if (searchParams.get('creators') === 'true') {
+      const groups = await prisma.hotel.groupBy({ by: ['createdBy'], where: { tenantId }, _count: { _all: true } });
+      return NextResponse.json(await creatorOptions(groups, tenantId));
+    }
+
     const all = searchParams.get('all') === 'true';
     const destinationId = searchParams.get('destinationId');
     const page = parseInt(searchParams.get('page') || '1', 10);
@@ -17,49 +25,58 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search') || '';
     const skip = (page - 1) * limit;
 
-    const where: any = { tenantId };
-    if (destinationId) where.destinationId = destinationId;
+    const and: object[] = [];
+    if (destinationId) and.push({ destinationId });
     if (search) {
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' as const } },
-        { plan: { contains: search, mode: 'insensitive' as const } },
-      ];
+      and.push({
+        OR: [
+          { name: { contains: search, mode: 'insensitive' as const } },
+          { plan: { contains: search, mode: 'insensitive' as const } },
+        ],
+      });
     }
+    const byCreator = creatorWhere(searchParams);
+    if (byCreator) and.push(byCreator);
+    const where = { tenantId, ...(and.length ? { AND: and } : {}) };
+    const include = { destination: { select: { id: true, name: true } } };
 
     if (all) {
-      const hotels = await prisma.hotel.findMany({
-        where,
-        orderBy: { name: 'asc' },
-        include: { destination: { select: { id: true, name: true } } },
-      });
+      const hotels = await prisma.hotel.findMany({ where, orderBy: { name: 'asc' }, include });
       return NextResponse.json(hotels);
     }
 
-    const [hotels, total] = await Promise.all([
-      prisma.hotel.findMany({
-        where,
-        orderBy: { createdAt: 'desc' },
-        skip,
-        take: limit,
-        include: { destination: { select: { id: true, name: true } } },
-      }),
-      prisma.hotel.count({ where }),
-    ]);
+    const sort = parseSort(searchParams, ['name', 'destination', 'stars', 'plan', 'roomType', 'web', 'createdBy', 'createdAt'] as const, {
+      field: 'createdAt',
+      dir: 'desc',
+    });
 
-    const creatorIds = [...new Set(hotels.map((h) => h.createdBy).filter(Boolean))] as string[];
-    const creators = creatorIds.length > 0
-      ? await prisma.user.findMany({
-          where: { id: { in: creatorIds } },
-          select: { id: true, name: true, email: true },
-        })
-      : [];
-    const creatorMap = Object.fromEntries(creators.map((u) => [u.id, u.name || u.email || 'Usuario']));
+    let hotels;
+    let total: number;
+    if (sort.field === 'createdBy') {
+      const rows = await prisma.hotel.findMany({ where, select: { id: true, createdBy: true, name: true } });
+      const sorted = await idsSortedByCreator(rows.map((r) => ({ ...r, label: r.name })), tenantId, sort.dir, skip, limit);
+      total = sorted.total;
+      hotels = inIdOrder(await prisma.hotel.findMany({ where: { id: { in: sorted.pageIds } }, include }), sorted.pageIds);
+    } else {
+      const orderBy =
+        sort.field === 'destination'
+          ? [{ destination: { name: sort.dir } }, { name: 'asc' as const }]
+          : sort.field === 'stars'
+            ? [{ stars: sort.dir }, { diamonds: sort.dir }, { name: 'asc' as const }]
+            : sort.field === 'web'
+              ? [{ showInWeb: sort.dir }, { name: 'asc' as const }]
+              : sort.field === 'plan' || sort.field === 'roomType' || sort.field === 'name'
+                ? [{ [sort.field]: sort.dir }, ...(sort.field === 'name' ? [] : [{ name: 'asc' as const }])]
+                : [{ createdAt: sort.dir }];
+      [hotels, total] = await Promise.all([
+        prisma.hotel.findMany({ where, orderBy, skip, take: limit, include }),
+        prisma.hotel.count({ where }),
+      ]);
+    }
 
+    const names = await userNames(hotels.map((h) => h.createdBy), tenantId);
     return NextResponse.json({
-      data: hotels.map((h) => ({
-        ...h,
-        creatorName: h.createdBy ? creatorMap[h.createdBy] || null : null,
-      })),
+      data: hotels.map((h) => ({ ...h, creatorName: h.createdBy ? names[h.createdBy] || null : null })),
       pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     });
   } catch (error) {

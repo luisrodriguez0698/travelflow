@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { PhoneInput } from '@/components/ui/phone-input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
@@ -26,6 +27,7 @@ import { Switch } from '@/components/ui/switch';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Plus, Search, Pencil, Trash2, FileText, Loader2, Eye, Check, ChevronsUpDown, ShoppingCart, ChevronDown, DollarSign, X, Filter, Hotel, UserPlus, Plane, MapPin } from 'lucide-react';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
+import { PeriodSelect, SortableHead, SortSelect, useListSort } from '@/components/list-controls';
 import { DateRange } from 'react-day-picker';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
@@ -79,11 +81,17 @@ interface Quotation {
   supplier?: Supplier;
 }
 
-const datePresets = [
-  { label: 'Este mes', getRange: () => ({ from: startOfMonth(new Date()), to: endOfMonth(new Date()) }) },
-  { label: 'Mes pasado', getRange: () => ({ from: startOfMonth(subMonths(new Date(), 1)), to: endOfMonth(subMonths(new Date(), 1)) }) },
-  { label: 'Últimos 3 meses', getRange: () => ({ from: startOfMonth(subMonths(new Date(), 2)), to: endOfMonth(new Date()) }) },
-  { label: 'Este año', getRange: () => ({ from: startOfYear(new Date()), to: endOfMonth(new Date()) }) },
+type QuoteSortField = 'createdAt' | 'client' | 'destination' | 'departure' | 'paymentType' | 'total' | 'expiration' | 'agent';
+
+const QUOTE_SORT_OPTIONS: { field: QuoteSortField; label: string; ascLabel?: string; descLabel?: string }[] = [
+  { field: 'createdAt', label: 'Fecha de creación', ascLabel: '(más antiguas)', descLabel: '(más recientes)' },
+  { field: 'client', label: 'Cliente' },
+  { field: 'destination', label: 'Destino' },
+  { field: 'departure', label: 'Salida', ascLabel: '(más próximas)', descLabel: '(más lejanas)' },
+  { field: 'expiration', label: 'Expiración', ascLabel: '(vencen antes)', descLabel: '(vencen después)' },
+  { field: 'total', label: 'Total', ascLabel: '(menor a mayor)', descLabel: '(mayor a menor)' },
+  { field: 'paymentType', label: 'Tipo' },
+  { field: 'agent', label: 'Agente' },
 ];
 
 interface BankAccount {
@@ -292,8 +300,28 @@ export default function QuotationsPage() {
     setLoading(false);
   };
 
-  const totalPages = Math.ceil(quotations.length / itemsPerPage);
-  const paginatedQuotations = quotations.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  // Orden de la lista (en el navegador: la lista ya viene completa del periodo)
+  const { sorted: sortedQuotations, sort: quoteSort, setSort: setQuoteSort, toggle: toggleQuoteSort } = useListSort<Quotation, QuoteSortField>(
+    quotations,
+    {
+      createdAt: (q) => (q.createdAt ? new Date(q.createdAt) : null),
+      client: (q) => q.client?.fullName,
+      destination: (q) => q.destination?.name,
+      departure: (q) => (q.departureDate ? new Date(q.departureDate) : null),
+      paymentType: (q) => (q.paymentType === 'CASH' ? 'Contado' : 'Crédito'),
+      total: (q) => q.totalPrice,
+      expiration: (q) => (q.expirationDate ? new Date(q.expirationDate) : null),
+      agent: (q) => q.creatorName,
+    },
+    { field: 'createdAt', dir: 'desc' }
+  );
+  const onQuoteSort = (field: QuoteSortField) => {
+    toggleQuoteSort(field);
+    setCurrentPage(1);
+  };
+
+  const totalPages = Math.ceil(sortedQuotations.length / itemsPerPage);
+  const paginatedQuotations = sortedQuotations.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   const hasActiveFilters = filterClientId || filterDestinationId || filterSupplierId || folioSearch.trim();
 
@@ -652,24 +680,21 @@ export default function QuotationsPage() {
       {/* Filters */}
       <Card className="p-4">
         <div className="space-y-3">
-          <div className="flex flex-wrap items-center gap-3">
-            <DateRangePicker value={dateRange} onChange={setDateRange} />
-            <div className="flex flex-wrap gap-2">
-              {datePresets.map((preset) => (
-                <Button key={preset.label} variant="outline" size="sm" onClick={() => setDateRange(preset.getRange())}>
-                  {preset.label}
-                </Button>
-              ))}
-            </div>
+          {/* Fechas: rango + periodo rapido */}
+          <div className="flex flex-col sm:flex-row gap-3">
+            <DateRangePicker value={dateRange} onChange={setDateRange} className="w-full sm:w-auto" />
+            <PeriodSelect value={dateRange} onChange={setDateRange} />
           </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="relative w-44">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-              <Input data-tour="page-filters" placeholder="Buscar folio..." value={folioSearch} onChange={(e) => setFolioSearch(e.target.value)} className="pl-10 h-9" />
-            </div>
+          {/* Busqueda por folio: fila completa */}
+          <div className="relative w-full">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+            <Input data-tour="page-filters" placeholder="Buscar folio..." value={folioSearch} onChange={(e) => setFolioSearch(e.target.value)} className="pl-10 h-9" />
+          </div>
+          {/* Cliente, destino, proveedor, orden y limpiar */}
+          <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3">
             <Popover open={filterClientOpen} onOpenChange={setFilterClientOpen}>
               <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className={cn('justify-between gap-2 min-w-[160px]', filterClientId && 'border-blue-500 bg-blue-50 dark:bg-blue-950/20')}>
+                <Button variant="outline" size="sm" className={cn('justify-between gap-2 w-full sm:w-auto sm:min-w-[160px] h-9', filterClientId && 'border-blue-500 bg-blue-50 dark:bg-blue-950/20')}>
                   <span className="truncate max-w-[120px]">{filterClientId ? clients.find((c) => c.id === filterClientId)?.fullName || 'Cliente' : 'Cliente'}</span>
                   {filterClientId ? <X className="h-3 w-3 shrink-0 opacity-50 hover:opacity-100" onClick={(e) => { e.stopPropagation(); setFilterClientId(''); }} /> : <ChevronsUpDown className="h-3 w-3 shrink-0 opacity-50" />}
                 </Button>
@@ -693,7 +718,7 @@ export default function QuotationsPage() {
             </Popover>
             <Popover open={filterDestinationOpen} onOpenChange={setFilterDestinationOpen}>
               <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className={cn('justify-between gap-2 min-w-[160px]', filterDestinationId && 'border-blue-500 bg-blue-50 dark:bg-blue-950/20')}>
+                <Button variant="outline" size="sm" className={cn('justify-between gap-2 w-full sm:w-auto sm:min-w-[160px] h-9', filterDestinationId && 'border-blue-500 bg-blue-50 dark:bg-blue-950/20')}>
                   <span className="truncate max-w-[120px]">{filterDestinationId ? destinations.find((d) => d.id === filterDestinationId)?.name || 'Destino' : 'Destino'}</span>
                   {filterDestinationId ? <X className="h-3 w-3 shrink-0 opacity-50 hover:opacity-100" onClick={(e) => { e.stopPropagation(); setFilterDestinationId(''); }} /> : <ChevronsUpDown className="h-3 w-3 shrink-0 opacity-50" />}
                 </Button>
@@ -717,7 +742,7 @@ export default function QuotationsPage() {
             </Popover>
             <Popover open={filterSupplierOpen} onOpenChange={setFilterSupplierOpen}>
               <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className={cn('justify-between gap-2 min-w-[160px]', filterSupplierId && 'border-blue-500 bg-blue-50 dark:bg-blue-950/20')}>
+                <Button variant="outline" size="sm" className={cn('justify-between gap-2 w-full sm:w-auto sm:min-w-[160px] h-9', filterSupplierId && 'border-blue-500 bg-blue-50 dark:bg-blue-950/20')}>
                   <span className="truncate max-w-[120px]">{filterSupplierId ? suppliers.find((s) => s.id === filterSupplierId)?.name || 'Proveedor' : 'Proveedor'}</span>
                   {filterSupplierId ? <X className="h-3 w-3 shrink-0 opacity-50 hover:opacity-100" onClick={(e) => { e.stopPropagation(); setFilterSupplierId(''); }} /> : <ChevronsUpDown className="h-3 w-3 shrink-0 opacity-50" />}
                 </Button>
@@ -739,6 +764,14 @@ export default function QuotationsPage() {
                 </Command>
               </PopoverContent>
             </Popover>
+            <SortSelect
+              options={QUOTE_SORT_OPTIONS}
+              sort={quoteSort}
+              onChange={(v) => {
+                setQuoteSort(v);
+                setCurrentPage(1);
+              }}
+            />
             {hasActiveFilters && (
               <Button variant="ghost" size="sm" onClick={clearFilters} className="text-muted-foreground">
                 <X className="w-4 h-4 mr-1" />
@@ -813,14 +846,14 @@ export default function QuotationsPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Folio</TableHead>
-                <TableHead>Fecha Creación</TableHead>
-                <TableHead>Cliente</TableHead>
-                <TableHead>Destino</TableHead>
-                <TableHead>Salida</TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead className="text-right">Total</TableHead>
-                <TableHead>Expiración</TableHead>
-                <TableHead className="text-center">Agente</TableHead>
+                <SortableHead label="Fecha Creación" field="createdAt" sort={quoteSort} onSort={onQuoteSort} />
+                <SortableHead label="Cliente" field="client" sort={quoteSort} onSort={onQuoteSort} />
+                <SortableHead label="Destino" field="destination" sort={quoteSort} onSort={onQuoteSort} />
+                <SortableHead label="Salida" field="departure" sort={quoteSort} onSort={onQuoteSort} />
+                <SortableHead label="Tipo" field="paymentType" sort={quoteSort} onSort={onQuoteSort} />
+                <SortableHead label="Total" field="total" sort={quoteSort} onSort={onQuoteSort} className="text-right" />
+                <SortableHead label="Expiración" field="expiration" sort={quoteSort} onSort={onQuoteSort} />
+                <SortableHead label="Agente" field="agent" sort={quoteSort} onSort={onQuoteSort} className="text-center" />
                 <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
@@ -1404,7 +1437,7 @@ export default function QuotationsPage() {
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2"><Label>Nombre completo *</Label><Input value={newClient.fullName} onChange={(e) => setNewClient((p) => ({ ...p, fullName: e.target.value }))} placeholder="Nombre completo" /></div>
-            <div className="space-y-2"><Label>Teléfono</Label><Input value={newClient.phone} onChange={(e) => setNewClient((p) => ({ ...p, phone: e.target.value }))} placeholder="Teléfono" /></div>
+            <div className="space-y-2"><Label>Teléfono</Label><PhoneInput value={newClient.phone} onChange={(v) => setNewClient((p) => ({ ...p, phone: v }))} /></div>
             <div className="space-y-2"><Label>Email</Label><Input value={newClient.email} onChange={(e) => setNewClient((p) => ({ ...p, email: e.target.value }))} placeholder="Email (opcional)" /></div>
           </div>
           <DialogFooter>

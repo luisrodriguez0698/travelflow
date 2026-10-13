@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAccess, accessErrorResponse } from '@/lib/access';
 import { requirePermission, getSessionUser } from '@/lib/get-tenant';
 import { prisma } from '@/lib/prisma';
+import { creatorOptions, creatorWhere, idsSortedByCreator, inIdOrder, parseSort, userNames } from '@/lib/list-query';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,6 +11,13 @@ export async function GET(request: NextRequest) {
     const access = await requireAccess(['destinos', 'ventas', 'cotizaciones']);
     const tenantId = access.tenantId;
     const { searchParams } = new URL(request.url);
+
+    // Opciones del filtro "Creado por"
+    if (searchParams.get('creators') === 'true') {
+      const groups = await prisma.destination.groupBy({ by: ['createdBy'], where: { tenantId }, _count: { _all: true } });
+      return NextResponse.json(await creatorOptions(groups, tenantId));
+    }
+
     // page/limit are opt-in: other consumers (dropdowns) rely on getting the full array
     const pageParam = searchParams.get('page');
     const limitParam = searchParams.get('limit');
@@ -18,44 +26,54 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(limitParam || '20', 10);
     const search = searchParams.get('search') || '';
 
-    const where: any = { tenantId };
+    const and: object[] = [];
     if (search) {
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' as const } },
-        { description: { contains: search, mode: 'insensitive' as const } },
-      ];
+      and.push({
+        OR: [
+          { name: { contains: search, mode: 'insensitive' as const } },
+          { description: { contains: search, mode: 'insensitive' as const } },
+        ],
+      });
+    }
+    const byCreator = creatorWhere(searchParams);
+    if (byCreator) and.push(byCreator);
+    const where = { tenantId, ...(and.length ? { AND: and } : {}) };
+
+    const sort = parseSort(searchParams, ['name', 'season', 'sales', 'createdBy', 'createdAt'] as const, { field: 'name', dir: 'asc' });
+    const include = { season: true, _count: { select: { bookings: true } } };
+
+    let destinations;
+    let total: number | null = null;
+    if (paginated && sort.field === 'createdBy') {
+      const rows = await prisma.destination.findMany({ where, select: { id: true, createdBy: true, name: true } });
+      const sorted = await idsSortedByCreator(rows.map((r) => ({ ...r, label: r.name })), tenantId, sort.dir, (page - 1) * limit, limit);
+      total = sorted.total;
+      destinations = inIdOrder(await prisma.destination.findMany({ where: { id: { in: sorted.pageIds } }, include }), sorted.pageIds);
+    } else {
+      const orderBy =
+        sort.field === 'season'
+          ? [{ season: { name: sort.dir } }, { name: 'asc' as const }]
+          : sort.field === 'sales'
+            ? [{ bookings: { _count: sort.dir } }, { name: 'asc' as const }]
+            : sort.field === 'createdAt'
+              ? [{ createdAt: sort.dir }]
+              : [{ name: sort.dir }];
+      destinations = await prisma.destination.findMany({
+        where,
+        include,
+        orderBy,
+        ...(paginated ? { skip: (page - 1) * limit, take: limit } : {}),
+      });
     }
 
-    const destinations = await prisma.destination.findMany({
-      where,
-      include: {
-        season: true,
-        _count: { select: { bookings: true } },
-      },
-      orderBy: { name: 'asc' },
-      ...(paginated ? { skip: (page - 1) * limit, take: limit } : {}),
-    });
-
-    // Fetch creator names
-    const creatorIds = [...new Set(destinations.map((d) => d.createdBy).filter(Boolean))] as string[];
-    const creators = creatorIds.length > 0
-      ? await prisma.user.findMany({
-          where: { id: { in: creatorIds } },
-          select: { id: true, name: true, email: true },
-        })
-      : [];
-    const creatorMap = Object.fromEntries(creators.map((u) => [u.id, u.name || u.email || 'Usuario']));
-
-    const withCreator = destinations.map((d) => ({
-      ...d,
-      creatorName: d.createdBy ? creatorMap[d.createdBy] || null : null,
-    }));
+    const names = await userNames(destinations.map((d) => d.createdBy), tenantId);
+    const withCreator = destinations.map((d) => ({ ...d, creatorName: d.createdBy ? names[d.createdBy] || null : null }));
 
     if (!paginated) {
       return NextResponse.json(withCreator);
     }
 
-    const total = await prisma.destination.count({ where });
+    total ??= await prisma.destination.count({ where });
     return NextResponse.json({
       data: withCreator,
       pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },

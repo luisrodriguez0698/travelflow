@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePermission, requireTenantId, getSessionUser } from '@/lib/get-tenant';
 import { prisma } from '@/lib/prisma';
+import { userNames } from '@/lib/list-query';
 import { SERVICE_TYPES, serviceSchema, toServiceData } from '@/lib/service-catalog';
 
 export const dynamic = 'force-dynamic';
@@ -34,7 +35,8 @@ export async function GET(request: NextRequest) {
       include: { supplier: supplierSelect },
     });
 
-    return NextResponse.json(services);
+    const names = await userNames(services.map((sv) => sv.createdBy), tenantId);
+    return NextResponse.json(services.map((sv) => ({ ...sv, creatorName: sv.createdBy ? names[sv.createdBy] || null : null })));
   } catch (error: any) {
     if (error.message === 'Unauthorized') {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });

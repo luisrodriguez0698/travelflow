@@ -31,6 +31,9 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { CreatorHistoryButton } from '@/components/record-history';
 import { useCan } from '@/hooks/use-can';
+import { CreatorFilter } from '@/components/creator-filter';
+import { SortSelect, useListSort } from '@/components/list-controls';
+import { UserAvatar } from '@/components/user-avatar';
 import { RowsSkeleton } from '@/components/skeletons';
 
 type ServiceType = 'FLIGHT' | 'TOUR' | 'TRANSFER';
@@ -57,6 +60,8 @@ interface Service {
   flightClass: string | null;
   returnFlightNumber: string | null;
   transportType: string | null;
+  creatorName?: string | null;
+  createdBy?: string | null;
 }
 
 interface Supplier { id: string; name: string; serviceType: string; }
@@ -100,6 +105,15 @@ type FormState = typeof emptyForm;
 const formatCurrency = (n: number) =>
   new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n);
 
+type ServiceSortField = 'name' | 'cost' | 'supplier' | 'createdBy';
+
+const SERVICE_SORT_OPTIONS: { field: ServiceSortField; label: string; ascLabel?: string; descLabel?: string }[] = [
+  { field: 'name', label: 'Nombre' },
+  { field: 'cost', label: 'Costo', ascLabel: '(menor a mayor)', descLabel: '(mayor a menor)' },
+  { field: 'supplier', label: 'Proveedor' },
+  { field: 'createdBy', label: 'Creado por' },
+];
+
 export default function ServicesPage() {
   const can = useCan();
   const [activeType, setActiveType] = useState<ServiceType>('FLIGHT');
@@ -115,6 +129,28 @@ export default function ServicesPage() {
   const [deleteTarget, setDeleteTarget] = useState<Service | null>(null);
 
   const config = TYPE_CONFIG[activeType];
+
+  // Filtro "Creado por" y orden (la lista del tipo ya viene completa)
+  const [creatorFilter, setCreatorFilter] = useState<string[]>([]);
+  const creatorOptions = Object.values(
+    services.reduce<Record<string, { id: string; name: string; avatar: null; count: number }>>((acc, sv) => {
+      const id = sv.createdBy ?? 'none';
+      acc[id] ??= { id, name: sv.createdBy ? sv.creatorName || 'Usuario eliminado' : 'Sin registro', avatar: null, count: 0 };
+      acc[id].count++;
+      return acc;
+    }, {})
+  ).sort((a, b) => a.name.localeCompare(b.name, 'es'));
+  const byCreator = creatorFilter.length ? services.filter((sv) => creatorFilter.includes(sv.createdBy ?? 'none')) : services;
+  const { sorted: visibleServices, sort, setSort } = useListSort<Service, ServiceSortField>(
+    byCreator,
+    {
+      name: (sv) => sv.name,
+      cost: (sv) => sv.cost,
+      supplier: (sv) => sv.supplier?.name,
+      createdBy: (sv) => sv.creatorName,
+    },
+    { field: 'name', dir: 'asc' }
+  );
 
   const fetchServices = useCallback(async () => {
     setLoading(true);
@@ -261,28 +297,34 @@ export default function ServicesPage() {
         </nav>
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          data-tour="page-filters"
-          placeholder={`Buscar ${config.tab.toLowerCase()}...`}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-10"
-        />
-      </div>
+      {/* Busqueda, creado por y orden */}
+      <Card className="p-4 space-y-3">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            data-tour="page-filters"
+            placeholder={`Buscar ${config.tab.toLowerCase()}...`}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3">
+          <CreatorFilter options={creatorOptions} value={creatorFilter} onChange={setCreatorFilter} />
+          <SortSelect options={SERVICE_SORT_OPTIONS} sort={sort} onChange={setSort} />
+        </div>
+      </Card>
 
       {/* List */}
       {loading ? (
         <div className="flex justify-center py-12">
           <RowsSkeleton rows={3} />
         </div>
-      ) : services.length === 0 ? (
+      ) : visibleServices.length === 0 ? (
         <Card className="p-10 text-center">
           <Icon className={cn('w-10 h-10 mx-auto mb-3 opacity-40', config.color)} />
           <p className="font-medium">
-            {search ? 'Sin resultados' : `Aún no hay ${config.tab.toLowerCase()} en el catálogo`}
+            {search || creatorFilter.length ? 'Sin resultados' : `Aún no hay ${config.tab.toLowerCase()} en el catálogo`}
           </p>
           {!search && (
             <p className="text-sm text-muted-foreground mt-1">
@@ -292,7 +334,7 @@ export default function ServicesPage() {
         </Card>
       ) : (
         <div data-tour="page-list" className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {services.map((s) => (
+          {visibleServices.map((s) => (
             <Card key={s.id} className="p-4 flex flex-col gap-3">
               <div className="flex items-start gap-3">
                 <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
@@ -337,6 +379,12 @@ export default function ServicesPage() {
                   </p>
                 )}
                 {s.notes && <p className="line-clamp-2">{s.notes}</p>}
+                {s.creatorName && (
+                  <p className="flex items-center gap-1.5">
+                    <UserAvatar name={s.creatorName} className="w-4 h-4 text-[7px]" />
+                    Creado por {s.creatorName}
+                  </p>
+                )}
               </div>
 
               <div className="flex items-center justify-between mt-auto pt-2 border-t">

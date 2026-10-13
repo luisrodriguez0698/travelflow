@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PhoneInput } from '@/components/ui/phone-input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -170,7 +171,7 @@ export function ParticipantDialog({
             </div>
             <div className="space-y-1.5">
               <Label>Teléfono</Label>
-              <Input type="tel" value={form.phone ?? ''} onChange={(e) => set('phone', e.target.value)} maxLength={30} />
+              <PhoneInput value={form.phone ?? ''} onChange={(v) => set('phone', v)} />
             </div>
           </div>
 

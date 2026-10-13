@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { PhoneInput } from '@/components/ui/phone-input';
 import { Label } from '@/components/ui/label';
 import { DatePicker } from '@/components/ui/date-picker';
 import { CreatorHistoryButton } from '@/components/record-history';
@@ -33,7 +34,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Plus, Users, Edit, Trash2, ChevronLeft, ChevronRight, Search, Loader2 } from 'lucide-react';
+import { Plus, Users, Edit, Trash2, ChevronLeft, ChevronRight, Search, Loader2, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
+import { CreatorFilter, type CreatorOption } from '@/components/creator-filter';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toast } from 'sonner';
@@ -55,6 +58,51 @@ interface Client {
 }
 
 const ITEMS_PER_PAGE = 10;
+
+type SortField = 'createdAt' | 'fullName' | 'phone' | 'email' | 'createdBy';
+
+const SORT_OPTIONS: { value: string; label: string }[] = [
+  { value: 'createdAt:desc', label: 'Más recientes primero' },
+  { value: 'createdAt:asc', label: 'Más antiguos primero' },
+  { value: 'fullName:asc', label: 'Nombre (A → Z)' },
+  { value: 'fullName:desc', label: 'Nombre (Z → A)' },
+  { value: 'phone:asc', label: 'Teléfono (ascendente)' },
+  { value: 'phone:desc', label: 'Teléfono (descendente)' },
+  { value: 'email:asc', label: 'Email (A → Z)' },
+  { value: 'email:desc', label: 'Email (Z → A)' },
+  { value: 'createdBy:asc', label: 'Creado por (A → Z)' },
+  { value: 'createdBy:desc', label: 'Creado por (Z → A)' },
+];
+
+/** Encabezado de columna que ordena al dar clic (otro clic invierte el orden). */
+function SortHead({
+  label,
+  field,
+  sort,
+  onSort,
+  className,
+}: {
+  label: string;
+  field: SortField;
+  sort: { field: SortField; dir: 'asc' | 'desc' };
+  onSort: (field: SortField) => void;
+  className?: string;
+}) {
+  const active = sort.field === field;
+  const Icon = !active ? ArrowUpDown : sort.dir === 'asc' ? ArrowUp : ArrowDown;
+  return (
+    <TableHead className={className} aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
+      <button
+        type="button"
+        onClick={() => onSort(field)}
+        className={`inline-flex items-center gap-1 hover:text-foreground ${active ? 'text-foreground font-semibold' : ''}`}
+      >
+        {label}
+        <Icon className={`w-3.5 h-3.5 ${active ? 'text-primary' : 'opacity-40'}`} />
+      </button>
+    </TableHead>
+  );
+}
 
 export default function ClientsPage() {
   const can = useCan();
@@ -83,6 +131,25 @@ export default function ClientsPage() {
 
   const [totalPages, setTotalPages] = useState(1);
   const [totalClients, setTotalClients] = useState(0);
+  // Filtro "Creado por" (vacio = todos) y orden de la tabla
+  const [creatorFilter, setCreatorFilter] = useState<string[]>([]);
+  const [creatorOptions, setCreatorOptions] = useState<CreatorOption[]>([]);
+  const [sort, setSort] = useState<{ field: SortField; dir: 'asc' | 'desc' }>({ field: 'createdAt', dir: 'desc' });
+
+  const fetchCreators = useCallback(() => {
+    fetch('/api/clients?creators=true')
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d) => setCreatorOptions(Array.isArray(d) ? d : []))
+      .catch(() => {});
+  }, []);
+  useEffect(() => {
+    fetchCreators();
+  }, [fetchCreators]);
+
+  const toggleSort = (field: SortField) => {
+    setSort((s) => (s.field === field ? { field, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { field, dir: 'asc' }));
+    setCurrentPage(1);
+  };
 
   const fetchClients = useCallback(async (page: number, search: string) => {
     try {
@@ -90,7 +157,10 @@ export default function ClientsPage() {
       const params = new URLSearchParams({
         page: String(page),
         limit: String(ITEMS_PER_PAGE),
+        sort: sort.field,
+        dir: sort.dir,
         ...(search ? { search } : {}),
+        ...(creatorFilter.length ? { createdBy: creatorFilter.join(',') } : {}),
       });
       const res = await fetch(`/api/clients?${params}`);
       if (res.ok) {
@@ -104,10 +174,10 @@ export default function ClientsPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [creatorFilter, sort]);
 
   // Tiempo real: si otro usuario cambia algo, la lista se actualiza sola
-  const live = useLiveList('clients', () => { fetchClients(currentPage, searchTerm); });
+  const live = useLiveList('clients', () => { fetchClients(currentPage, searchTerm); fetchCreators(); });
 
   useEffect(() => {
     fetchClients(currentPage, searchTerm);
@@ -259,12 +329,7 @@ export default function ClientsPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="grid gap-2">
           <Label htmlFor="phone">Teléfono</Label>
-          <Input
-            id="phone"
-            value={formData.phone}
-            onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-            placeholder="Ej: 5512345678"
-          />
+          <PhoneInput id="phone" value={formData.phone} onChange={(v) => setFormData(prev => ({ ...prev, phone: v }))} />
         </div>
         <div className="grid gap-2">
           <Label htmlFor="email">Email</Label>
@@ -357,6 +422,35 @@ export default function ClientsPage() {
             className="pl-10"
           />
         </div>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <CreatorFilter
+            options={creatorOptions}
+            value={creatorFilter}
+            onChange={(v) => {
+              setCreatorFilter(v);
+              setCurrentPage(1);
+            }}
+          />
+          <Select
+            value={`${sort.field}:${sort.dir}`}
+            onValueChange={(v) => {
+              const [field, dir] = v.split(':') as [SortField, 'asc' | 'desc'];
+              setSort({ field, dir });
+              setCurrentPage(1);
+            }}
+          >
+            <SelectTrigger className="w-auto min-w-[210px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {SORT_OPTIONS.map((o) => (
+                <SelectItem key={o.value} value={o.value}>
+                  {o.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </Card>
 
       {/* Table */}
@@ -392,7 +486,7 @@ export default function ClientsPage() {
               </div>
             ))
           ) : (
-            <EmptyState icon={Users} title={searchTerm ? 'Sin resultados' : 'Aún no hay clientes'} description={searchTerm ? `No hay clientes que coincidan con "${searchTerm}".` : 'Da de alta a tus clientes para venderles, cotizarles y dar seguimiento a sus pagos.'} action={searchTerm ? <Button variant="outline" onClick={() => setSearchTerm('')}>Limpiar búsqueda</Button> : can('clientes', 'create') ? <Button variant="gradient" onClick={openCreateModal}><Plus className="w-4 h-4 mr-2" />Nuevo cliente</Button> : undefined} />
+            <EmptyState icon={Users} title={searchTerm || creatorFilter.length ? 'Sin resultados' : 'Aún no hay clientes'} description={searchTerm ? `No hay clientes que coincidan con "${searchTerm}".` : creatorFilter.length ? 'Ningún cliente coincide con el filtro de "Creado por".' : 'Da de alta a tus clientes para venderles, cotizarles y dar seguimiento a sus pagos.'} action={searchTerm || creatorFilter.length ? <Button variant="outline" onClick={() => { setSearchTerm(''); setCreatorFilter([]); }}>Limpiar filtros</Button> : can('clientes', 'create') ? <Button variant="gradient" onClick={openCreateModal}><Plus className="w-4 h-4 mr-2" />Nuevo cliente</Button> : undefined} />
           )}
         </div>
 
@@ -401,13 +495,13 @@ export default function ClientsPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Nombre</TableHead>
-                <TableHead>Teléfono</TableHead>
-                <TableHead>Email</TableHead>
+                <SortHead label="Nombre" field="fullName" sort={sort} onSort={toggleSort} />
+                <SortHead label="Teléfono" field="phone" sort={sort} onSort={toggleSort} />
+                <SortHead label="Email" field="email" sort={sort} onSort={toggleSort} />
                 <TableHead className="hidden xl:table-cell">INE/Pasaporte</TableHead>
                 <TableHead className="hidden xl:table-cell">CURP</TableHead>
                 <TableHead className="hidden xl:table-cell">Fecha Nac.</TableHead>
-                <TableHead className="text-center">Creado por</TableHead>
+                <SortHead label="Creado por" field="createdBy" sort={sort} onSort={toggleSort} className="text-center" />
                 <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
@@ -451,7 +545,7 @@ export default function ClientsPage() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={8}><EmptyState icon={Users} title={searchTerm ? 'Sin resultados' : 'Aún no hay clientes'} description={searchTerm ? `No hay clientes que coincidan con "${searchTerm}".` : 'Da de alta a tus clientes para venderles, cotizarles y dar seguimiento a sus pagos.'} action={searchTerm ? <Button variant="outline" onClick={() => setSearchTerm('')}>Limpiar búsqueda</Button> : can('clientes', 'create') ? <Button variant="gradient" onClick={openCreateModal}><Plus className="w-4 h-4 mr-2" />Nuevo cliente</Button> : undefined} /></TableCell>
+                  <TableCell colSpan={8}><EmptyState icon={Users} title={searchTerm || creatorFilter.length ? 'Sin resultados' : 'Aún no hay clientes'} description={searchTerm ? `No hay clientes que coincidan con "${searchTerm}".` : creatorFilter.length ? 'Ningún cliente coincide con el filtro de "Creado por".' : 'Da de alta a tus clientes para venderles, cotizarles y dar seguimiento a sus pagos.'} action={searchTerm || creatorFilter.length ? <Button variant="outline" onClick={() => { setSearchTerm(''); setCreatorFilter([]); }}>Limpiar filtros</Button> : can('clientes', 'create') ? <Button variant="gradient" onClick={openCreateModal}><Plus className="w-4 h-4 mr-2" />Nuevo cliente</Button> : undefined} /></TableCell>
                 </TableRow>
               )}
             </TableBody>

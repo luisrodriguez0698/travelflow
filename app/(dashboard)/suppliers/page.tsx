@@ -43,6 +43,8 @@ import { CreatorHistoryButton } from '@/components/record-history';
 import { Plus, Truck, Edit, Trash2, ChevronLeft, ChevronRight, Search, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useCan } from '@/hooks/use-can';
+import { CreatorFilter, type CreatorOption } from '@/components/creator-filter';
+import { SortableHead, SortSelect, type SortState } from '@/components/list-controls';
 import { PageSkeleton } from '@/components/skeletons';
 import { EmptyState } from '@/components/empty-state';
 
@@ -73,6 +75,17 @@ const SERVICE_COLORS: Record<string, string> = {
 
 const ITEMS_PER_PAGE = 10;
 
+type SupplierSortField = 'name' | 'phone' | 'email' | 'serviceType' | 'createdBy' | 'createdAt';
+
+const SUPPLIER_SORT_OPTIONS: { field: SupplierSortField; label: string; ascLabel?: string; descLabel?: string }[] = [
+  { field: 'createdAt', label: 'Fecha de alta', ascLabel: '(más antiguos)', descLabel: '(más recientes)' },
+  { field: 'name', label: 'Nombre' },
+  { field: 'phone', label: 'Teléfono', ascLabel: '(ascendente)', descLabel: '(descendente)' },
+  { field: 'email', label: 'Email' },
+  { field: 'serviceType', label: 'Tipo de servicio' },
+  { field: 'createdBy', label: 'Creado por' },
+];
+
 export default function SuppliersPage() {
   const can = useCan();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -96,13 +109,33 @@ export default function SuppliersPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalSuppliers, setTotalSuppliers] = useState(0);
 
+  // Filtros (tipo de servicio, "Creado por") y orden: los aplica el servidor
+  const [typeFilter, setTypeFilter] = useState('');
+  const [creatorFilter, setCreatorFilter] = useState<string[]>([]);
+  const [creatorOptions, setCreatorOptions] = useState<CreatorOption[]>([]);
+  const [sort, setSort] = useState<SortState<SupplierSortField>>({ field: 'createdAt', dir: 'desc' });
+  useEffect(() => {
+    fetch('/api/suppliers?creators=true')
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d) => setCreatorOptions(Array.isArray(d) ? d : []))
+      .catch(() => {});
+  }, []);
+  const onSort = (field: SupplierSortField) => {
+    setSort((s) => (s.field === field ? { field, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { field, dir: 'asc' }));
+    setCurrentPage(1);
+  };
+
   const fetchSuppliers = useCallback(async (page: number, search: string) => {
     try {
       setLoading(true);
       const params = new URLSearchParams({
         page: String(page),
         limit: String(ITEMS_PER_PAGE),
+        sort: sort.field,
+        dir: sort.dir,
         ...(search ? { search } : {}),
+        ...(typeFilter ? { serviceType: typeFilter } : {}),
+        ...(creatorFilter.length ? { createdBy: creatorFilter.join(',') } : {}),
       });
       const res = await fetch(`/api/suppliers?${params}`);
       if (res.ok) {
@@ -116,7 +149,7 @@ export default function SuppliersPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [typeFilter, creatorFilter, sort]);
 
   useEffect(() => {
     fetchSuppliers(currentPage, searchTerm);
@@ -324,6 +357,21 @@ export default function SuppliersPage() {
             className="pl-10"
           />
         </div>
+        <div className="mt-3 flex flex-col sm:flex-row sm:flex-wrap gap-3">
+          <Select value={typeFilter || 'all'} onValueChange={(v) => { setTypeFilter(v === 'all' ? '' : v); setCurrentPage(1); }}>
+            <SelectTrigger className="w-full sm:w-48">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos los tipos</SelectItem>
+              {SERVICE_TYPES.map((t) => (
+                <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <CreatorFilter options={creatorOptions} value={creatorFilter} onChange={(v) => { setCreatorFilter(v); setCurrentPage(1); }} />
+          <SortSelect options={SUPPLIER_SORT_OPTIONS} sort={sort} onChange={(v) => { setSort(v); setCurrentPage(1); }} />
+        </div>
       </Card>
 
       <Card>
@@ -369,11 +417,11 @@ export default function SuppliersPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Nombre</TableHead>
-                <TableHead>Teléfono</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Tipo de Servicio</TableHead>
-                <TableHead className="text-center">Creado por</TableHead>
+                <SortableHead label="Nombre" field="name" sort={sort} onSort={onSort} />
+                <SortableHead label="Teléfono" field="phone" sort={sort} onSort={onSort} />
+                <SortableHead label="Email" field="email" sort={sort} onSort={onSort} />
+                <SortableHead label="Tipo de Servicio" field="serviceType" sort={sort} onSort={onSort} />
+                <SortableHead label="Creado por" field="createdBy" sort={sort} onSort={onSort} className="text-center" />
                 <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>

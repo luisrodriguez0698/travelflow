@@ -34,6 +34,8 @@ import { PaginationFooter } from '@/components/ui/pagination-footer';
 import { CreatorHistoryButton } from '@/components/record-history';
 import { toast } from 'sonner';
 import { useCan } from '@/hooks/use-can';
+import { CreatorFilter, type CreatorOption } from '@/components/creator-filter';
+import { SortableHead, SortSelect, type SortState } from '@/components/list-controls';
 import { PageSkeleton } from '@/components/skeletons';
 import { EmptyState } from '@/components/empty-state';
 
@@ -87,6 +89,19 @@ const defaultForm = {
   showInWeb: true,
 };
 
+type HotelSortField = 'name' | 'destination' | 'stars' | 'plan' | 'roomType' | 'web' | 'createdBy' | 'createdAt';
+
+const HOTEL_SORT_OPTIONS: { field: HotelSortField; label: string; ascLabel?: string; descLabel?: string }[] = [
+  { field: 'createdAt', label: 'Fecha de alta', ascLabel: '(más antiguos)', descLabel: '(más recientes)' },
+  { field: 'name', label: 'Hotel' },
+  { field: 'destination', label: 'Destino' },
+  { field: 'stars', label: 'Clasificación', ascLabel: '(menos estrellas)', descLabel: '(más estrellas)' },
+  { field: 'plan', label: 'Plan' },
+  { field: 'roomType', label: 'Habitación' },
+  { field: 'web', label: 'En web', ascLabel: '(ocultos primero)', descLabel: '(visibles primero)' },
+  { field: 'createdBy', label: 'Creado por' },
+];
+
 export default function HotelsPage() {
   const can = useCan();
   const [hotels, setHotels] = useState<Hotel[]>([]);
@@ -95,6 +110,20 @@ export default function HotelsPage() {
   const [search, setSearch] = useState('');
   const [filterDest, setFilterDest] = useState('');
   const [page, setPage] = useState(1);
+  // Filtro "Creado por" y orden (los aplica el servidor, con la paginacion)
+  const [creatorFilter, setCreatorFilter] = useState<string[]>([]);
+  const [creatorOptions, setCreatorOptions] = useState<CreatorOption[]>([]);
+  useEffect(() => {
+    fetch('/api/hotels?creators=true')
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d) => setCreatorOptions(Array.isArray(d) ? d : []))
+      .catch(() => {});
+  }, []);
+  const [sort, setSort] = useState<SortState<HotelSortField>>({ field: 'createdAt', dir: 'desc' });
+  const onSort = (field: HotelSortField) => {
+    setSort((s) => (s.field === field ? { field, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { field, dir: 'asc' }));
+    setPage(1);
+  };
   const [limit, setLimit] = useState(20);
   const [pagination, setPagination] = useState({ total: 0, totalPages: 1 });
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -123,6 +152,9 @@ export default function HotelsPage() {
       if (search) params.set('search', search);
       params.set('page', String(currentPage));
       params.set('limit', String(limit));
+      params.set('sort', sort.field);
+      params.set('dir', sort.dir);
+      if (creatorFilter.length) params.set('createdBy', creatorFilter.join(','));
 
       const [hotelsRes, destRes] = await Promise.all([
         fetch(`/api/hotels?${params.toString()}`),
@@ -141,7 +173,7 @@ export default function HotelsPage() {
     }
   };
 
-  useEffect(() => { fetchData(page); }, [filterDest, page, limit]);
+  useEffect(() => { fetchData(page); }, [filterDest, page, limit, creatorFilter, sort]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Debounce search, then jump back to page 1
   useEffect(() => {
@@ -383,16 +415,16 @@ export default function HotelsPage() {
 
       {/* Filters */}
       <Card className="p-4">
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-            <Input data-tour="page-filters"
-              placeholder="Buscar hotel..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-10"
-            />
-          </div>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+          <Input data-tour="page-filters"
+            placeholder="Buscar hotel..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        <div className="mt-3 flex flex-col sm:flex-row sm:flex-wrap gap-3">
           <Select value={filterDest || 'all'} onValueChange={handleFilterDestChange}>
             <SelectTrigger className="w-full sm:w-[220px]">
               <SelectValue placeholder="Todos los destinos" />
@@ -404,6 +436,8 @@ export default function HotelsPage() {
               ))}
             </SelectContent>
           </Select>
+          <CreatorFilter options={creatorOptions} value={creatorFilter} onChange={(v) => { setCreatorFilter(v); setPage(1); }} />
+          <SortSelect options={HOTEL_SORT_OPTIONS} sort={sort} onChange={(v) => { setSort(v); setPage(1); }} />
         </div>
       </Card>
 
@@ -468,13 +502,13 @@ export default function HotelsPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Hotel</TableHead>
-              <TableHead>Destino</TableHead>
-              <TableHead>Clasificación</TableHead>
-              <TableHead>Plan</TableHead>
-              <TableHead>Habitación</TableHead>
-              <TableHead className="text-center">Web</TableHead>
-              <TableHead className="text-center">Creado por</TableHead>
+              <SortableHead label="Hotel" field="name" sort={sort} onSort={onSort} />
+              <SortableHead label="Destino" field="destination" sort={sort} onSort={onSort} />
+              <SortableHead label="Clasificación" field="stars" sort={sort} onSort={onSort} />
+              <SortableHead label="Plan" field="plan" sort={sort} onSort={onSort} />
+              <SortableHead label="Habitación" field="roomType" sort={sort} onSort={onSort} />
+              <SortableHead label="Web" field="web" sort={sort} onSort={onSort} className="text-center" />
+              <SortableHead label="Creado por" field="createdBy" sort={sort} onSort={onSort} className="text-center" />
               <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
