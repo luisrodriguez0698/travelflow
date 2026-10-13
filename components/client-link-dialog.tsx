@@ -36,7 +36,7 @@ export function whatsappTo(phone: string | null, text: string) {
 export function shareMessage(info: ShareInfo) {
   const firstName = info.clientName.split(/\s+/)[0] ?? '';
   return info.url
-    ? `¡Hola ${firstName}! ✈️ Aquí puedes ver tu viaje y tus pagos, siempre actualizados:\n${info.url}${
+    ? `¡Hola ${firstName}! Aquí puedes ver tu viaje y tus pagos, siempre actualizados:\n${info.url}${
         info.pinRequired ? '\n\nPara entrar escribe los 4 últimos dígitos de tu teléfono.' : ''
       }`
     : '';
