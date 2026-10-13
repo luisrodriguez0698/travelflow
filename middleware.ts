@@ -34,6 +34,8 @@ const PUBLIC_PATHS = [
   '/manifest.json', // el navegador lo pide sin cookies; si redirige al login la app no es instalable
   '/api/health', // indicador de conexion (tambien en login)
   '/~offline', // pantalla sin conexion que guarda el service worker
+  '/v/', // portal del cliente (link unico por venta, protegido con token + PIN)
+  '/api/portal/',
 ];
 
 function isPublicPath(pathname: string): boolean {
@@ -49,6 +51,12 @@ const authMiddleware = withAuth({
 export async function middleware(req: NextRequest, event: NextFetchEvent) {
   const hostname = (req.headers.get('host') ?? '').split(':')[0]; // strip port
   const { pathname } = req.nextUrl;
+
+  // ── 0. Portal del cliente: funciona en el dominio del SaaS y en el de la agencia
+  // (viajaentrenubes.com/v/...). Lo protege su token + PIN, no la sesion.
+  if (pathname.startsWith('/v/') || pathname.startsWith('/api/portal/')) {
+    return NextResponse.next();
+  }
 
   // ── 1. Dominio personalizado → rewrite a la landing del tenant ──────────────
   // Para dominios de tenant: favicon.ico pasa al route handler (sirve el logo).

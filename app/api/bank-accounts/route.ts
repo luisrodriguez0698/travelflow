@@ -129,6 +129,7 @@ export async function POST(request: NextRequest) {
         initialBalance,
         currentBalance: initialBalance,
         shared: body.shared === true,
+        showToClients: body.showToClients === true,
         createdBy: access.userId,
       },
     });

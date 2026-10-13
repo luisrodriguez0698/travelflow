@@ -70,6 +70,7 @@ export async function PUT(
         accountType: body.accountType,
         referenceName: body.referenceName,
         ...(typeof body.shared === 'boolean' && { shared: body.shared }),
+        ...(typeof body.showToClients === 'boolean' && { showToClients: body.showToClients }),
       },
     });
 

@@ -27,7 +27,7 @@ const ALWAYS_IGNORE = ['id', 'tenantId', 'createdAt', 'updatedAt', 'createdBy', 
 const TRACKED: Record<string, TrackConfig> = {
   Client: { entity: () => 'clients' },
   // createdBy de una venta/cotizacion = agente asignado: su cambio si se registra
-  Booking: { entity: (r) => (r.type === 'QUOTATION' ? 'quotations' : 'sales'), ignore: ['packageId', 'departureId'], track: ['createdBy'] },
+  Booking: { entity: (r) => (r.type === 'QUOTATION' ? 'quotations' : 'sales'), ignore: ['packageId', 'departureId', 'shareViews', 'shareLastViewedAt'], mask: ['shareToken'], track: ['createdBy'] },
   PaymentPlan: {
     entity: () => 'sales',
     entityId: (r) => r.bookingId,

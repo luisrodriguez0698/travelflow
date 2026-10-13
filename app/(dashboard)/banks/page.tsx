@@ -104,6 +104,8 @@ interface BankAccount {
   deletedAt?: string | null;
   /** Visible para todos (aunque tengan "solo lo suyo") */
   shared?: boolean;
+  /** Se muestra en el link del cliente para depositar */
+  showToClients?: boolean;
   /** El usuario puede editarla/archivarla (es suya o ve todo) */
   canManage?: boolean;
 }
@@ -149,6 +151,7 @@ interface AccountFormData {
   referenceName: string;
   initialBalance: string;
   shared: boolean;
+  showToClients: boolean;
 }
 
 const initialAccountForm: AccountFormData = {
@@ -160,6 +163,7 @@ const initialAccountForm: AccountFormData = {
   referenceName: '',
   initialBalance: '0',
   shared: false,
+  showToClients: false,
 };
 
 export default function BanksPage() {
@@ -312,6 +316,7 @@ export default function BanksPage() {
       referenceName: account.referenceName,
       initialBalance: account.initialBalance.toString(),
       shared: !!account.shared,
+      showToClients: !!account.showToClients,
     });
     setIsAccountModalOpen(true);
   };
@@ -1257,6 +1262,11 @@ export default function BanksPage() {
                       <UsersRound className="w-3 h-3" />Compartida
                     </Badge>
                   )}
+                  {account.showToClients && (
+                    <Badge variant="outline" className="text-[11px] border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
+                      Visible a clientes
+                    </Badge>
+                  )}
                 </div>
               </div>
               <p className="text-sm text-muted-foreground mb-1">
@@ -1469,6 +1479,16 @@ export default function BanksPage() {
                 </p>
               </div>
               <Switch checked={accountForm.shared} onCheckedChange={(v) => setAccountForm({ ...accountForm, shared: v })} />
+            </div>
+
+            <div className="flex items-start justify-between gap-3 rounded-lg border p-3">
+              <div>
+                <p className="text-sm font-medium">Mostrar a clientes para depósitos</p>
+                <p className="text-xs text-muted-foreground">
+                  Aparece en el link de pagos de tus clientes (banco, titular, CLABE y tarjeta) para que sepan a dónde depositar.
+                </p>
+              </div>
+              <Switch checked={accountForm.showToClients} onCheckedChange={(v) => setAccountForm({ ...accountForm, showToClients: v })} />
             </div>
           </div>
 

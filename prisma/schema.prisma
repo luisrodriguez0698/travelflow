@@ -284,6 +284,13 @@ model Booking {
   createdBy        String?
   updatedBy        String?
 
+  // Link para el cliente (portal de su viaje y pagos)
+  shareToken        String?   @unique
+  shareEnabled      Boolean   @default(false)
+  sharePinRequired  Boolean   @default(true)
+  shareViews        Int       @default(0)
+  shareLastViewedAt DateTime?
+
   // Quotation support
   type             String   @default("SALE") // SALE or QUOTATION
   expirationDate   DateTime?
@@ -669,6 +676,8 @@ model BankAccount {
   referenceName   String   // Nombre de referencia (ej: "Cuenta principal")
   // Con "solo lo suyo", cada usuario ve sus cuentas (createdBy) y las compartidas
   shared          Boolean  @default(false)
+  // Se muestra en el link del cliente como cuenta para depositar
+  showToClients   Boolean  @default(false)
   initialBalance  Float    @default(0)
   currentBalance  Float    @default(0)
   isActive        Boolean  @default(true)

@@ -51,6 +51,7 @@ import { generateReceiptPdf } from '@/lib/generate-receipt-pdf';
 import { InitialPaymentBanner, type InitialPaymentInfo } from '@/components/initial-payment-banner';
 import { MoneySummary } from '@/components/money-summary';
 import { SaleCollections } from '@/components/sale-collections';
+import { ClientLinkButton } from '@/components/client-link-dialog';
 import { SupplierAllocation, allocationError, useSupplierDebts, type AllocationValue } from '@/components/supplier-allocation';
 import { DatePicker } from '@/components/ui/date-picker';
 import { HistoryButton } from '@/components/record-history';
@@ -440,18 +441,21 @@ export default function SaleDetailPage() {
             </div>
           </div>
         </div>
-        <Button
-          onClick={handleDownloadReceipt}
-          disabled={generatingPdf}
-          variant="gradient"
-        >
-          {generatingPdf ? (
-            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-          ) : (
-            <Download className="w-4 h-4 mr-2" />
-          )}
-          Descargar Estado de Cuenta
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <ClientLinkButton saleId={sale.id} />
+          <Button
+            onClick={handleDownloadReceipt}
+            disabled={generatingPdf}
+            variant="gradient"
+          >
+            {generatingPdf ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Download className="w-4 h-4 mr-2" />
+            )}
+            Descargar Estado de Cuenta
+          </Button>
+        </div>
       </div>
 
       {/* Client & Trip Info */}
