@@ -1,21 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAccess, accessErrorResponse } from '@/lib/access';
 import { prisma } from '@/lib/prisma';
-import { encrypt, decrypt } from '@/lib/encryption';
-import { parseBankExtras } from '@/lib/bank-fields';
+import { encrypt } from '@/lib/encryption';
+import { decryptAccountFields as decryptAccount, parseBankExtras } from '@/lib/bank-fields';
 
 export const dynamic = 'force-dynamic';
 
 /** Modulos que registran cobros/pagos y necesitan elegir una cuenta */
 const PAYMENT_MODULES = ['bancos', 'ventas', 'cotizaciones', 'proveedores', 'rifas'];
 
-function decryptAccount(a: { accountNumber: string; cardNumber: string | null; clabe: string | null }) {
-  return {
-    accountNumber: decrypt(a.accountNumber),
-    cardNumber: a.cardNumber ? decrypt(a.cardNumber) : null,
-    clabe: a.clabe ? decrypt(a.clabe) : null,
-  };
-}
 
 async function creatorNames(ids: (string | null)[]) {
   const unique = [...new Set(ids.filter(Boolean))] as string[];

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionUser } from '@/lib/get-tenant';
 import { requireAccess, accessErrorResponse } from '@/lib/access';
+import { decryptAccountFields } from '@/lib/bank-fields';
 import { notifyActivity, formatMoney } from '@/lib/activity';
 import { prisma } from '@/lib/prisma';
 import { logAudit } from '@/lib/audit';
@@ -94,7 +95,11 @@ export async function GET(
 
     return NextResponse.json({
       data: transactions,
-      account,
+      account: {
+        ...account,
+        ...decryptAccountFields(account),
+        canManage: !access.ownOnly || account.createdBy === access.userId,
+      },
       monthlySummary: { income: monthlyIncome, expense: monthlyExpense },
       pagination: {
         page,

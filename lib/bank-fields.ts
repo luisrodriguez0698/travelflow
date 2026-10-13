@@ -1,3 +1,5 @@
+import { decrypt } from './encryption';
+
 // Datos opcionales de una cuenta: numero de tarjeta y CLABE (se guardan cifrados)
 
 const digits = (v: unknown) => (typeof v === 'string' ? v.replace(/\D/g, '') : '');
@@ -13,4 +15,13 @@ export function parseBankExtras(body: { cardNumber?: unknown; clabe?: unknown })
   }
   if (clabe && clabe.length !== 18) return { error: 'La CLABE debe tener 18 dígitos' };
   return { cardNumber, clabe };
+}
+
+/** Numero de cuenta, tarjeta y CLABE descifrados (nunca mandar los valores "enc:" al navegador). */
+export function decryptAccountFields(a: { accountNumber: string; cardNumber?: string | null; clabe?: string | null }) {
+  return {
+    accountNumber: decrypt(a.accountNumber),
+    cardNumber: a.cardNumber ? decrypt(a.cardNumber) : null,
+    clabe: a.clabe ? decrypt(a.clabe) : null,
+  };
 }

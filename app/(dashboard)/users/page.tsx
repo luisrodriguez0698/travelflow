@@ -80,7 +80,7 @@ import {
 import type { ModulePermission, PermissionAction } from '@/lib/permissions';
 import { RowsSkeleton } from '@/components/skeletons';
 
-const MATRIX_ACTIONS: PermissionAction[] = ['view', 'create', 'edit', 'delete', 'payments'];
+const MATRIX_ACTIONS: PermissionAction[] = ['view', 'create', 'edit', 'delete', 'payments', 'assign'];
 
 /** Resumen legible de los permisos de un rol: "Ventas · ver, abonos". */
 function describePermissions(stored: string[]) {
