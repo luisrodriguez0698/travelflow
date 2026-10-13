@@ -32,7 +32,7 @@ export function CreatorFilter({
   const selected = options.filter((o) => value.includes(o.id));
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={setOpen} modal>
       <PopoverTrigger asChild>
         <Button variant="outline" role="combobox" className="justify-between font-normal min-w-[200px]">
           <span className="flex items-center gap-2 min-w-0">

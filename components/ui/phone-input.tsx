@@ -56,7 +56,8 @@ export function PhoneInput({
   return (
     <div className={cn('space-y-1', className)}>
       <div className="flex gap-2">
-        <Popover open={open} onOpenChange={setOpen}>
+        {/* modal: la lista hace su propio scroll aunque este dentro de otra ventana (dialogo) */}
+        <Popover open={open} onOpenChange={setOpen} modal>
           <PopoverTrigger asChild>
             <Button
               type="button"
@@ -67,7 +68,7 @@ export function PhoneInput({
               aria-label={`País: ${country.name}`}
             >
               <span className="flex items-center gap-1.5">
-                <span className="text-lg leading-none">{country.flag}</span>
+                <Flag code={country.code} />
                 <span className="text-sm">+{country.dial}</span>
               </span>
               <ChevronsUpDown className="w-3.5 h-3.5 opacity-50" />
@@ -81,7 +82,7 @@ export function PhoneInput({
                 <CommandGroup>
                   {COUNTRIES.map((c) => (
                     <CommandItem key={c.code} value={`${c.name} +${c.dial} ${c.code}`} onSelect={() => pick(c)}>
-                      <span className="text-lg mr-2">{c.flag}</span>
+                      <Flag code={c.code} className="mr-2" />
                       <span className="flex-1 truncate">{c.name}</span>
                       <span className="text-xs text-muted-foreground ml-2">+{c.dial}</span>
                       <Check className={cn('ml-2 w-4 h-4', c.code === country.code ? 'opacity-100' : 'opacity-0')} />
@@ -107,5 +108,25 @@ export function PhoneInput({
       </div>
       {error && <p className="text-xs text-amber-600 dark:text-amber-400">{error}</p>}
     </div>
+  );
+}
+
+/**
+ * Bandera como imagen: Windows no dibuja las banderas en emoji (salen letras
+ * "MX", "US"), asi que se usa la imagen del pais (flagcdn, 2x para pantallas nitidas).
+ */
+function Flag({ code, className }: { code: string; className?: string }) {
+  const iso = code.toLowerCase();
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={`https://flagcdn.com/20x15/${iso}.png`}
+      srcSet={`https://flagcdn.com/40x30/${iso}.png 2x`}
+      width={20}
+      height={15}
+      alt=""
+      loading="lazy"
+      className={cn('shrink-0 rounded-[2px] shadow-sm', className)}
+    />
   );
 }

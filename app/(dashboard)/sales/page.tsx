@@ -708,8 +708,9 @@ export default function SalesPage() {
             <DateRangePicker value={dateRange} onChange={setDateRange} className="w-full sm:w-auto" />
             <PeriodSelect value={dateRange} onChange={setDateRange} />
           </div>
-          {/* Busqueda por folio: fila completa */}
-            <div className="relative w-full">
+          {/* Folio + filtros: en computadora en una sola fila (buscador compacto); en iPad/celular, buscador a lo ancho */}
+          <div className="flex flex-col lg:flex-row lg:items-center gap-3">
+<div className="relative w-full lg:w-56 lg:shrink-0">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
               <Input data-tour="page-filters"
                 placeholder="Buscar folio..."
@@ -766,6 +767,7 @@ export default function SalesPage() {
                 Limpiar filtros
               </Button>
             )}
+          </div>
           </div>
         </div>
       </Card>

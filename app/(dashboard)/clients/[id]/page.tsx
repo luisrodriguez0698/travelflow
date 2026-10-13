@@ -190,7 +190,7 @@ export default function EditClientPage() {
               />
             </div>
 
-            <div>
+            <div className="md:col-span-2">
               <Label htmlFor="phone">Teléfono</Label>
               <PhoneInput id="phone" value={formData.phone} onChange={(v) => setFormData({ ...formData, phone: v })} disabled={saving} />
             </div>

@@ -326,7 +326,7 @@ export default function ClientsPage() {
           placeholder="Ej: Juan Pérez García"
         />
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4">
         <div className="grid gap-2">
           <Label htmlFor="phone">Teléfono</Label>
           <PhoneInput id="phone" value={formData.phone} onChange={(v) => setFormData(prev => ({ ...prev, phone: v }))} />

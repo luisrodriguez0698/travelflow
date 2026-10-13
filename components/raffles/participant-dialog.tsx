@@ -164,7 +164,7 @@ export function ParticipantDialog({
             </div>
           )}
 
-          <div className="grid sm:grid-cols-2 gap-3">
+          <div className="grid gap-3">
             <div className="space-y-1.5">
               <Label>Nombre *</Label>
               <Input value={form.name} onChange={(e) => set('name', e.target.value)} maxLength={160} />
