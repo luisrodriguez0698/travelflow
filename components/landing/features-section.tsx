@@ -1,59 +1,149 @@
 'use client';
 
+import { useRef } from 'react';
 import { motion } from 'framer-motion';
 import {
-  Users,
-  ShoppingCart,
-  CreditCard,
-  Truck,
-  Landmark,
   BarChart3,
+  Bell,
+  CreditCard,
+  Landmark,
+  Link2,
+  ReceiptText,
+  ShoppingCart,
+  Ticket,
+  Truck,
+  Users,
+  type LucideIcon,
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
-const features = [
+interface Feature {
+  icon: LucideIcon;
+  title: string;
+  description: string;
+  color: string;
+  span?: string;
+  badge?: string;
+}
+
+const FEATURES: Feature[] = [
   {
-    icon: Users,
-    title: 'Gestión de Clientes',
-    description: 'Registra y administra toda la información de tus clientes en un solo lugar. Historial de viajes, documentos y contacto.',
-    color: 'from-blue-500 to-cyan-500',
-    bg: 'bg-blue-50 dark:bg-blue-950/30',
+    icon: Link2,
+    title: 'Link para tu cliente',
+    description: 'Una página con su viaje, fotos del hotel y una barra que avanza con cada abono. Se actualiza sola: adiós a reenviar PDFs.',
+    color: 'from-sky-500 to-cyan-400',
+    span: 'md:col-span-2',
+    badge: 'Nuevo',
   },
   {
     icon: ShoppingCart,
-    title: 'Ventas y Cotizaciones',
-    description: 'Crea cotizaciones como borradores y conviértelas a ventas en un click. Control total de tu proceso de venta.',
-    color: 'from-emerald-500 to-green-500',
-    bg: 'bg-emerald-50 dark:bg-emerald-950/30',
+    title: 'Ventas y cotizaciones',
+    description: 'Cotiza, convierte a venta en un clic y ve tu ganancia por cada habitación, vuelo o tour.',
+    color: 'from-emerald-500 to-green-400',
   },
   {
     icon: CreditCard,
-    title: 'Control de Pagos',
-    description: 'Planes de pago a plazos, anticipo, abonos parciales y seguimiento automático de pagos pendientes y vencidos.',
-    color: 'from-purple-500 to-pink-500',
-    bg: 'bg-purple-50 dark:bg-purple-950/30',
+    title: 'Planes de pago',
+    description: 'Quincenal o mensual, con montos editables, anticipos y abonos que se reparten solos.',
+    color: 'from-violet-500 to-fuchsia-400',
   },
   {
-    icon: Truck,
-    title: 'Gestión de Proveedores',
-    description: 'Administra tus proveedores, fechas límite de pago y tipos de servicio para mantener todo bajo control.',
-    color: 'from-orange-500 to-amber-500',
-    bg: 'bg-orange-50 dark:bg-orange-950/30',
+    icon: Bell,
+    title: 'Avisos en tiempo real',
+    description: 'Nuevas ventas, abonos y metas al instante, en la campana y en tu celular.',
+    color: 'from-amber-500 to-orange-400',
   },
   {
     icon: Landmark,
-    title: 'Control Bancario',
-    description: 'Múltiples cuentas bancarias, registro de ingresos, egresos y transferencias con saldo actualizado en tiempo real.',
-    color: 'from-cyan-500 to-teal-500',
-    bg: 'bg-cyan-50 dark:bg-cyan-950/30',
+    title: 'Bancos',
+    description: 'Cada anticipo y abono entra a su cuenta, con pago directo al proveedor si lo necesitas.',
+    color: 'from-blue-600 to-indigo-400',
+  },
+  {
+    icon: Ticket,
+    title: 'Rifas para tus seguidores',
+    description: 'Tómbola, tragamonedas o ruleta con animaciones y sorteo justo y registrado.',
+    color: 'from-pink-500 to-rose-400',
+    span: 'md:col-span-2',
+    badge: 'Divertido',
+  },
+  {
+    icon: Truck,
+    title: 'Proveedores y deudas',
+    description: 'Lo que debes a cada hotel o transportista, con fechas límite y pagos registrados.',
+    color: 'from-orange-500 to-amber-400',
+  },
+  {
+    icon: ReceiptText,
+    title: 'Gastos fijos',
+    description: 'Luz, agua, renta… con recordatorios antes de que venzan.',
+    color: 'from-teal-500 to-emerald-400',
+  },
+  {
+    icon: Users,
+    title: 'Equipo con permisos',
+    description: 'Roles a la medida, “solo lo suyo” por agente y bitácora de cada cambio.',
+    color: 'from-cyan-500 to-blue-400',
   },
   {
     icon: BarChart3,
-    title: 'Reportes y Dashboard',
-    description: 'Visualiza las métricas clave de tu agencia: ventas del mes, pagos pendientes, márgenes de ganancia y más.',
-    color: 'from-rose-500 to-red-500',
-    bg: 'bg-rose-50 dark:bg-rose-950/30',
+    title: 'Metas y márgenes',
+    description: 'Metas por agente con confeti al lograrlas y márgenes claros por venta.',
+    color: 'from-lime-500 to-emerald-400',
   },
 ];
+
+/** Tarjeta con brillo que sigue al mouse. */
+function SpotlightCard({ feature, index }: { feature: Feature; index: number }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const Icon = feature.icon;
+  const onMove = (e: React.MouseEvent) => {
+    const el = ref.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    el.style.setProperty('--x', `${e.clientX - r.left}px`);
+    el.style.setProperty('--y', `${e.clientY - r.top}px`);
+  };
+  return (
+    <motion.div
+      ref={ref}
+      onMouseMove={onMove}
+      initial={{ opacity: 0, y: 30 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: '-60px' }}
+      transition={{ duration: 0.5, delay: (index % 4) * 0.08 }}
+      whileHover={{ y: -6 }}
+      className={cn(
+        'group relative overflow-hidden rounded-3xl border border-gray-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-xl dark:border-white/10 dark:bg-gray-900',
+        feature.span
+      )}
+    >
+      {/* Brillo que sigue al mouse */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+        style={{ background: 'radial-gradient(380px circle at var(--x) var(--y), rgba(56,189,248,0.14), transparent 60%)' }}
+      />
+      <div className="relative">
+        <div className="flex items-center justify-between">
+          <motion.div
+            whileHover={{ rotate: -8, scale: 1.08 }}
+            className={cn('flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-lg', feature.color)}
+          >
+            <Icon className="h-6 w-6" />
+          </motion.div>
+          {feature.badge && (
+            <span className="rounded-full bg-sky-100 px-2.5 py-1 text-xs font-semibold text-sky-700 dark:bg-sky-500/15 dark:text-sky-300">
+              {feature.badge}
+            </span>
+          )}
+        </div>
+        <h3 className="mt-5 text-lg font-bold text-gray-900 dark:text-white">{feature.title}</h3>
+        <p className="mt-2 text-sm leading-relaxed text-gray-600 dark:text-gray-400">{feature.description}</p>
+      </div>
+    </motion.div>
+  );
+}
 
 export function FeaturesSection() {
   return (
@@ -62,47 +152,23 @@ export function FeaturesSection() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: '-100px' }}
+          viewport={{ once: true }}
           transition={{ duration: 0.6 }}
-          className="text-center mb-16"
+          className="text-center max-w-2xl mx-auto mb-14"
         >
-          <span className="text-sm font-semibold text-cyan-600 dark:text-cyan-400 uppercase tracking-wider">
-            Servicios
-          </span>
-          <h2 className="mt-3 text-3xl sm:text-4xl font-extrabold text-gray-900 dark:text-white">
-            Todo lo que necesitas en{' '}
-            <span className="bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
-              un solo lugar
-            </span>
+          <span className="text-sm font-semibold uppercase tracking-widest text-cyan-600 dark:text-cyan-400">Todo en un lugar</span>
+          <h2 className="mt-3 text-3xl sm:text-4xl lg:text-5xl font-extrabold text-gray-900 dark:text-white">
+            Lo que tu agencia necesita,{' '}
+            <span className="bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">sin hojas de cálculo</span>
           </h2>
-          <p className="mt-4 text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-            Herramientas diseñadas específicamente para agencias de viaje.
-            Simplifica tu operación diaria y enfócate en vender.
+          <p className="mt-4 text-lg text-gray-600 dark:text-gray-400">
+            Desde la primera cotización hasta el último abono, y hasta la rifa para tus seguidores.
           </p>
         </motion.div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {features.map((feature, index) => (
-            <motion.div
-              key={feature.title}
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: '-50px' }}
-              transition={{ duration: 0.5, delay: index * 0.1 }}
-              className="group relative"
-            >
-              <div className={`${feature.bg} rounded-2xl p-8 border border-gray-100 dark:border-gray-800 hover:shadow-xl transition-all duration-300 hover:-translate-y-1 h-full`}>
-                <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${feature.color} flex items-center justify-center mb-5 shadow-lg group-hover:scale-110 transition-transform duration-300`}>
-                  <feature.icon className="w-7 h-7 text-white" />
-                </div>
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3">
-                  {feature.title}
-                </h3>
-                <p className="text-gray-600 dark:text-gray-400 leading-relaxed">
-                  {feature.description}
-                </p>
-              </div>
-            </motion.div>
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {FEATURES.map((f, i) => (
+            <SpotlightCard key={f.title} feature={f} index={i} />
           ))}
         </div>
       </div>

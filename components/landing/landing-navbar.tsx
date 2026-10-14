@@ -16,9 +16,10 @@ export function LandingNavbar() {
   }, []);
 
   const navLinks = [
-    { label: 'Servicios', href: '#servicios' },
-    { label: 'Cómo Funciona', href: '#como-funciona' },
-    { label: 'Testimonios', href: '#testimonios' },
+    { label: 'Funciones', href: '#servicios' },
+    { label: 'Tu cliente', href: '#tu-cliente' },
+    { label: 'Avisos', href: '#avisos' },
+    { label: 'Cómo funciona', href: '#como-funciona' },
     { label: 'Contacto', href: '#contacto' },
   ];
 

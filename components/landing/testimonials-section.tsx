@@ -65,19 +65,19 @@ const allTestimonials = [...testimonials, ...testimonials];
 
 function TestimonialCard({ t }: { t: typeof testimonials[0] }) {
   return (
-    <div className="w-[350px] flex-shrink-0 mx-3">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-100 dark:border-gray-700 h-full">
-        <Quote className="w-8 h-8 text-cyan-500/30 mb-3" />
-        <p className="text-gray-600 dark:text-gray-300 text-sm leading-relaxed mb-5">
+    <div className="w-[260px] sm:w-[350px] flex-shrink-0 mx-2 sm:mx-3">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 sm:p-6 shadow-lg border border-gray-100 dark:border-gray-700 h-full">
+        <Quote className="w-6 h-6 sm:w-8 sm:h-8 text-cyan-500/30 mb-2 sm:mb-3" />
+        <p className="text-gray-600 dark:text-gray-300 text-[13px] sm:text-sm leading-relaxed mb-4 sm:mb-5">
           &ldquo;{t.text}&rdquo;
         </p>
-        <div className="flex items-center gap-1 mb-4">
+        <div className="flex items-center gap-1 mb-3 sm:mb-4">
           {Array.from({ length: t.rating }).map((_, i) => (
-            <Star key={i} className="w-4 h-4 text-amber-400 fill-amber-400" />
+            <Star key={i} className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400 fill-amber-400" />
           ))}
         </div>
         <div className="flex items-center gap-3">
-          <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${t.color} flex items-center justify-center text-white text-sm font-bold`}>
+          <div className={`w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-full bg-gradient-to-br ${t.color} flex items-center justify-center text-white text-sm font-bold`}>
             {t.initials}
           </div>
           <div>
@@ -99,7 +99,7 @@ export function TestimonialsSection() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: '-100px' }}
           transition={{ duration: 0.6 }}
-          className="text-center mb-16"
+          className="text-center mb-10 sm:mb-16"
         >
           <span className="text-sm font-semibold text-cyan-600 dark:text-cyan-400 uppercase tracking-wider">
             Testimonios
@@ -119,18 +119,18 @@ export function TestimonialsSection() {
       {/* Infinite scroll carousel */}
       <div className="relative">
         {/* Fade edges */}
-        <div className="absolute left-0 top-0 bottom-0 w-20 bg-gradient-to-r from-white dark:from-gray-950 to-transparent z-10 pointer-events-none" />
-        <div className="absolute right-0 top-0 bottom-0 w-20 bg-gradient-to-l from-white dark:from-gray-950 to-transparent z-10 pointer-events-none" />
+        <div className="absolute left-0 top-0 bottom-0 w-8 sm:w-20 bg-gradient-to-r from-white dark:from-gray-950 to-transparent z-10 pointer-events-none" />
+        <div className="absolute right-0 top-0 bottom-0 w-8 sm:w-20 bg-gradient-to-l from-white dark:from-gray-950 to-transparent z-10 pointer-events-none" />
 
         {/* Row 1 - scroll left */}
-        <div className="flex mb-6 animate-scroll-left">
+        <div className="flex w-max mb-4 sm:mb-6 animate-scroll-left">
           {allTestimonials.map((t, i) => (
             <TestimonialCard key={`row1-${i}`} t={t} />
           ))}
         </div>
 
         {/* Row 2 - scroll right */}
-        <div className="flex animate-scroll-right">
+        <div className="flex w-max animate-scroll-right">
           {[...allTestimonials].reverse().map((t, i) => (
             <TestimonialCard key={`row2-${i}`} t={t} />
           ))}

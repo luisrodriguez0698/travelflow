@@ -6,7 +6,7 @@ import { ArrowRight, Zap } from 'lucide-react';
 
 export function CtaSection() {
   return (
-    <section className="py-24 relative overflow-hidden">
+    <section id="empezar" className="py-24 relative overflow-hidden">
       {/* Background */}
       <div className="absolute inset-0 bg-gradient-to-br from-blue-600 via-cyan-600 to-teal-600" />
 

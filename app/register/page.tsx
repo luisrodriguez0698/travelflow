@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Plane, Loader2 } from 'lucide-react';
+import { AuthShell, AuthFields, AuthItem, AuthError } from '@/components/auth/auth-shell';
 import { PASSWORD_MIN_LENGTH, PASSWORD_MIN_MESSAGE } from '@/lib/password';
 
 export default function RegisterPage() {
@@ -78,81 +79,62 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-gray-900 dark:to-gray-800 p-4">
-      <div className="w-full max-w-md">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8">
-          <div className="flex flex-col items-center mb-8">
-            <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-2xl flex items-center justify-center mb-4">
-              <Plane className="w-8 h-8 text-white" />
-            </div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-              Registra tu agencia
-            </h1>
-            <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">
-              Comienza a gestionar tus ventas
-            </p>
-          </div>
+    <AuthShell mode="register" title="Registra tu agencia" subtitle="Comienza a gestionar tus ventas">
+      <form onSubmit={handleSubmit}>
+        <AuthFields className="space-y-4">
+          <AuthError message={error} />
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-              <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 px-4 py-3 rounded-lg text-sm">
-                {error}
-              </div>
-            )}
+          <AuthItem className="space-y-2">
+            <Label htmlFor="agencyName">Nombre de la agencia *</Label>
+            <Input
+              id="agencyName"
+              name="agencyName"
+              placeholder="Mi Agencia de Viajes"
+              required
+              value={formData.agencyName}
+              onChange={handleChange}
+              disabled={loading}
+            />
+          </AuthItem>
+          <AuthItem className="space-y-2">
+            <Label htmlFor="email">Correo electrónico *</Label>
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              placeholder="contacto@agencia.com"
+              required
+              value={formData.email}
+              onChange={handleChange}
+              disabled={loading}
+            />
+          </AuthItem>
+          <AuthItem className="space-y-2">
+            <Label htmlFor="phone">Teléfono *</Label>
+            <Input
+              id="phone"
+              name="phone"
+              placeholder="9611234567"
+              required
+              value={formData.phone}
+              onChange={handleChange}
+              disabled={loading}
+            />
+          </AuthItem>
+          <AuthItem className="space-y-2">
+            <Label htmlFor="address">Dirección</Label>
+            <Textarea
+              id="address"
+              name="address"
+              placeholder="Calle, número, colonia, ciudad"
+              rows={2}
+              value={formData.address}
+              onChange={handleChange}
+              disabled={loading}
+            />
+          </AuthItem>
 
-            <div className="space-y-2">
-              <Label htmlFor="agencyName">Nombre de la agencia *</Label>
-              <Input
-                id="agencyName"
-                name="agencyName"
-                placeholder="Mi Agencia de Viajes"
-                value={formData.agencyName}
-                onChange={handleChange}
-                required
-                disabled={loading}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="email">Correo electrónico *</Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                placeholder="contacto@agencia.com"
-                value={formData.email}
-                onChange={handleChange}
-                required
-                disabled={loading}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="phone">Teléfono *</Label>
-              <Input
-                id="phone"
-                name="phone"
-                placeholder="9611234567"
-                value={formData.phone}
-                onChange={handleChange}
-                required
-                disabled={loading}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="address">Dirección</Label>
-              <Textarea
-                id="address"
-                name="address"
-                placeholder="Calle, número, colonia, ciudad"
-                value={formData.address}
-                onChange={handleChange}
-                disabled={loading}
-                rows={2}
-              />
-            </div>
-
+          <AuthItem className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="password">Contraseña *</Label>
               <Input
@@ -166,9 +148,8 @@ export default function RegisterPage() {
                 disabled={loading}
               />
             </div>
-
             <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirmar contraseña *</Label>
+              <Label htmlFor="confirmPassword">Confirmar *</Label>
               <Input
                 id="confirmPassword"
                 name="confirmPassword"
@@ -180,24 +161,25 @@ export default function RegisterPage() {
                 disabled={loading}
               />
             </div>
+          </AuthItem>
 
-            <Button
-              type="submit"
-              variant="gradient" className="w-full"
-              disabled={loading}
-            >
+          <AuthItem>
+            <Button type="submit" variant="gradient" className="group w-full" disabled={loading}>
               {loading ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   Registrando...
                 </>
               ) : (
-                'Registrar agencia'
+                <>
+                  Registrar agencia
+                  <Plane className="ml-2 h-4 w-4 transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-1" />
+                </>
               )}
             </Button>
-          </form>
+          </AuthItem>
 
-          <div className="mt-6 text-center">
+          <AuthItem className="pt-1 text-center">
             <p className="text-sm text-gray-600 dark:text-gray-400">
               ¿Ya tienes cuenta?{' '}
               <Link
@@ -207,9 +189,9 @@ export default function RegisterPage() {
                 Inicia sesión
               </Link>
             </p>
-          </div>
-        </div>
-      </div>
-    </div>
+          </AuthItem>
+        </AuthFields>
+      </form>
+    </AuthShell>
   );
 }
