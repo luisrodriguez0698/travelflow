@@ -97,7 +97,9 @@ export async function middleware(req: NextRequest, event: NextFetchEvent) {
 
   // ── 3. Dominio principal del SaaS → aplicar auth de next-auth ───────────────
   // Las rutas /landings/* son públicas (ya se llegó aquí sólo si es el dominio principal)
-  if (pathname.startsWith('/landings') || isPublicPath(pathname)) {
+  // La portada (/) es la pagina publica de TravelFlow: si hay sesion, la propia
+  // pagina redirige al dashboard; sin sesion se muestra (antes mandaba al login)
+  if (pathname === '/' || pathname.startsWith('/landings') || isPublicPath(pathname)) {
     return NextResponse.next();
   }
 
