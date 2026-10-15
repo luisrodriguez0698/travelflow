@@ -101,7 +101,6 @@ export function WindowIntro({ onDone, subtitle }: { onDone: () => void; subtitle
   const onPointerDown = (e: React.PointerEvent) => {
     if (opened.current) return;
     unlockAudio();
-    requestMotionPermission();
     gsap.killTweensOf(state.current);
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     drag.current = { y: e.clientY, open: state.current.open, moved: false };
@@ -115,6 +114,8 @@ export function WindowIntro({ onDone, subtitle }: { onDone: () => void; subtitle
   };
   const onPointerUp = () => {
     if (!drag.current) return;
+    // iPhone solo acepta el permiso de sensores al soltar el dedo
+    requestMotionPermission();
     const { moved } = drag.current;
     drag.current = null;
     // Un toque sin arrastrar tambien la abre

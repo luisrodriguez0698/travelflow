@@ -1,5 +1,5 @@
 import { prisma } from './prisma';
-import { resolvePermissionList, can, ALL_MODULES } from './permissions';
+import { resolvePermissionList, can, ALL_MODULES, isProtectedRole } from './permissions';
 import { publishToUser } from './realtime';
 
 // Avisos de actividad para el equipo ("nueva venta", "abono", "ingreso").
@@ -43,7 +43,7 @@ export async function notifyActivity(input: ActivityInput): Promise<void> {
     const module = EVENT_MODULE[input.type];
     const users = await prisma.user.findMany({
       where: { tenantId: input.tenantId, deletedAt: null, isActive: true, id: { not: input.actor.id } },
-      select: { id: true, role: true, roleRef: { select: { name: true, permissions: true, ownDataOnly: true } } },
+      select: { id: true, role: true, roleRef: { select: { name: true, permissions: true, ownDataOnly: true, isDefault: true } } },
     });
 
     // Recordatorios de gastos fijos y respuestas a invitaciones: son de la agencia,
@@ -56,7 +56,11 @@ export async function notifyActivity(input: ActivityInput): Promise<void> {
       }
       // "Solo lo suyo": no debe enterarse de lo que hacen los demas
       if (!agencyReminder && u.roleRef?.ownDataOnly) return false;
-      const permissions = u.roleRef
+      // El Admin protegido tiene todo, incluidos modulos nuevos que su lista guardada
+      // no trae (igual que en la sesion: lib/auth-options.ts)
+      const permissions = u.roleRef && isProtectedRole(u.roleRef)
+        ? resolvePermissionList([...ALL_MODULES])
+        : u.roleRef
         ? resolvePermissionList(u.roleRef.permissions)
         : u.role === 'ADMIN'
           ? resolvePermissionList([...ALL_MODULES])

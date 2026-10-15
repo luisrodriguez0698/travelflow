@@ -246,6 +246,7 @@ function GuestView({ event, guest }: { event: InvitationEvent; guest: Invitation
   const confirmBtn = useRef<HTMLButtonElement>(null);
   const confirmedRef = useRef(guest.status === 'CONFIRMED');
   const [touch, setTouch] = useState(false);
+  const [needsMotion, setNeedsMotion] = useState(false);
   const [status, setStatus] = useState(guest.status);
   const [justConfirmed, setJustConfirmed] = useState(false);
   const [saving, setSaving] = useState<'CONFIRMED' | 'DECLINED' | null>(null);
@@ -277,6 +278,7 @@ function GuestView({ event, guest }: { event: InvitationEvent; guest: Invitation
   // "descifra" como pantalla de aeropuerto y globos que flotan junto al saludo
   useEffect(() => {
     setTouch(isTouchDevice());
+    setNeedsMotion(motionNeedsPermission());
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const ctx = gsap.context(() => {
       gsap.from('[data-hero-item]', { y: 30, opacity: 0, duration: 0.8, stagger: 0.1, ease: 'power3.out' });
@@ -365,6 +367,7 @@ function GuestView({ event, guest }: { event: InvitationEvent; guest: Invitation
         }
         setStatus(response);
         setDeclining(false);
+        setNeedsMotion(motionNeedsPermission());
         setJustConfirmed(response === 'CONFIRMED');
       } catch {
         toast.error('Sin conexión. Intenta de nuevo.');
@@ -432,9 +435,15 @@ function GuestView({ event, guest }: { event: InvitationEvent; guest: Invitation
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 3 }}
-          onClick={() => {
-            requestMotionPermission();
+          onClick={async () => {
             unlockAudio();
+            if (needsMotion) {
+              const ok = await requestMotionPermission();
+              setNeedsMotion(!ok);
+              if (ok) toast.success('¡Listo! Inclina tu celular 📱');
+              else toast('Para usar el movimiento, permite el acceso al sensor en Safari.');
+              return;
+            }
             if (confirmed) {
               chime();
               celebrate();
@@ -445,7 +454,7 @@ function GuestView({ event, guest }: { event: InvitationEvent; guest: Invitation
           <motion.span animate={{ rotate: confirmed ? [0, -20, 20, -20, 0] : [0, -12, 12, 0] }} transition={{ duration: 1, repeat: Infinity, repeatDelay: 1.5 }}>
             {confirmed ? '🎉' : '📱'}
           </motion.span>
-          {confirmed ? 'Agita tu celular para celebrar' : motionNeedsPermission() ? 'Toca aquí e inclina tu celular' : 'Inclina tu celular'}
+          {needsMotion ? 'Toca aquí para activar el movimiento' : confirmed ? 'Agita tu celular para celebrar' : 'Inclina tu celular'}
         </motion.button>
       )}
 
