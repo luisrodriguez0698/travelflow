@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation';
 import gsap from 'gsap';
 import QRCode from 'qrcode';
 import { motion } from 'framer-motion';
-import { CalendarPlus, Download, Loader2, MapPin, Navigation, PartyPopper, Plane, Shirt, Volume2, VolumeX, X } from 'lucide-react';
+import { CalendarPlus, ChevronDown, Download, Loader2, MapPin, Navigation, PartyPopper, Plane, Shirt, Volume2, VolumeX, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { COUNTRIES, DEFAULT_COUNTRY, formatPhone } from '@/lib/phone';
 import type { InvitationEvent, InvitationGuest } from '@/lib/special-events';
@@ -77,6 +77,16 @@ function Reveal({ children, className, delay = 0 }: { children: React.ReactNode;
     </motion.section>
   );
 }
+
+// Campos solidos: Safari (iPhone) ignora fondos semitransparentes en inputs y
+// dejaba texto blanco sobre blanco. 16px evita el zoom automatico al escribir.
+const fieldStyle: React.CSSProperties = {
+  backgroundColor: '#ffffff',
+  color: '#0f172a',
+  WebkitTextFillColor: '#0f172a',
+  fontSize: 16,
+  opacity: 1,
+};
 
 const glass = 'rounded-3xl border border-white/20 bg-white/10 shadow-[0_20px_50px_-20px_rgba(2,6,23,0.6)] backdrop-blur-md';
 
@@ -165,18 +175,22 @@ function CheckIn({ event, invalidPass }: { event: InvitationEvent; invalidPass: 
           </div>
         </div>
         <div className="mt-5 flex gap-2">
-          <select
-            value={country}
-            onChange={(e) => setCountry(e.target.value)}
-            aria-label="País"
-            className="h-12 rounded-xl border border-white/25 bg-white/15 px-2 text-sm font-semibold text-white outline-none focus:border-white [&>option]:text-slate-900"
-          >
+          <div className="relative shrink-0">
+            <select
+              value={country}
+              onChange={(e) => setCountry(e.target.value)}
+              aria-label="País"
+              className="h-12 appearance-none rounded-xl border-0 pl-3 pr-8 text-base font-semibold outline-none ring-2 ring-transparent focus:ring-sky-300"
+              style={fieldStyle}
+            >
             {COUNTRIES.map((x) => (
               <option key={x.code} value={x.code}>
                 {x.code} +{x.dial}
               </option>
             ))}
-          </select>
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+          </div>
           <input
             inputMode="numeric"
             autoComplete="tel-national"
@@ -184,7 +198,8 @@ function CheckIn({ event, invalidPass }: { event: InvitationEvent; invalidPass: 
             onChange={(e) => setDigits(e.target.value.replace(/\D/g, '').slice(0, c.max))}
             placeholder={'0'.repeat(c.max).replace(/0/g, '•')}
             aria-label="Número de teléfono"
-            className="h-12 min-w-0 flex-1 rounded-xl border border-white/25 bg-white/15 px-4 text-lg font-semibold tracking-widest text-white placeholder:text-white/40 outline-none focus:border-white"
+            className="h-12 min-w-0 flex-1 appearance-none rounded-xl border-0 px-4 text-lg font-semibold tracking-widest outline-none ring-2 ring-transparent placeholder:text-slate-300 focus:ring-sky-300"
+            style={fieldStyle}
           />
         </div>
         {error && <p className="mt-3 rounded-xl bg-red-500/25 px-3 py-2 text-sm text-white">{error}</p>}
@@ -365,7 +380,8 @@ function GuestView({ event, guest }: { event: InvitationEvent; guest: Invitation
               maxLength={300}
               rows={2}
               placeholder="Escribe aquí…"
-              className="w-full rounded-xl border border-white/25 bg-white/10 p-3 text-sm text-white placeholder:text-white/50 outline-none focus:border-white"
+              className="w-full appearance-none rounded-xl border-0 p-3 text-base outline-none ring-2 ring-transparent placeholder:text-slate-400 focus:ring-sky-300"
+              style={fieldStyle}
             />
             <div className="grid grid-cols-2 gap-2">
               <button type="button" onClick={() => setDeclining(false)} className="h-11 rounded-xl border border-white/30 text-sm font-semibold">
