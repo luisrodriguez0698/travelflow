@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import gsap from 'gsap';
 import { ChevronsUp } from 'lucide-react';
 import { ASSETS } from './assets';
-import { chime, unlockAudio } from './sound';
+import { chime, planeFlyby, shadeSlide, sparkle, unlockAudio } from './sound';
 import { onTilt, requestMotionPermission } from './device-motion';
 
 // Entrada: ventanilla de avion en 3D con la persiana cerrada. El invitado la sube
@@ -72,6 +72,7 @@ export function WindowIntro({ onDone, subtitle }: { onDone: () => void; subtitle
   const finish = useCallback(() => {
     if (done) return;
     setDone(true);
+    chime();
     gsap
       .timeline({ onComplete: onDone })
       .to('[data-intro-title], [data-intro-hint]', { opacity: 0, y: -20, duration: 0.4, stagger: 0.05 })
@@ -83,16 +84,16 @@ export function WindowIntro({ onDone, subtitle }: { onDone: () => void; subtitle
     if (opened.current) return;
     opened.current = true;
     gsap.killTweensOf(state.current);
-    chime();
+    shadeSlide();
     const viewWidth = view.current?.offsetWidth ?? 300;
     gsap
       .timeline({ onComplete: () => void setTimeout(finish, 500) })
       .to(state.current, { open: 1, duration: 0.7, ease: 'power3.out', onUpdate: applyShade })
-      .fromTo(one.current, { scale: 0.6, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.9, ease: 'back.out(1.7)' }, '-=0.3')
+      .fromTo(one.current, { scale: 0.6, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.9, ease: 'back.out(1.7)', onStart: sparkle }, '-=0.3')
       .fromTo(
         plane.current,
         { x: -viewWidth * 0.9, y: viewWidth * 0.55, scale: 0.5, rotation: -6, opacity: 1 },
-        { x: viewWidth * 1.15, y: -viewWidth * 0.45, scale: 0.95, rotation: -24, opacity: 1, duration: 2.4, ease: 'power1.inOut' },
+        { x: viewWidth * 1.15, y: -viewWidth * 0.45, scale: 0.95, rotation: -24, opacity: 1, duration: 2.4, ease: 'power1.inOut', onStart: () => planeFlyby(2.4) },
         '-=0.6'
       );
   }, [applyShade, finish]);
@@ -216,6 +217,7 @@ export function WindowIntro({ onDone, subtitle }: { onDone: () => void; subtitle
       <div ref={hint} data-intro-hint className="mt-8 flex flex-col items-center text-white">
         <ChevronsUp data-hint-arrow className="h-7 w-7" />
         <p className="text-sm font-medium tracking-wide">Sube la persiana para abrir tu invitación</p>
+        <p className="mt-1 text-xs text-white/70">🔊 Sube el volumen para una mejor experiencia</p>
       </div>
 
       <button

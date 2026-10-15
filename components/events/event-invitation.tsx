@@ -18,6 +18,7 @@ import type { InvitationEvent, InvitationGuest } from '@/lib/special-events';
 import { ASSETS, DEFAULT_MESSAGE, TZ } from './invitation/assets';
 import { Sky } from './invitation/sky';
 import { WindowIntro } from './invitation/window-intro';
+import { WelcomeGate } from './invitation/welcome-gate';
 import { BoardingPass, type BoardingPassHandle } from './invitation/boarding-pass';
 import { FlapCountdown } from './invitation/flap-countdown';
 import { celebrate } from './invitation/celebrate';
@@ -651,7 +652,8 @@ export function EventInvitation({
 }) {
   const introKey = `tf-ev-intro-${event.id}`;
   // La ventanilla se ve una vez por visita (al volver con su link ya no se repite)
-  const [phase, setPhase] = useState<'boot' | 'intro' | 'main'>('boot');
+  // bienvenida (volumen + permiso del sensor) -> ventanilla -> invitacion
+  const [phase, setPhase] = useState<'boot' | 'gate' | 'intro' | 'main'>('boot');
 
   useEffect(() => {
     let seen = false;
@@ -661,7 +663,7 @@ export function EventInvitation({
       // sin almacenamiento: siempre se muestra
     }
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    setPhase(seen || reduce ? 'main' : 'intro');
+    setPhase(seen || reduce ? 'main' : 'gate');
     // Android no pide permiso para los sensores: se activan desde ya
     if (!reduce && !motionNeedsPermission()) requestMotionPermission();
   }, [introKey]);
@@ -680,6 +682,7 @@ export function EventInvitation({
       <Sky />
       <SoundToggle />
       <div className="relative z-10">
+        {phase === 'gate' && <WelcomeGate eventName={event.name} onEnter={() => setPhase('intro')} />}
         {phase === 'intro' && <WindowIntro onDone={endIntro} subtitle={event.name} />}
         {phase === 'main' &&
           (guest ? <GuestView key={guest.token} event={event} guest={guest} /> : <CheckIn event={event} invalidPass={invalidPass} />)}
