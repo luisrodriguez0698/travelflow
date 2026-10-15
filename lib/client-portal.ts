@@ -74,11 +74,63 @@ export function findSharedBooking(token: string) {
     select: {
       id: true,
       tenantId: true,
+      clientId: true,
       sharePinRequired: true,
       client: { select: { phone: true, fullName: true } },
       tenant: { select: { name: true, logo: true, customDomain: true } },
     },
   });
+}
+
+export interface PortalTrip {
+  token: string;
+  destination: string | null;
+  departureDate: string | null;
+  past: boolean;
+  pinRequired: boolean;
+}
+
+/**
+ * Viajes del mismo cliente (mismo registro, no mismo telefono) que tienen el link
+ * activo: los proximos primero (el mas cercano arriba) y luego los ya realizados.
+ * Las canceladas no aparecen.
+ */
+export async function listClientTrips(tenantId: string, clientId: string): Promise<PortalTrip[]> {
+  const rows = await prismaBase.booking.findMany({
+    where: { tenantId, clientId, type: 'SALE', shareEnabled: true, shareToken: { not: null }, status: { not: 'CANCELLED' } },
+    select: {
+      shareToken: true,
+      sharePinRequired: true,
+      departureDate: true,
+      returnDate: true,
+      createdAt: true,
+      destination: { select: { name: true } },
+      items: {
+        select: {
+          type: true,
+          flightDestination: true,
+          direction: true,
+          destination: { select: { name: true } },
+          hotel: { select: { destination: { select: { name: true } } } },
+        },
+      },
+    },
+  });
+  const now = Date.now();
+  const trips = rows.map((b) => {
+    const end = b.returnDate ?? b.departureDate;
+    return {
+      token: b.shareToken as string,
+      destination: bookingDestination(b).name,
+      departureDate: b.departureDate?.toISOString() ?? null,
+      past: !!end && end.getTime() < now - 24 * 60 * 60 * 1000,
+      pinRequired: b.sharePinRequired,
+      sortKey: (b.departureDate ?? b.createdAt).getTime(),
+    };
+  });
+  const upcoming = trips.filter((t) => !t.past).sort((x, y) => x.sortKey - y.sortKey);
+  const past = trips.filter((t) => t.past).sort((x, y) => y.sortKey - x.sortKey);
+  return [...upcoming, ...past].map(({ sortKey: _sortKey, ...t }) => t);
 }
 
 /** URL firmada de un archivo (logo/fotos) para el portal publico. */

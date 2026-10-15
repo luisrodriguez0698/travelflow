@@ -5,6 +5,7 @@ import {
   cookieMatches,
   fileUrl,
   findSharedBooking,
+  listClientTrips,
   loadPortalData,
   pinFromPhone,
   portalCookieName,
@@ -51,14 +52,23 @@ export default async function TripPortalPage({ params }: { params: { token: stri
   if (!booking || !hostAllowed(host, booking.tenant.customDomain)) return <Unavailable />;
 
   const pin = pinFromPhone(booking.client.phone);
-  if (booking.sharePinRequired && pin) {
-    const unlocked = cookieMatches(cookies().get(portalCookieName(token))?.value, token, pin);
-    if (!unlocked) {
-      return <PortalUnlock token={token} agencyName={booking.tenant.name} logo={await fileUrl(booking.tenant.logo)} />;
-    }
+  const jar = cookies();
+  // Todos los viajes del cliente comparten PIN (mismo telefono): si ya lo escribio
+  // en cualquiera de ellos en este dispositivo, no se le vuelve a pedir.
+  const trips = await listClientTrips(booking.tenantId, booking.clientId);
+  const unlockedWith = (t: string) => !!pin && cookieMatches(jar.get(portalCookieName(t))?.value, t, pin);
+  const verified = unlockedWith(token) || trips.some((t) => unlockedWith(t.token));
+
+  if (booking.sharePinRequired && pin && !verified) {
+    return <PortalUnlock token={token} agencyName={booking.tenant.name} logo={await fileUrl(booking.tenant.logo)} />;
   }
 
   const data = await loadPortalData(booking.id);
   if (!data) return <Unavailable />;
-  return <TripPortal data={data} />;
+
+  // Si entro sin PIN, solo ve los otros viajes que tampoco piden PIN
+  const visibleTrips = trips
+    .filter((t) => t.token === token || verified || !pin || !t.pinRequired)
+    .map(({ pinRequired: _pinRequired, ...t }) => t);
+  return <TripPortal data={data} trips={visibleTrips} currentToken={token} />;
 }

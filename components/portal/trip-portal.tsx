@@ -12,8 +12,10 @@ import {
   Clock,
   Copy,
   CreditCard,
+  History,
   Hotel,
   Landmark,
+  Loader2,
   Mail,
   MapPin,
   MessageCircle,
@@ -23,13 +25,15 @@ import {
   Users,
   X,
 } from 'lucide-react';
+import Link from 'next/link';
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from '@/components/ui/carousel';
 import { AnimatedNumber } from '@/components/animated-number';
 import { daysUntil } from '@/lib/fixed-expense-rules';
-import type { PortalData } from '@/lib/client-portal';
+import type { PortalData, PortalTrip } from '@/lib/client-portal';
 import { cn } from '@/lib/utils';
 
 type Data = NonNullable<PortalData>;
+type Trip = Omit<PortalTrip, 'pinRequired'>;
 
 const TZ = 'America/Mexico_City';
 const money = (n: number) => `$${n.toLocaleString('es-MX', { maximumFractionDigits: 2 })}`;
@@ -253,8 +257,71 @@ function Section({ icon: Icon, title, children }: { icon: typeof Hotel; title: s
   );
 }
 
+// ── Selector de viajes (cuando el cliente tiene varios con link activo) ─────
+function TripSwitcher({ trips, currentToken }: { trips: Trip[]; currentToken: string }) {
+  const [pending, setPending] = useState<string | null>(null);
+  const activeRef = useRef<HTMLAnchorElement>(null);
+
+  // Deja visible el viaje actual aunque la lista sea larga
+  useEffect(() => {
+    setPending(null);
+    activeRef.current?.scrollIntoView({ block: 'nearest', inline: 'center' });
+  }, [currentToken]);
+
+  if (trips.length < 2) return null;
+  const upcomingCount = trips.filter((t) => !t.past).length;
+
+  return (
+    <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="mt-5">
+      <p className="text-xs font-medium text-white/80 mb-2">Tus viajes ({trips.length})</p>
+      <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {trips.map((t, i) => {
+          const active = t.token === currentToken;
+          return (
+            <div key={t.token} className="flex shrink-0 items-center gap-2">
+              {i === upcomingCount && i > 0 && (
+                <span className="flex items-center gap-1 pl-1 text-[11px] text-white/70">
+                  <History className="h-3.5 w-3.5" />
+                  Anteriores
+                </span>
+              )}
+              <Link
+                ref={active ? activeRef : undefined}
+                href={`/v/${t.token}`}
+                scroll
+                aria-current={active ? 'page' : undefined}
+                onClick={(e) => {
+                  if (active) e.preventDefault();
+                  else setPending(t.token);
+                }}
+                className={cn(
+                  'flex items-center gap-2 rounded-2xl px-3.5 py-2 text-left text-sm transition-all',
+                  active ? 'bg-white text-sky-700 shadow-lg shadow-sky-900/20' : 'bg-white/15 text-white hover:bg-white/25',
+                  t.past && !active && 'opacity-70'
+                )}
+              >
+                {pending === t.token ? (
+                  <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+                ) : (
+                  <Plane className={cn('h-4 w-4 shrink-0 -rotate-45', active ? 'text-sky-500' : 'text-white/80')} />
+                )}
+                <span className="leading-tight">
+                  <span className="block max-w-[11rem] truncate font-semibold">{t.destination || 'Mi viaje'}</span>
+                  <span className={cn('block text-[11px]', active ? 'text-sky-600/80' : 'text-white/75')}>
+                    {t.departureDate ? fmtDate(t.departureDate, { month: 'short', year: 'numeric' }) : 'Sin fecha'}
+                  </span>
+                </span>
+              </Link>
+            </div>
+          );
+        })}
+      </div>
+    </motion.div>
+  );
+}
+
 // ── Portal ──────────────────────────────────────────────────────────────────
-export function TripPortal({ data }: { data: Data }) {
+export function TripPortal({ data, trips = [], currentToken = '' }: { data: Data; trips?: Trip[]; currentToken?: string }) {
   const firstName = data.clientName.split(/\s+/)[0];
   const days = data.departureDate ? daysUntil(data.departureDate) : null;
   const nextPayment = data.payments.find((p) => p.paidAmount < p.amount - 0.01);
@@ -287,6 +354,8 @@ export function TripPortal({ data }: { data: Data }) {
             )}
             <span className="text-xs bg-white/20 rounded-full px-3 py-1">Folio {data.folio}</span>
           </div>
+
+          <TripSwitcher trips={trips} currentToken={currentToken} />
 
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="mt-8">
             <p className="text-white/90 text-lg">¡Hola, {firstName}! 👋</p>
