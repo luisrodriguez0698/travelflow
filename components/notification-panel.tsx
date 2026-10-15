@@ -16,7 +16,11 @@ import {
   Bell, X, CheckCheck, Truck, Clock, AlertTriangle, ShoppingCart, Wallet, Landmark, Volume2, VolumeX, Activity, Trophy,
   ReceiptText,
   PartyPopper,
+  Trash2,
+  Hand,
 } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { SwipeRow } from './swipe-row';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toast } from 'sonner';
@@ -92,6 +96,38 @@ function getSemaphore(daysRemaining: number) {
     return { color: 'bg-amber-500', textColor: 'text-amber-600 dark:text-amber-400', bgColor: 'bg-amber-50 dark:bg-amber-900/20', borderColor: 'border-amber-200 dark:border-amber-800', label: 'Próxima', icon: Clock };
   }
   return { color: 'bg-emerald-500', textColor: 'text-emerald-600 dark:text-emerald-400', bgColor: 'bg-emerald-50 dark:bg-emerald-900/20', borderColor: 'border-emerald-200 dark:border-emerald-800', label: 'Próxima', icon: Clock };
+}
+
+const HINT_KEY = 'tf-swipe-hint-seen';
+
+/** Pista de una sola vez: como deslizar las notificaciones. */
+function SwipeHint() {
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    try {
+      setShow(localStorage.getItem(HINT_KEY) !== '1');
+    } catch {
+      setShow(false);
+    }
+  }, []);
+  if (!show) return null;
+  const close = () => {
+    setShow(false);
+    try {
+      localStorage.setItem(HINT_KEY, '1');
+    } catch {}
+  };
+  return (
+    <div className="flex items-center gap-3 bg-muted/60 px-4 py-2.5 text-xs text-muted-foreground">
+      <motion.span animate={{ x: [0, 10, -10, 0] }} transition={{ duration: 1.6, repeat: Infinity, repeatDelay: 1 }}>
+        <Hand className="h-4 w-4" />
+      </motion.span>
+      <span className="flex-1">Desliza → para marcar como leída y ← para eliminar.</span>
+      <button type="button" onClick={close} className="font-semibold text-foreground">
+        Entendido
+      </button>
+    </div>
+  );
 }
 
 export function NotificationPanel() {
@@ -237,6 +273,31 @@ export function NotificationPanel() {
     } catch {}
   };
 
+  const setActivityRead = async (item: ActivityItem, read: boolean) => {
+    setActivity((prev) => prev.map((a) => (a.id === item.id ? { ...a, read } : a)));
+    setActivityUnread((n) => Math.max(0, n + (read ? -1 : 1)));
+    try {
+      await fetch('/api/activity', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: [item.id], read }),
+      });
+    } catch {}
+  };
+
+  const deleteActivity = async (ids: string[] | 'read') => {
+    const removed = activity.filter((a) => (ids === 'read' ? a.read : ids.includes(a.id)));
+    setActivity((prev) => prev.filter((a) => !removed.some((r) => r.id === a.id)));
+    setActivityUnread((n) => Math.max(0, n - removed.filter((r) => !r.read).length));
+    try {
+      await fetch('/api/activity', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(ids === 'read' ? { read: true } : { ids }),
+      });
+    } catch {}
+  };
+
   const handleActivityClick = (item: ActivityItem) => {
     if (!item.read) markActivityRead([item.id]);
     if (item.url) {
@@ -246,8 +307,8 @@ export function NotificationPanel() {
   };
 
   // ─── Acciones: proveedores ───
-  const handleDismiss = async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleDismiss = async (id: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
     try {
       await fetch(`/api/notifications/${id}`, {
         method: 'PATCH',
@@ -258,16 +319,16 @@ export function NotificationPanel() {
     } catch {}
   };
 
-  const handleMarkRead = async (id: string) => {
+  const handleMarkRead = async (id: string, read = true) => {
     try {
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, read } : n))
+      );
       await fetch(`/api/notifications/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ read: true }),
+        body: JSON.stringify({ read }),
       });
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, read: true } : n))
-      );
     } catch {}
   };
 
@@ -327,6 +388,18 @@ export function NotificationPanel() {
               >
                 {soundOn ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4 text-muted-foreground" />}
               </Button>
+              {tab === 'activity' && activity.some((a) => a.read) && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-muted-foreground hover:text-red-600"
+                  onClick={() => deleteActivity('read')}
+                  title="Eliminar las ya leídas"
+                  aria-label="Eliminar las ya leídas"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              )}
               {tabUnread > 0 && (
                 <Button variant="ghost" size="sm" className="text-xs h-8" onClick={handleMarkAllRead}>
                   <CheckCheck className="w-4 h-4 mr-1" />
@@ -363,14 +436,26 @@ export function NotificationPanel() {
               </div>
             ) : (
               <div className="divide-y divide-border">
+                <SwipeHint />
+                <AnimatePresence initial={false}>
                 {activity.map((item) => {
                   const style = ACTIVITY_STYLE[item.type] || ACTIVITY_STYLE.SALE_CREATED;
                   const Icon = style.icon;
                   return (
-                    <button
-                      type="button"
+                    <motion.div
                       key={item.id}
-                      onClick={() => handleActivityClick(item)}
+                      layout
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.22 }}
+                      className="overflow-hidden"
+                    >
+                    <SwipeRow
+                      read={item.read}
+                      onToggleRead={() => setActivityRead(item, !item.read)}
+                      onDelete={() => deleteActivity([item.id])}
+                      onOpen={() => handleActivityClick(item)}
+                    >
+                    <div
                       className={`w-full text-left p-4 flex gap-3 hover:bg-muted/50 transition-colors ${
                         !item.read ? 'bg-blue-50/50 dark:bg-blue-950/20' : ''
                       }`}
@@ -386,9 +471,12 @@ export function NotificationPanel() {
                         <p className="text-sm text-muted-foreground leading-snug mt-0.5">{item.body}</p>
                         <p className="text-xs text-muted-foreground/80 mt-1">{relativeTime(item.createdAt)}</p>
                       </div>
-                    </button>
+                    </div>
+                    </SwipeRow>
+                    </motion.div>
                   );
                 })}
+                </AnimatePresence>
               </div>
             )
           ) : loading && notifications.length === 0 ? (
@@ -410,12 +498,18 @@ export function NotificationPanel() {
                 const SemaphoreIcon = semaphore.icon;
 
                 return (
-                  <div
+                  <SwipeRow
                     key={notification.id}
-                    className={`p-4 cursor-pointer hover:bg-muted/50 transition-colors ${
+                    read={notification.read}
+                    onToggleRead={() => handleMarkRead(notification.id, !notification.read)}
+                    onDelete={() => handleDismiss(notification.id)}
+                    onOpen={() => handleClick(notification)}
+                    hoverActions={false}
+                  >
+                  <div
+                    className={`p-4 hover:bg-muted/50 transition-colors ${
                       !notification.read ? 'bg-blue-50/50 dark:bg-blue-950/20' : ''
                     }`}
-                    onClick={() => handleClick(notification)}
                   >
                     <div className="flex gap-3">
                       {/* Semaphore indicator */}
@@ -469,6 +563,7 @@ export function NotificationPanel() {
                       </div>
                     </div>
                   </div>
+                  </SwipeRow>
                 );
               })}
             </div>

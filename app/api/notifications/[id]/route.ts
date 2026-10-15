@@ -22,8 +22,8 @@ export async function PATCH(
     }
 
     const updateData: { read?: boolean; dismissed?: boolean } = {};
-    if (body.read !== undefined) updateData.read = body.read;
-    if (body.dismissed !== undefined) updateData.dismissed = body.dismissed;
+    if (typeof body.read === 'boolean') updateData.read = body.read;
+    if (typeof body.dismissed === 'boolean') updateData.dismissed = body.dismissed;
 
     const updated = await prisma.notification.update({
       where: { id },
