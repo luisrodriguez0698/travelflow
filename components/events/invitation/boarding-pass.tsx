@@ -1,0 +1,253 @@
+'use client';
+
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import gsap from 'gsap';
+import { Lock, Plane } from 'lucide-react';
+import { ASSETS, TZ } from './assets';
+import type { InvitationEvent, InvitationGuest } from '@/lib/special-events';
+
+// Pase de abordar en 3D: sale "impreso" de una ranura, se inclina con el mouse,
+// tiene brillo holografico y, al confirmar, le cae el sello de CONFIRMADO y se
+// activa el QR del talon.
+
+export interface BoardingPassHandle {
+  stamp: () => void;
+}
+
+function initials(name: string) {
+  return (
+    name
+      .split(/\s+/)
+      .filter((w) => /^[A-Za-zÁÉÍÓÚÑáéíóúñ]/.test(w))
+      .slice(0, 2)
+      .map((w) => w[0])
+      .join('')
+      .toUpperCase() || 'VIP'
+  );
+}
+
+function passDate(iso: string) {
+  const d = new Date(iso);
+  const weekday = d.toLocaleDateString('es-MX', { weekday: 'short', timeZone: TZ }).replace('.', '');
+  const day = d.toLocaleDateString('es-MX', { day: '2-digit', timeZone: TZ });
+  const month = d.toLocaleDateString('es-MX', { month: 'short', timeZone: TZ }).replace('.', '');
+  return `${weekday} ${day} ${month}`.toUpperCase();
+}
+
+function passTime(iso: string) {
+  return new Date(iso).toLocaleTimeString('es-MX', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: TZ }).toUpperCase().replace(/\s?([AP])\.?\s?M\.?/, ' $1M');
+}
+
+function Field({ label, value, className }: { label: string; value: React.ReactNode; className?: string }) {
+  return (
+    <div className={className}>
+      <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-400">{label}</p>
+      <div className="mt-0.5 truncate text-sm font-bold text-slate-800">{value}</div>
+    </div>
+  );
+}
+
+interface Props {
+  event: InvitationEvent;
+  guest: InvitationGuest;
+  confirmed: boolean;
+  qr: string | null;
+  /** Animacion de impresion al aparecer. */
+  print?: boolean;
+}
+
+export const BoardingPass = forwardRef<BoardingPassHandle, Props>(function BoardingPass({ event, guest, confirmed, qr, print = true }, ref) {
+  const wrap = useRef<HTMLDivElement>(null);
+  const card = useRef<HTMLDivElement>(null);
+  const holo = useRef<HTMLDivElement>(null);
+  const stampEl = useRef<HTMLDivElement>(null);
+  const qrEl = useRef<HTMLDivElement>(null);
+  const [printed, setPrinted] = useState(!print);
+  const code = initials(event.agency.name);
+  const flight = `${code} ${new Date(event.startsAt).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', timeZone: TZ }).replace('/', '')}`;
+
+  // Impresion: el pase baja de la ranura a pasos, como una impresora
+  useEffect(() => {
+    if (!print || !card.current) return;
+    const ctx = gsap.context(() => {
+      gsap
+        .timeline({ delay: 0.3, onComplete: () => setPrinted(true) })
+        .fromTo(card.current, { yPercent: -102 }, { yPercent: 0, duration: 1.8, ease: 'steps(16)' })
+        .to(card.current, { y: 6, duration: 0.12, yoyo: true, repeat: 1, ease: 'power1.inOut' });
+    }, wrap);
+    return () => ctx.revert();
+  }, [print]);
+
+  // Inclinacion 3D + brillo holografico que sigue al mouse/dedo
+  useEffect(() => {
+    if (!printed || !card.current || !holo.current) return;
+    const el = card.current;
+    const rx = gsap.quickTo(el, 'rotationX', { duration: 0.6, ease: 'power3' });
+    const ry = gsap.quickTo(el, 'rotationY', { duration: 0.6, ease: 'power3' });
+    const hx = gsap.quickTo(holo.current, '--hx', { duration: 0.6, ease: 'power3' });
+    const hy = gsap.quickTo(holo.current, '--hy', { duration: 0.6, ease: 'power3' });
+
+    // Brillo que pasa solo cada cierto tiempo (en celular no hay mouse)
+    const idle = gsap.to(holo.current, { '--hx': 100, duration: 3.5, repeat: -1, yoyo: true, ease: 'sine.inOut' });
+
+    const onMove = (e: PointerEvent) => {
+      const r = el.getBoundingClientRect();
+      const x = (e.clientX - r.left) / r.width;
+      const y = (e.clientY - r.top) / r.height;
+      if (x < -0.3 || x > 1.3 || y < -0.3 || y > 1.3) return;
+      idle.pause();
+      ry((x - 0.5) * 16);
+      rx(-(y - 0.5) * 12);
+      hx(x * 100);
+      hy(y * 100);
+    };
+    const onLeave = () => {
+      rx(0);
+      ry(0);
+      idle.resume();
+    };
+    el.addEventListener('pointermove', onMove);
+    el.addEventListener('pointerleave', onLeave);
+    return () => {
+      el.removeEventListener('pointermove', onMove);
+      el.removeEventListener('pointerleave', onLeave);
+      idle.kill();
+    };
+  }, [printed]);
+
+  // QR que aparece al confirmar
+  useEffect(() => {
+    if (!confirmed || !qr || !qrEl.current) return;
+    gsap.fromTo(qrEl.current, { scale: 0.6, opacity: 0, filter: 'blur(8px)' }, { scale: 1, opacity: 1, filter: 'blur(0px)', duration: 0.7, ease: 'back.out(1.6)' });
+  }, [confirmed, qr]);
+
+  useImperativeHandle(ref, () => ({
+    stamp: () => {
+      if (!stampEl.current || !card.current) return;
+      gsap
+        .timeline()
+        .fromTo(stampEl.current, { scale: 2.8, opacity: 0, rotation: -40 }, { scale: 1, opacity: 1, rotation: -14, duration: 0.32, ease: 'power4.in' })
+        .to(card.current, { x: -5, duration: 0.05, repeat: 5, yoyo: true, ease: 'none' })
+        .to(card.current, { x: 0, duration: 0.05 });
+    },
+  }));
+
+  return (
+    <div ref={wrap} className="relative mx-auto w-full max-w-[380px]">
+      {/* Ranura de la impresora */}
+      {print && !printed && <div className="relative z-10 mx-auto h-3 w-[104%] -translate-x-[2%] rounded-full bg-slate-900/80 shadow-[inset_0_2px_4px_rgba(0,0,0,0.8)]" />}
+
+      <div className={printed ? '' : 'overflow-hidden'} style={{ perspective: 1200 }}>
+        <div ref={card} className="relative" style={{ transformStyle: 'preserve-3d' }}>
+          <div className="relative overflow-hidden rounded-[28px] bg-white shadow-[0_30px_60px_-20px_rgba(2,6,23,0.6)]">
+            {/* Banda superior */}
+            <div className="relative flex items-center justify-between bg-gradient-to-r from-blue-900 via-blue-700 to-sky-500 px-5 py-4 text-white">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={ASSETS.logo} alt={event.agency.name} className="h-9 object-contain" />
+              <div className="text-right">
+                <p className="text-[9px] font-semibold uppercase tracking-[0.25em] text-white/70">Pase de abordar</p>
+                <p className="text-sm font-black tracking-widest">PRIMERA CLASE</p>
+              </div>
+            </div>
+
+            {/* Ruta */}
+            <div className="flex items-center justify-between px-5 pt-5">
+              <div>
+                <p className="text-3xl font-black tracking-tight text-blue-900">TÚ</p>
+                <p className="text-[10px] font-medium uppercase tracking-widest text-slate-400">Invitado especial</p>
+              </div>
+              <div className="relative mx-3 flex-1">
+                <div className="border-t-2 border-dashed border-sky-300" />
+                <Plane className="absolute left-1/2 top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rotate-45 fill-sky-500 text-sky-500" />
+              </div>
+              <div className="text-right">
+                <p className="text-3xl font-black tracking-tight text-blue-900">{code}</p>
+                <p className="text-[10px] font-medium uppercase tracking-widest text-slate-400">La celebración</p>
+              </div>
+            </div>
+
+            {/* Datos */}
+            <div className="grid grid-cols-3 gap-x-3 gap-y-3 px-5 py-5">
+              <Field label="Pasajero" value={guest.name} className="col-span-2" />
+              <Field label="Asiento" value="VIP ⭐" />
+              <Field
+                label="Aerolínea"
+                className="col-span-2"
+                value={
+                  guest.supplier ? (
+                    guest.supplier.logo ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={guest.supplier.logo} alt={guest.supplier.name} className="mt-0.5 h-7 max-w-[140px] object-contain" />
+                    ) : (
+                      guest.supplier.name
+                    )
+                  ) : (
+                    event.agency.name
+                  )
+                }
+              />
+              <Field label="Vuelo" value={flight} />
+              <Field label="Fecha" value={passDate(event.startsAt)} />
+              <Field label="Abordaje" value={passTime(event.startsAt)} />
+              <Field label="Puerta" value="A1" />
+            </div>
+
+            {/* Perforacion */}
+            <div className="relative h-6">
+              <span className="absolute -left-3 top-0 h-6 w-6 rounded-full bg-blue-950/60" />
+              <span className="absolute -right-3 top-0 h-6 w-6 rounded-full bg-blue-950/60" />
+              <div className="absolute inset-x-5 top-1/2 border-t-2 border-dashed border-slate-200" />
+            </div>
+
+            {/* Talon con QR */}
+            <div className="flex items-center gap-4 px-5 pb-5 pt-2">
+              <div className="relative h-28 w-28 shrink-0 rounded-xl border border-slate-200 bg-white p-1.5">
+                {confirmed && qr ? (
+                  <div ref={qrEl}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={qr} alt="Código de acceso" className="h-full w-full" />
+                  </div>
+                ) : (
+                  <div className="flex h-full w-full flex-col items-center justify-center rounded-lg bg-[repeating-linear-gradient(45deg,#f1f5f9_0_6px,#e2e8f0_6px_12px)] text-slate-400">
+                    <Lock className="h-6 w-6" />
+                  </div>
+                )}
+              </div>
+              <div className="min-w-0">
+                <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-400">Código de acceso</p>
+                <p className="mt-1 text-sm font-semibold leading-snug text-slate-700">
+                  {confirmed ? 'Muestra este código en la entrada. ¡Te esperamos!' : 'Confirma tu asistencia para activar tu pase.'}
+                </p>
+              </div>
+            </div>
+
+            {/* Brillo holografico */}
+            <div
+              ref={holo}
+              className="pointer-events-none absolute inset-0 mix-blend-overlay"
+              style={
+                {
+                  '--hx': 30,
+                  '--hy': 30,
+                  background:
+                    'radial-gradient(circle at calc(var(--hx) * 1%) calc(var(--hy) * 1%), rgba(255,255,255,0.75), transparent 45%), linear-gradient(115deg, transparent 25%, rgba(56,189,248,0.35) 40%, rgba(244,114,182,0.25) 50%, rgba(250,204,21,0.25) 60%, transparent 75%)',
+                  backgroundSize: '100% 100%, 250% 250%',
+                  backgroundPosition: '0 0, calc(var(--hx) * 1%) calc(var(--hy) * 1%)',
+                } as React.CSSProperties
+              }
+            />
+
+            {/* Sello */}
+            <div
+              ref={stampEl}
+              className="pointer-events-none absolute right-6 top-[38%] rounded-xl border-[5px] border-double border-emerald-600 px-3 py-1 text-2xl font-black tracking-widest text-emerald-600"
+              style={{ opacity: confirmed ? 0.85 : 0, transform: 'rotate(-14deg)', mixBlendMode: 'multiply' }}
+            >
+              CONFIRMADO
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+});

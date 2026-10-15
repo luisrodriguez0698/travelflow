@@ -44,6 +44,14 @@ const TRACKED: Record<string, TrackConfig> = {
   PackageTemplate: { entity: () => 'templates' },
   FixedExpense: { entity: () => 'fixed_expenses', ignore: ['lastReminderDue', 'lastReminderStage', 'lastReminderAt'] },
   Raffle: { entity: () => 'raffles', ignore: ['termsAcceptedAt'] },
+  SpecialEvent: { entity: () => 'special_events' },
+  EventGuest: {
+    entity: () => 'special_events',
+    entityId: (r) => r.eventId,
+    context: (r) => `Invitado: ${r.name}`,
+    ignore: ['eventId', 'phoneKey', 'views', 'lastViewedAt'],
+    mask: ['token'],
+  },
   RaffleParticipant: { entity: () => 'raffles', entityId: (r) => r.raffleId, context: (r) => `Participante: ${r.name}` },
   Role: { entity: () => 'roles' },
   User: {

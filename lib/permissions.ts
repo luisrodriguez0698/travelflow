@@ -11,6 +11,7 @@ export const ALL_MODULES = [
   'usuarios',
   'rifas',
   'gastos',
+  'eventos',
 ] as const;
 
 export type ModulePermission = (typeof ALL_MODULES)[number];
@@ -28,6 +29,7 @@ export const MODULE_LABELS: Record<ModulePermission, string> = {
   usuarios: 'Usuarios',
   rifas: 'Rifas',
   gastos: 'Gastos fijos',
+  eventos: 'Eventos',
 };
 
 export const ROUTE_TO_MODULE: Record<string, ModulePermission> = {
@@ -50,6 +52,7 @@ export const ROUTE_TO_MODULE: Record<string, ModulePermission> = {
   '/raffles': 'rifas',
   '/sorteo': 'rifas',
   '/expenses': 'gastos',
+  '/events': 'eventos',
   '/audit': 'usuarios',
 };
 
@@ -143,6 +146,8 @@ export const MODULE_ACTIONS: Record<ModulePermission, PermissionAction[]> = {
   rifas: ['view', 'create', 'edit', 'delete'],
   // payments: registrar el pago de un gasto fijo
   gastos: ['view', 'create', 'edit', 'delete', 'payments'],
+  // edit incluye registrar la llegada (escanear el QR en la entrada)
+  eventos: ['view', 'create', 'edit', 'delete'],
 };
 
 /** Que significa "Pagos" en cada apartado (para la pantalla de roles). */

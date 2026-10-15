@@ -14,7 +14,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
   // Portal del cliente (/v/...): es publico y puede abrirse en el dominio de la
   // agencia, donde no existen /api/auth ni /api/health. Sin sesion ni indicador
   // de conexion (evita errores en consola y un falso "servidor caido").
-  if (pathname?.startsWith('/v/')) {
+  // Igual las invitaciones a eventos (/evento/...).
+  if (pathname?.startsWith('/v/') || pathname?.startsWith('/evento/')) {
     return (
       <ThemeProvider attribute="class" forcedTheme="light" disableTransitionOnChange>
         {children}

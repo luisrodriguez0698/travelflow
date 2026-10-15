@@ -28,6 +28,7 @@ import {
   ReceiptText,
   Ticket,
   History,
+  PartyPopper,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from './ui/button';
@@ -60,6 +61,7 @@ const menuGroups: MenuGroup[] = [
       { title: 'Cotizaciones', icon: FileText, href: '/quotations', module: 'cotizaciones' },
       { title: 'Plantillas', icon: LayoutTemplate, href: '/templates' },
       { title: 'Rifas', icon: Ticket, href: '/raffles', module: 'rifas' },
+      { title: 'Eventos', icon: PartyPopper, href: '/events', module: 'eventos' },
     ],
   },
   {

@@ -6,6 +6,11 @@ import { creatorOptions, creatorWhere, idsSortedByCreator, inIdOrder, parseSort,
 
 export const dynamic = 'force-dynamic';
 
+/** Logo: solo una URL https (la que devuelve la subida); cualquier otra cosa se descarta. */
+function cleanLogo(value: unknown): string | null {
+  return typeof value === 'string' && /^https:\/\/\S+$/i.test(value.trim()) && value.length <= 1000 ? value.trim() : null;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const access = await requireAccess(['proveedores', 'ventas', 'cotizaciones']);
@@ -48,7 +53,7 @@ export async function GET(request: NextRequest) {
       const suppliers = await prisma.supplier.findMany({
         where: { tenantId },
         orderBy: { name: 'asc' },
-        select: { id: true, name: true, phone: true, serviceType: true },
+        select: { id: true, name: true, phone: true, serviceType: true, logo: true },
       });
       return NextResponse.json(suppliers);
     }
@@ -103,7 +108,7 @@ export async function POST(request: NextRequest) {
     const tenantId = access.tenantId;
     const body = await request.json();
 
-    const { name, phone, email, serviceType } = body;
+    const { name, phone, email, serviceType, logo } = body;
 
     if (!name || !phone) {
       return NextResponse.json(
@@ -121,6 +126,7 @@ export async function POST(request: NextRequest) {
         phone,
         email: email || null,
         serviceType: serviceType || 'OTRO',
+        logo: cleanLogo(logo),
         createdBy: sessionUser?.id || null,
       },
     });

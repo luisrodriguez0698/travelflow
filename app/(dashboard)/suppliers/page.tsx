@@ -47,6 +47,8 @@ import { CreatorFilter, type CreatorOption } from '@/components/creator-filter';
 import { SortableHead, SortSelect, type SortState } from '@/components/list-controls';
 import { PageSkeleton } from '@/components/skeletons';
 import { EmptyState } from '@/components/empty-state';
+import { LogoField } from '@/components/logo-field';
+import { SupplierLogo } from '@/components/supplier-logo';
 
 interface Supplier {
   id: string;
@@ -54,6 +56,7 @@ interface Supplier {
   phone: string;
   email: string | null;
   serviceType: string;
+  logo: string | null;
   creatorName?: string | null;
 }
 
@@ -104,6 +107,7 @@ export default function SuppliersPage() {
     phone: '',
     email: '',
     serviceType: 'OTRO',
+    logo: '',
   });
 
   const [totalPages, setTotalPages] = useState(1);
@@ -166,7 +170,7 @@ export default function SuppliersPage() {
   };
 
   const resetForm = () => {
-    setFormData({ name: '', phone: '', email: '', serviceType: 'OTRO' });
+    setFormData({ name: '', phone: '', email: '', serviceType: 'OTRO', logo: '' });
   };
 
   const openCreateModal = () => {
@@ -181,6 +185,7 @@ export default function SuppliersPage() {
       phone: supplier.phone,
       email: supplier.email || '',
       serviceType: supplier.serviceType,
+      logo: supplier.logo || '',
     });
     setIsEditModalOpen(true);
   };
@@ -320,6 +325,14 @@ export default function SuppliersPage() {
           </SelectContent>
         </Select>
       </div>
+      <div className="grid gap-2">
+        <Label>Logo</Label>
+        <LogoField
+          value={formData.logo}
+          onChange={(logo) => setFormData((prev) => ({ ...prev, logo }))}
+          hint="Se muestra en las invitaciones a eventos. PNG con fondo transparente se ve mejor."
+        />
+      </div>
     </div>
   );
 
@@ -381,9 +394,12 @@ export default function SuppliersPage() {
             suppliers.map((supplier) => (
               <div key={supplier.id} className="p-4 space-y-2">
                 <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="font-medium truncate">{supplier.name}</p>
-                    <p className="text-sm text-muted-foreground">{supplier.phone}</p>
+                  <div className="flex min-w-0 items-center gap-3">
+                    <SupplierLogo name={supplier.name} logo={supplier.logo} />
+                    <div className="min-w-0">
+                      <p className="font-medium truncate">{supplier.name}</p>
+                      <p className="text-sm text-muted-foreground">{supplier.phone}</p>
+                    </div>
                   </div>
                   <CreatorHistoryButton entity="suppliers" entityId={supplier.id} creatorName={supplier.creatorName} size="sm" />
                 </div>
@@ -429,7 +445,12 @@ export default function SuppliersPage() {
               {suppliers.length > 0 ? (
                 suppliers.map((supplier) => (
                   <TableRow key={supplier.id}>
-                    <TableCell className="font-medium">{supplier.name}</TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-3">
+                        <SupplierLogo name={supplier.name} logo={supplier.logo} />
+                        {supplier.name}
+                      </div>
+                    </TableCell>
                     <TableCell>{supplier.phone}</TableCell>
                     <TableCell className="hidden md:table-cell">{supplier.email || '-'}</TableCell>
                     <TableCell>

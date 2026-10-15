@@ -36,6 +36,8 @@ const PUBLIC_PATHS = [
   '/~offline', // pantalla sin conexion que guarda el service worker
   '/v/', // portal del cliente (link unico por venta, protegido con token + PIN)
   '/api/portal/',
+  '/evento/', // invitacion a eventos especiales (link personal o telefono del invitado)
+  '/api/evento/',
 ];
 
 function isPublicPath(pathname: string): boolean {
@@ -54,7 +56,13 @@ export async function middleware(req: NextRequest, event: NextFetchEvent) {
 
   // ── 0. Portal del cliente: funciona en el dominio del SaaS y en el de la agencia
   // (viajaentrenubes.com/v/...). Lo protege su token + PIN, no la sesion.
-  if (pathname.startsWith('/v/') || pathname.startsWith('/api/portal/')) {
+  // Igual las invitaciones a eventos y sus APIs publicas.
+  if (
+    pathname.startsWith('/v/') ||
+    pathname.startsWith('/api/portal/') ||
+    pathname.startsWith('/evento/') ||
+    pathname.startsWith('/api/evento/')
+  ) {
     return NextResponse.next();
   }
 

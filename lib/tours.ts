@@ -244,6 +244,20 @@ export const SECTION_TOURS: TourDef[] = [
     ],
   },
   {
+    id: 'events',
+    title: 'Eventos',
+    path: '/events',
+    module: 'eventos',
+    steps: [
+      { element: 'page-action', title: 'Nuevo evento', description: 'Aniversarios, posadas, lanzamientos… con fecha, lugar y la dirección de su invitación virtual.' },
+      {
+        element: 'page-list',
+        title: 'Invitados y entrada',
+        description: 'Agrega invitados por proveedor, mándales su invitación por WhatsApp y el día del evento <b>escanea su QR</b> en la entrada.',
+      },
+    ],
+  },
+  {
     id: 'expenses',
     title: 'Gastos fijos',
     path: '/expenses',

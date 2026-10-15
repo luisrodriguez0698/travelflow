@@ -56,6 +56,7 @@ model Tenant {
   raffles          Raffle[]
   fixedExpenses    FixedExpense[]
   fixedExpensePayments FixedExpensePayment[]
+  specialEvents    SpecialEvent[]
 
   @@map("tenants")
 }
@@ -449,6 +450,7 @@ model Supplier {
   phone       String
   email       String?
   serviceType String   @default("OTRO") // HOTEL, TRANSPORTE, TOUR, RESTAURANTE, OTRO
+  logo        String?  // URL publica (se muestra en invitaciones a eventos)
   createdBy   String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -459,6 +461,7 @@ model Supplier {
   supplierPayments SupplierPayment[]
   bookingItems     BookingItem[]
   services         ServiceCatalog[]
+  eventGuests      EventGuest[]
 
   @@index([tenantId])
   @@map("suppliers")
@@ -947,4 +950,64 @@ model FixedExpensePayment {
 
   @@index([fixedExpenseId])
   @@map("fixed_expense_payments")
+}
+
+// ========== EVENTOS ESPECIALES (invitaciones) ==========
+
+// Evento con invitacion virtual (p. ej. aniversario de la agencia). Se abre en
+// <dominio de la agencia>/<slug>; cada invitado entra con su telefono o su link.
+model SpecialEvent {
+  id            String    @id @default(cuid())
+  tenantId      String
+  name          String
+  slug          String    // direccion publica: viajaentrenubes.com/<slug>
+  message       String?   @db.Text // texto principal de la invitacion
+  startsAt      DateTime
+  venueName     String?
+  address       String?
+  googleMapsUrl String?
+  appleMapsUrl  String?
+  dressCode     String?
+  rsvpDeadline  DateTime? // despues de esta fecha ya no se puede confirmar
+  status        String    @default("ACTIVE") // ACTIVE, CLOSED
+  createdBy     String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  tenant Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  guests EventGuest[]
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+  @@map("special_events")
+}
+
+model EventGuest {
+  id           String    @id @default(cuid())
+  tenantId     String
+  eventId      String
+  supplierId   String?
+  name         String
+  phone        String    // "+52 9611234567"
+  phoneKey     String    // solo digitos con clave de pais: para buscar y evitar duplicados
+  token        String    @unique // link personal y contenido del QR (aleatorio, 192 bits)
+  status       String    @default("PENDING") // PENDING, CONFIRMED, DECLINED
+  respondedAt  DateTime?
+  note         String?   // mensaje del invitado al responder
+  checkedInAt  DateTime?
+  checkedInBy  String?
+  views        Int       @default(0)
+  lastViewedAt DateTime?
+  sentAt       DateTime? // cuando se le mando por WhatsApp desde el sistema
+  createdBy    String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  event    SpecialEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  supplier Supplier?    @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+
+  @@unique([eventId, phoneKey])
+  @@index([tenantId])
+  @@index([eventId])
+  @@map("event_guests")
 }

@@ -5,7 +5,7 @@ import { publishToUser } from './realtime';
 // Avisos de actividad para el equipo ("nueva venta", "abono", "ingreso").
 // Cada evento exige el acceso de su apartado: solo lo recibe quien puede verlo.
 
-export type ActivityType = 'SALE_CREATED' | 'PAYMENT_RECEIVED' | 'BANK_INCOME' | 'GOAL_REACHED' | 'FIXED_EXPENSE';
+export type ActivityType = 'SALE_CREATED' | 'PAYMENT_RECEIVED' | 'BANK_INCOME' | 'GOAL_REACHED' | 'FIXED_EXPENSE' | 'EVENT_RSVP';
 
 const EVENT_MODULE: Record<ActivityType, string> = {
   SALE_CREATED: 'ventas',
@@ -13,6 +13,7 @@ const EVENT_MODULE: Record<ActivityType, string> = {
   BANK_INCOME: 'bancos',
   GOAL_REACHED: 'ventas',
   FIXED_EXPENSE: 'gastos',
+  EVENT_RSVP: 'eventos',
 };
 
 /**
@@ -45,8 +46,9 @@ export async function notifyActivity(input: ActivityInput): Promise<void> {
       select: { id: true, role: true, roleRef: { select: { name: true, permissions: true, ownDataOnly: true } } },
     });
 
-    // Recordatorios de gastos fijos: son de la agencia, llegan a todo el que tenga el apartado
-    const agencyReminder = input.type === 'FIXED_EXPENSE';
+    // Recordatorios de gastos fijos y respuestas a invitaciones: son de la agencia,
+    // llegan a todo el que tenga el apartado
+    const agencyReminder = input.type === 'FIXED_EXPENSE' || input.type === 'EVENT_RSVP';
     const recipients = users.filter((u) => {
       const roleName = u.roleRef?.name ?? u.role;
       if (!agencyReminder && NOTIFY_ROLE_NAMES && !NOTIFY_ROLE_NAMES.some((r) => r.toLowerCase() === roleName.toLowerCase())) {

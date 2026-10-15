@@ -4,6 +4,11 @@ import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
+/** Logo: solo una URL https (la que devuelve la subida); cualquier otra cosa se descarta. */
+function cleanLogo(value: unknown): string | null {
+  return typeof value === 'string' && /^https:\/\/\S+$/i.test(value.trim()) && value.length <= 1000 ? value.trim() : null;
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -40,7 +45,7 @@ async function updateSupplier(
     const { id } = await params;
     const body = await request.json();
 
-    const { name, phone, email, serviceType } = body;
+    const { name, phone, email, serviceType, logo } = body;
 
     if (!name || !phone) {
       return NextResponse.json(
@@ -56,6 +61,8 @@ async function updateSupplier(
         phone,
         email: email || null,
         serviceType: serviceType || 'OTRO',
+        // Sin el campo en el cuerpo, el logo se conserva
+        ...(logo !== undefined && { logo: cleanLogo(logo) }),
       },
     });
 
