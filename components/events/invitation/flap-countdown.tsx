@@ -18,8 +18,8 @@ function FlapDigit({ value }: { value: string }) {
     }
   }, [value]);
   return (
-    <span className="relative flex h-12 w-9 items-center justify-center overflow-hidden rounded-md bg-gradient-to-b from-slate-800 to-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_4px_8px_rgba(0,0,0,0.4)] sm:h-14 sm:w-10">
-      <span ref={el} className="font-mono text-2xl font-bold text-amber-300 sm:text-3xl" style={{ transformOrigin: '50% 50%' }}>
+    <span className="relative flex h-10 w-[26px] items-center justify-center overflow-hidden rounded-md bg-gradient-to-b from-slate-800 to-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_4px_8px_rgba(0,0,0,0.4)] min-[380px]:h-11 min-[380px]:w-[30px] sm:h-14 sm:w-10">
+      <span ref={el} className="font-mono text-xl font-bold text-amber-300 sm:text-3xl" style={{ transformOrigin: '50% 50%' }}>
         {value}
       </span>
       <span className="absolute inset-x-0 top-1/2 h-px bg-black/70" />
@@ -31,12 +31,12 @@ function Unit({ value, label }: { value: number; label: string }) {
   const text = String(value).padStart(2, '0');
   return (
     <div className="flex flex-col items-center gap-1.5">
-      <div className="flex gap-1">
+      <div className="flex gap-0.5 sm:gap-1">
         {text.split('').map((d, i) => (
           <FlapDigit key={`${text.length}-${i}`} value={d} />
         ))}
       </div>
-      <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/70">{label}</span>
+      <span className="text-[9px] font-semibold uppercase tracking-[0.15em] text-white/70 sm:text-[10px] sm:tracking-[0.2em]">{label}</span>
     </div>
   );
 }
@@ -53,7 +53,7 @@ export function FlapCountdown({ to }: { to: string }) {
   const diff = Math.max(0, new Date(to).getTime() - now);
   if (diff === 0) return null;
   return (
-    <div className="flex items-start justify-center gap-2 sm:gap-3">
+    <div className="flex items-start justify-center gap-1.5 sm:gap-3">
       <Unit value={Math.floor(diff / 86_400_000)} label="Días" />
       <Unit value={Math.floor((diff % 86_400_000) / 3_600_000)} label="Horas" />
       <Unit value={Math.floor((diff % 3_600_000) / 60_000)} label="Min" />

@@ -6,6 +6,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import gsap from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import { SplitText } from 'gsap/SplitText';
+import { ScrambleTextPlugin } from 'gsap/ScrambleTextPlugin';
 import QRCode from 'qrcode';
 import { motion } from 'framer-motion';
 import { CalendarPlus, ChevronDown, Download, Loader2, MapPin, Navigation, PartyPopper, Plane, Shirt, Volume2, VolumeX, X } from 'lucide-react';
@@ -20,6 +23,9 @@ import { FlapCountdown } from './invitation/flap-countdown';
 import { celebrate } from './invitation/celebrate';
 import { passImage } from './invitation/pass-image';
 import { chime, isMuted, setMuted, unlockAudio } from './invitation/sound';
+import { isTouchDevice, motionNeedsPermission, onShake, onTilt, requestMotionPermission } from './invitation/device-motion';
+
+if (typeof window !== 'undefined') gsap.registerPlugin(ScrollTrigger, SplitText, ScrambleTextPlugin);
 
 function fmtDay(iso: string) {
   const day = new Date(iso).toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', timeZone: TZ });
@@ -88,6 +94,10 @@ const fieldStyle: React.CSSProperties = {
   opacity: 1,
 };
 
+// Tarjetas con texto largo: mas tinte y desenfoque para que se lea sobre las nubes
+const glassStrong =
+  'rounded-3xl border border-white/20 bg-blue-950/35 shadow-[0_20px_50px_-20px_rgba(2,6,23,0.6)] backdrop-blur-xl';
+
 const glass = 'rounded-3xl border border-white/20 bg-white/10 shadow-[0_20px_50px_-20px_rgba(2,6,23,0.6)] backdrop-blur-md';
 
 function SoundToggle() {
@@ -120,8 +130,14 @@ function CheckIn({ event, invalidPass }: { event: InvitationEvent; invalidPass: 
   const c = COUNTRIES.find((x) => x.code === country) ?? DEFAULT_COUNTRY;
 
   useEffect(() => {
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const ctx = gsap.context(() => {
       gsap.from('[data-in]', { y: 40, opacity: 0, duration: 0.9, stagger: 0.12, ease: 'power3.out' });
+      if (reduce) return;
+      const title = SplitText.create('[data-in-title]', { type: 'words,chars' });
+      gsap.from(title.chars, { yPercent: 110, rotationX: -90, opacity: 0, transformOrigin: '50% 100%', duration: 0.9, stagger: 0.035, ease: 'back.out(1.8)', delay: 0.4 });
+      // El avion del boton "despega" de vez en cuando
+      gsap.to('[data-takeoff]', { x: 4, y: -4, duration: 0.5, yoyo: true, repeat: -1, repeatDelay: 2, ease: 'power2.inOut' });
     }, root);
     return () => ctx.revert();
   }, []);
@@ -129,6 +145,7 @@ function CheckIn({ event, invalidPass }: { event: InvitationEvent; invalidPass: 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     unlockAudio();
+    requestMotionPermission();
     setError('');
     setLoading(true);
     try {
@@ -157,7 +174,7 @@ function CheckIn({ event, invalidPass }: { event: InvitationEvent; invalidPass: 
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img data-in src={ASSETS.logo} alt={event.agency.name} className="w-44 drop-shadow-lg" />
       <p data-in className="mt-6 text-xs font-semibold uppercase tracking-[0.35em] text-sky-200">Invitación especial</p>
-      <h1 data-in className="mt-2 max-w-md text-center text-3xl font-black leading-tight text-white drop-shadow sm:text-4xl">
+      <h1 data-in data-in-title className="mt-2 max-w-md text-center text-3xl font-black leading-tight text-white drop-shadow sm:text-4xl">
         {event.name}
       </h1>
       <p data-in className="mt-2 text-white/85">
@@ -208,7 +225,13 @@ function CheckIn({ event, invalidPass }: { event: InvitationEvent; invalidPass: 
           disabled={loading || digits.length < c.min}
           className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-white font-bold text-blue-700 shadow-lg transition-transform hover:scale-[1.02] active:scale-95 disabled:opacity-50"
         >
-          {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Plane className="h-5 w-5 -rotate-45" />}
+          {loading ? (
+            <Loader2 className="h-5 w-5 animate-spin" />
+          ) : (
+            <span data-takeoff className="inline-flex">
+              <Plane className="h-5 w-5 -rotate-45" />
+            </span>
+          )}
           Ver mi pase de abordar
         </button>
       </form>
@@ -220,6 +243,9 @@ function CheckIn({ event, invalidPass }: { event: InvitationEvent; invalidPass: 
 function GuestView({ event, guest }: { event: InvitationEvent; guest: InvitationGuest }) {
   const root = useRef<HTMLDivElement>(null);
   const pass = useRef<BoardingPassHandle>(null);
+  const confirmBtn = useRef<HTMLButtonElement>(null);
+  const confirmedRef = useRef(guest.status === 'CONFIRMED');
+  const [touch, setTouch] = useState(false);
   const [status, setStatus] = useState(guest.status);
   const [justConfirmed, setJustConfirmed] = useState(false);
   const [saving, setSaving] = useState<'CONFIRMED' | 'DECLINED' | null>(null);
@@ -243,14 +269,74 @@ function GuestView({ event, guest }: { event: InvitationEvent; guest: Invitation
       .catch(() => setQr(null));
   }, [confirmed, passUrl]);
 
-  // Entrada de la pantalla y globos que flotan junto al saludo
   useEffect(() => {
+    confirmedRef.current = confirmed;
+  }, [confirmed]);
+
+  // Entrada de la pantalla: letras del titulo que giran en 3D, texto que se
+  // "descifra" como pantalla de aeropuerto y globos que flotan junto al saludo
+  useEffect(() => {
+    setTouch(isTouchDevice());
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const ctx = gsap.context(() => {
-      gsap.from('[data-hero] > *', { y: 30, opacity: 0, duration: 0.8, stagger: 0.1, ease: 'power3.out' });
+      gsap.from('[data-hero-item]', { y: 30, opacity: 0, duration: 0.8, stagger: 0.1, ease: 'power3.out' });
       gsap.from('[data-balloon]', { y: 200, opacity: 0, duration: 1.6, stagger: 0.25, ease: 'power2.out' });
       gsap.to('[data-balloon]', { y: '-=14', rotation: 4, duration: 2.6, yoyo: true, repeat: -1, ease: 'sine.inOut', stagger: 0.6, delay: 1.6 });
+      gsap.to('[data-wave]', { rotation: 18, duration: 0.35, yoyo: true, repeat: 5, ease: 'sine.inOut', delay: 0.8, transformOrigin: '30% 70%' });
+      gsap.fromTo('[data-shine]', { xPercent: -160 }, { xPercent: 260, duration: 1.4, repeat: -1, repeatDelay: 1.6, ease: 'power2.inOut' });
+      gsap.to('[data-pin]', { y: -5, duration: 0.6, yoyo: true, repeat: -1, ease: 'power1.inOut' });
+      if (reduce) return;
+
+      const title = SplitText.create('[data-title]', { type: 'words,chars' });
+      gsap.from(title.chars, {
+        yPercent: 110,
+        rotationX: -90,
+        opacity: 0,
+        transformOrigin: '50% 100%',
+        duration: 0.9,
+        stagger: 0.035,
+        ease: 'back.out(1.8)',
+        delay: 0.35,
+      });
+      // Brillo que recorre el titulo de vez en cuando
+      gsap.to(title.chars, { color: '#bae6fd', duration: 0.25, stagger: 0.04, yoyo: true, repeat: 1, repeatDelay: 0.1, delay: 3 });
+
+      const kicker = document.querySelector<HTMLElement>('[data-kicker]');
+      if (kicker) {
+        gsap.to(kicker, { duration: 1.6, delay: 0.2, scrambleText: { text: kicker.textContent ?? '', chars: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', speed: 0.6, revealDelay: 0.3 } });
+      }
+
+      // El mensaje se "ilumina" palabra por palabra al ir bajando
+      const message = SplitText.create('[data-message]', { type: 'words' });
+      gsap.fromTo(
+        message.words,
+        { opacity: 0.18 },
+        { opacity: 1, stagger: 0.06, ease: 'none', scrollTrigger: { trigger: '[data-message]', start: 'top 88%', end: 'bottom 55%', scrub: true } }
+      );
     }, root);
     return () => ctx.revert();
+  }, []);
+
+  // Celular: los globos siguen la inclinacion; agitar celebra (o recuerda confirmar)
+  useEffect(() => {
+    const balloons = gsap.utils.toArray<HTMLElement>('[data-balloon-wrap]');
+    const movers = balloons.map((b, i) => gsap.quickTo(b, 'x', { duration: 1.4, ease: 'power3' }));
+    const offTilt = onTilt((x) => movers.forEach((m, i) => m(x * (i % 2 ? -22 : 22))));
+    const offShake = onShake(() => {
+      if (confirmedRef.current) {
+        navigator.vibrate?.([60, 40, 60]);
+        chime();
+        celebrate();
+      } else if (confirmBtn.current) {
+        navigator.vibrate?.(80);
+        gsap.fromTo(confirmBtn.current, { scale: 1 }, { scale: 1.07, duration: 0.12, yoyo: true, repeat: 5, ease: 'power1.inOut' });
+        toast('¡Primero confirma tu asistencia! ✈️');
+      }
+    });
+    return () => {
+      offTilt();
+      offShake();
+    };
   }, []);
 
   // Al confirmar: sello, globos y ding-dong
@@ -264,6 +350,7 @@ function GuestView({ event, guest }: { event: InvitationEvent; guest: Invitation
   const respond = useCallback(
     async (response: 'CONFIRMED' | 'DECLINED') => {
       unlockAudio();
+      requestMotionPermission();
       setSaving(response);
       try {
         const res = await fetch(`/api/evento/${event.id}/rsvp`, {
@@ -304,18 +391,31 @@ function GuestView({ event, guest }: { event: InvitationEvent; guest: Invitation
   return (
     <div ref={root} className="relative mx-auto w-full max-w-xl px-4 pb-16 pt-16">
       {/* Globos decorativos */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img data-balloon src={ASSETS.balloonBlue} alt="" aria-hidden className="pointer-events-none absolute -left-2 top-24 w-16 opacity-90 sm:-left-16 sm:w-24" />
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img data-balloon src={ASSETS.balloonSilver} alt="" aria-hidden className="pointer-events-none absolute -right-2 top-10 w-14 opacity-90 sm:-right-14 sm:w-20" />
+      <div data-balloon-wrap aria-hidden className="pointer-events-none absolute -left-2 top-24 w-16 sm:-left-16 sm:w-24">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img data-balloon src={ASSETS.balloonBlue} alt="" className="w-full opacity-90" />
+      </div>
+      <div data-balloon-wrap aria-hidden className="pointer-events-none absolute -right-2 top-10 w-14 sm:-right-14 sm:w-20">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img data-balloon src={ASSETS.balloonSilver} alt="" className="w-full opacity-90" />
+      </div>
 
       <div data-hero className="relative text-center text-white">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={ASSETS.logo} alt={event.agency.name} className="mx-auto w-40 drop-shadow-lg" />
-        <p className="mt-6 text-lg text-white/90">¡Hola, {firstName}! ✈️</p>
-        <p className="mt-1 text-sm uppercase tracking-[0.3em] text-sky-200">Tienes un lugar reservado en</p>
-        <h1 className="mt-2 text-3xl font-black leading-tight drop-shadow sm:text-4xl">{event.name}</h1>
-        <p className="mt-2 text-white/85">
+        <img data-hero-item src={ASSETS.logo} alt={event.agency.name} className="mx-auto w-40 drop-shadow-lg" />
+        <p data-hero-item className="mt-6 text-lg text-white/90">
+          ¡Hola, {firstName}!{' '}
+          <span data-wave className="inline-block">
+            👋
+          </span>
+        </p>
+        <p data-kicker className="mt-1 min-h-[1.25rem] text-sm uppercase tracking-[0.3em] text-sky-200">
+          Tienes un lugar reservado en
+        </p>
+        <h1 data-title className="mt-2 text-3xl font-black leading-tight drop-shadow [perspective:600px] sm:text-4xl">
+          {event.name}
+        </h1>
+        <p data-hero-item className="mt-2 text-white/85">
           {fmtDay(event.startsAt)} · {fmtTime(event.startsAt)}
         </p>
       </div>
@@ -324,6 +424,30 @@ function GuestView({ event, guest }: { event: InvitationEvent; guest: Invitation
       <div className="mt-8">
         <BoardingPass ref={pass} event={event} guest={guest} confirmed={confirmed} qr={qr} />
       </div>
+
+      {/* Pistas para el celular */}
+      {touch && (
+        <motion.button
+          type="button"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 3 }}
+          onClick={() => {
+            requestMotionPermission();
+            unlockAudio();
+            if (confirmed) {
+              chime();
+              celebrate();
+            }
+          }}
+          className="mx-auto mt-4 flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-4 py-1.5 text-xs font-medium text-white backdrop-blur-md"
+        >
+          <motion.span animate={{ rotate: confirmed ? [0, -20, 20, -20, 0] : [0, -12, 12, 0] }} transition={{ duration: 1, repeat: Infinity, repeatDelay: 1.5 }}>
+            {confirmed ? '🎉' : '📱'}
+          </motion.span>
+          {confirmed ? 'Agita tu celular para celebrar' : motionNeedsPermission() ? 'Toca aquí e inclina tu celular' : 'Inclina tu celular'}
+        </motion.button>
+      )}
 
       {/* Respuesta */}
       <div className="mt-6">
@@ -401,14 +525,21 @@ function GuestView({ event, guest }: { event: InvitationEvent; guest: Invitation
         ) : (
           <div className="space-y-2">
             <motion.button
+              ref={confirmBtn}
               type="button"
               onClick={() => respond('CONFIRMED')}
               disabled={!!saving}
               whileTap={{ scale: 0.96 }}
               animate={{ boxShadow: ['0 0 0 0 rgba(255,255,255,0.55)', '0 0 0 14px rgba(255,255,255,0)'] }}
               transition={{ boxShadow: { duration: 1.8, repeat: Infinity } }}
-              className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-white text-lg font-black text-blue-700 disabled:opacity-70"
+              className="relative flex h-14 w-full items-center justify-center gap-2 overflow-hidden rounded-2xl bg-white text-lg font-black text-blue-700 disabled:opacity-70"
             >
+              <span
+                data-shine
+                aria-hidden
+                className="pointer-events-none absolute inset-y-0 left-0 w-1/3 -skew-x-12"
+                style={{ background: 'linear-gradient(90deg, transparent, rgba(56,189,248,0.35), transparent)' }}
+              />
               {saving === 'CONFIRMED' ? <Loader2 className="h-5 w-5 animate-spin" /> : <Plane className="h-5 w-5 -rotate-45" />}
               Confirmar mi abordaje
             </motion.button>
@@ -431,20 +562,22 @@ function GuestView({ event, guest }: { event: InvitationEvent; guest: Invitation
       </Reveal>
 
       {/* Mensaje */}
-      <Reveal className={`relative mt-5 overflow-hidden p-6 text-white ${glass}`}>
+      <Reveal className={`relative mt-5 overflow-hidden p-6 text-white ${glassStrong}`}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={ASSETS.icon} alt="" aria-hidden className="pointer-events-none absolute -right-6 -top-4 w-32 opacity-15" />
-        <p className="relative whitespace-pre-line text-[15px] leading-relaxed text-white/90">{message}</p>
+        <img src={ASSETS.icon} alt="" aria-hidden className="pointer-events-none absolute -bottom-6 -right-4 w-24 opacity-10" />
+        <p data-message className="relative whitespace-pre-line text-[15px] leading-relaxed text-white">
+          {message}
+        </p>
         <p className="relative mt-4 text-sm font-semibold text-sky-200">Con cariño, {event.agency.name} 💙</p>
       </Reveal>
 
       {/* Lugar */}
       {(event.venueName || event.address || event.dressCode || event.googleMapsUrl || event.appleMapsUrl) && (
-        <Reveal className={`mt-5 space-y-4 p-6 text-white ${glass}`}>
+        <Reveal className={`mt-5 space-y-4 p-6 text-white ${glassStrong}`}>
           {(event.venueName || event.address) && (
             <div className="flex gap-3">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/15">
-                <MapPin className="h-5 w-5" />
+                <MapPin data-pin className="h-5 w-5" />
               </span>
               <div>
                 {event.venueName && <p className="font-bold">{event.venueName}</p>}
@@ -520,6 +653,8 @@ export function EventInvitation({
     }
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     setPhase(seen || reduce ? 'main' : 'intro');
+    // Android no pide permiso para los sensores: se activan desde ya
+    if (!reduce && !motionNeedsPermission()) requestMotionPermission();
   }, [introKey]);
 
   const endIntro = useCallback(() => {

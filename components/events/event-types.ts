@@ -82,9 +82,9 @@ export function invitationMessage(event: Pick<EventDetail, 'name' | 'startsAt' |
   const day = d.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', timeZone: TZ });
   const time = d.toLocaleTimeString('es-MX', { hour: 'numeric', minute: '2-digit', timeZone: TZ });
   return (
-    `¡Hola ${first}! ✈️\n\n` +
+    `¡Hola ${first}! \n\n` +
     `${event.agencyName} te invita a *${event.name}* el ${day} a las ${time}.\n\n` +
     `Esta es tu invitación personal, ahí mismo puedes confirmar tu asistencia:\n${guest.link}\n\n` +
-    '¡Nos encantará verte! 💙'
+    '¡Nos encantará verte!'
   );
 }

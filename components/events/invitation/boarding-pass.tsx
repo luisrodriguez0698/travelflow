@@ -4,6 +4,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 're
 import gsap from 'gsap';
 import { Lock, Plane } from 'lucide-react';
 import { ASSETS, TZ } from './assets';
+import { onTilt } from './device-motion';
 import type { InvitationEvent, InvitationGuest } from '@/lib/special-events';
 
 // Pase de abordar en 3D: sale "impreso" de una ranura, se inclina con el mouse,
@@ -66,14 +67,22 @@ export const BoardingPass = forwardRef<BoardingPassHandle, Props>(function Board
   const code = initials(event.agency.name);
   const flight = `${code} ${new Date(event.startsAt).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', timeZone: TZ }).replace('/', '')}`;
 
-  // Impresion: el pase baja de la ranura a pasos, como una impresora
+  // Impresion: el pase sale suave de la ranura (con una ligera curva de papel),
+  // se asienta y le pasa un destello de luz
   useEffect(() => {
     if (!print || !card.current) return;
     const ctx = gsap.context(() => {
       gsap
         .timeline({ delay: 0.3, onComplete: () => setPrinted(true) })
-        .fromTo(card.current, { yPercent: -102 }, { yPercent: 0, duration: 1.8, ease: 'steps(16)' })
-        .to(card.current, { y: 6, duration: 0.12, yoyo: true, repeat: 1, ease: 'power1.inOut' });
+        .fromTo(
+          card.current,
+          { yPercent: -102, rotationX: -14, transformOrigin: '50% 0%' },
+          { yPercent: 0, rotationX: 0, duration: 2.1, ease: 'power3.out' }
+        )
+        .to(card.current, { y: 5, duration: 0.25, ease: 'sine.out' }, '-=0.35')
+        .to(card.current, { y: 0, duration: 0.5, ease: 'sine.inOut' })
+        .to('[data-slot]', { opacity: 0, scaleX: 0.9, duration: 0.5 }, '<')
+        .fromTo('[data-glint]', { xPercent: -120, opacity: 1 }, { xPercent: 220, duration: 1.1, ease: 'power2.inOut' }, '<');
     }, wrap);
     return () => ctx.revert();
   }, [print]);
@@ -108,9 +117,18 @@ export const BoardingPass = forwardRef<BoardingPassHandle, Props>(function Board
     };
     el.addEventListener('pointermove', onMove);
     el.addEventListener('pointerleave', onLeave);
+    // En celular: inclinar el telefono mueve el pase y su brillo
+    const offTilt = onTilt((x, y) => {
+      idle.pause();
+      ry(x * 14);
+      rx(-y * 10);
+      hx(50 + x * 50);
+      hy(50 + y * 50);
+    });
     return () => {
       el.removeEventListener('pointermove', onMove);
       el.removeEventListener('pointerleave', onLeave);
+      offTilt();
       idle.kill();
     };
   }, [printed]);
@@ -135,7 +153,9 @@ export const BoardingPass = forwardRef<BoardingPassHandle, Props>(function Board
   return (
     <div ref={wrap} className="relative mx-auto w-full max-w-[380px]">
       {/* Ranura de la impresora */}
-      {print && !printed && <div className="relative z-10 mx-auto h-3 w-[104%] -translate-x-[2%] rounded-full bg-slate-900/80 shadow-[inset_0_2px_4px_rgba(0,0,0,0.8)]" />}
+      {print && !printed && (
+        <div data-slot className="relative z-10 mx-auto h-3 w-[104%] -translate-x-[2%] rounded-full bg-gradient-to-b from-slate-950 to-slate-700 shadow-[0_2px_6px_rgba(2,6,23,0.6)]" />
+      )}
 
       <div className={printed ? '' : 'overflow-hidden'} style={{ perspective: 1200 }}>
         <div ref={card} className="relative" style={{ transformStyle: 'preserve-3d' }}>
@@ -220,6 +240,13 @@ export const BoardingPass = forwardRef<BoardingPassHandle, Props>(function Board
                 </p>
               </div>
             </div>
+
+            {/* Destello al terminar de imprimir */}
+            <div
+              data-glint
+              className="pointer-events-none absolute inset-y-0 left-0 w-1/2 opacity-0"
+              style={{ background: 'linear-gradient(100deg, transparent, rgba(255,255,255,0.75), transparent)' }}
+            />
 
             {/* Brillo holografico */}
             <div

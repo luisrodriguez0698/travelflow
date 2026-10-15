@@ -5,6 +5,7 @@ import gsap from 'gsap';
 import { ChevronsUp } from 'lucide-react';
 import { ASSETS } from './assets';
 import { chime, unlockAudio } from './sound';
+import { onTilt, requestMotionPermission } from './device-motion';
 
 // Entrada: ventanilla de avion en 3D con la persiana cerrada. El invitado la sube
 // con el dedo (o la toca) y aparece el cielo con el "1" de nube y el avion
@@ -56,7 +57,16 @@ export function WindowIntro({ onDone, subtitle }: { onDone: () => void; subtitle
       ry((e.clientX / window.innerWidth - 0.5) * 18);
     };
     window.addEventListener('pointermove', onMove);
-    return () => window.removeEventListener('pointermove', onMove);
+    // En celular: inclinar el telefono inclina la ventanilla
+    const offTilt = onTilt((x, y) => {
+      if (drag.current) return;
+      rx(-y * 12);
+      ry(x * 16);
+    });
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      offTilt();
+    };
   }, []);
 
   const finish = useCallback(() => {
@@ -81,8 +91,8 @@ export function WindowIntro({ onDone, subtitle }: { onDone: () => void; subtitle
       .fromTo(one.current, { scale: 0.6, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.9, ease: 'back.out(1.7)' }, '-=0.3')
       .fromTo(
         plane.current,
-        { x: -viewWidth * 1.2, y: viewWidth * 0.35, scale: 0.55, rotation: -8, opacity: 1 },
-        { x: viewWidth * 1.3, y: -viewWidth * 0.25, scale: 0.85, rotation: -14, opacity: 1, duration: 2.2, ease: 'power1.inOut' },
+        { x: -viewWidth * 0.9, y: viewWidth * 0.55, scale: 0.5, rotation: -6, opacity: 1 },
+        { x: viewWidth * 1.15, y: -viewWidth * 0.45, scale: 0.95, rotation: -24, opacity: 1, duration: 2.4, ease: 'power1.inOut' },
         '-=0.6'
       );
   }, [applyShade, finish]);
@@ -91,6 +101,7 @@ export function WindowIntro({ onDone, subtitle }: { onDone: () => void; subtitle
   const onPointerDown = (e: React.PointerEvent) => {
     if (opened.current) return;
     unlockAudio();
+    requestMotionPermission();
     gsap.killTweensOf(state.current);
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     drag.current = { y: e.clientY, open: state.current.open, moved: false };
@@ -162,7 +173,7 @@ export function WindowIntro({ onDone, subtitle }: { onDone: () => void; subtitle
                     className="absolute left-1/2 top-1/2 w-[52%] -translate-x-1/2 -translate-y-1/2 opacity-0 drop-shadow-[0_10px_20px_rgba(30,58,138,0.35)]"
                   />
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img ref={plane} src={ASSETS.plane} alt="" className="absolute left-0 top-[40%] w-[120%] max-w-none opacity-0" />
+                  <img ref={plane} src={ASSETS.plane} alt="" className="absolute left-0 top-[38%] w-[62%] max-w-none opacity-0 drop-shadow-[0_12px_14px_rgba(15,23,42,0.35)]" />
 
                   {/* Persiana */}
                   <div
@@ -206,7 +217,14 @@ export function WindowIntro({ onDone, subtitle }: { onDone: () => void; subtitle
         <p className="text-sm font-medium tracking-wide">Sube la persiana para abrir tu invitación</p>
       </div>
 
-      <button type="button" onClick={finish} className="absolute bottom-5 right-5 text-xs text-white/60 underline-offset-2 hover:text-white hover:underline">
+      <button
+        type="button"
+        onClick={() => {
+          unlockAudio();
+          requestMotionPermission();
+          finish();
+        }}
+        className="absolute bottom-5 right-5 text-xs text-white/60 underline-offset-2 hover:text-white hover:underline">
         Saltar
       </button>
     </div>
