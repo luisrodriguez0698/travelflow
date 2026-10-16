@@ -123,6 +123,50 @@ export function sparkle() {
   }
 }
 
+/** "Pop" corto (globos y bocadillos). */
+export function pop() {
+  if (!ctx || muted) return;
+  try {
+    const c = ctx;
+    const t = c.currentTime;
+    const osc = c.createOscillator();
+    const gain = c.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(520 + Math.random() * 260, t);
+    osc.frequency.exponentialRampToValueAtTime(140, t + 0.12);
+    gain.gain.setValueAtTime(0.18, t);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.14);
+    osc.connect(gain).connect(c.destination);
+    osc.start(t);
+    osc.stop(t + 0.16);
+  } catch {
+    // sin sonido no pasa nada
+  }
+}
+
+/** Clic de camara (cuando aparece una foto de la ruta). */
+export function shutter() {
+  if (!ctx || muted) return;
+  try {
+    const c = ctx;
+    const t = c.currentTime;
+    [0, 0.07].forEach((offset, i) => {
+      const noise = noiseSource(c, 0.05);
+      const filter = c.createBiquadFilter();
+      filter.type = 'highpass';
+      filter.frequency.value = i ? 2500 : 1500;
+      const gain = c.createGain();
+      gain.gain.setValueAtTime(0.12, t + offset);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + offset + 0.045);
+      noise.connect(filter).connect(gain).connect(c.destination);
+      noise.start(t + offset);
+      noise.stop(t + offset + 0.05);
+    });
+  } catch {
+    // sin sonido no pasa nada
+  }
+}
+
 function noiseSource(c: AudioContext, seconds: number) {
   const buffer = c.createBuffer(1, Math.ceil(c.sampleRate * seconds), c.sampleRate);
   const data = buffer.getChannelData(0);

@@ -17,14 +17,15 @@ import { COUNTRIES, DEFAULT_COUNTRY, formatPhone } from '@/lib/phone';
 import type { InvitationEvent, InvitationGuest } from '@/lib/special-events';
 import { ASSETS, DEFAULT_MESSAGE, TZ } from './invitation/assets';
 import { Sky } from './invitation/sky';
-import { WindowIntro } from './invitation/window-intro';
+import { OpenWindow } from './invitation/open-window';
+import { RouteMap } from './invitation/route-map';
 import { WelcomeGate } from './invitation/welcome-gate';
 import { BoardingPass, type BoardingPassHandle } from './invitation/boarding-pass';
 import { FlapCountdown } from './invitation/flap-countdown';
 import { celebrate } from './invitation/celebrate';
 import { passImage } from './invitation/pass-image';
 import { chime, isMuted, setMuted, unlockAudio } from './invitation/sound';
-import { isTouchDevice, motionNeedsPermission, onShake, onTilt, requestMotionPermission } from './invitation/device-motion';
+import { isTouchDevice, motionNeedsPermission, onShake, requestMotionPermission } from './invitation/device-motion';
 
 if (typeof window !== 'undefined') gsap.registerPlugin(ScrollTrigger, SplitText, ScrambleTextPlugin);
 
@@ -241,7 +242,7 @@ function CheckIn({ event, invalidPass }: { event: InvitationEvent; invalidPass: 
 }
 
 // ── Invitacion personal ─────────────────────────────────────────────────────
-function GuestView({ event, guest }: { event: InvitationEvent; guest: InvitationGuest }) {
+function GuestView({ event, guest, photos }: { event: InvitationEvent; guest: InvitationGuest; photos: string[] }) {
   const root = useRef<HTMLDivElement>(null);
   const pass = useRef<BoardingPassHandle>(null);
   const confirmBtn = useRef<HTMLButtonElement>(null);
@@ -255,9 +256,36 @@ function GuestView({ event, guest }: { event: InvitationEvent; guest: Invitation
   const [note, setNote] = useState('');
   const [qr, setQr] = useState<string | null>(null);
   const [savingImage, setSavingImage] = useState(false);
+  // El pase se "imprime" cuando el invitado llega a el con el scroll
+  const [passActive, setPassActive] = useState(false);
+  const passWrap = useRef<HTMLDivElement>(null);
   const closed = event.closedReason;
   const firstName = guest.name.split(/\s+/)[0];
   const confirmed = status === 'CONFIRMED';
+
+  const bubbleMessages = useMemo(() => {
+    const day = new Date(event.startsAt).toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', timeZone: TZ });
+    return [
+      `¡Aparta el ${day}! 📅`,
+      event.dressCode ? `Vestimenta: ${event.dressCode} 👔` : 'No olvides el código de vestimenta 👔',
+      '¡Te esperamos! ✈️',
+      'Trae tu mejor sonrisa 😄',
+      'Tu lugar ya está reservado ⭐',
+      '¡Va a estar increíble! 🎉',
+      'Prepárate para despegar 🛫',
+      'Un año volando juntos 💙',
+      'Habrá sorpresas 🎁',
+      'No olvides confirmar 🎟️',
+      'Abróchate el cinturón 💺',
+      'Destino: celebración 📍',
+      'El vuelo no espera, llega puntual ⏰',
+      'Gracias por ser parte de nuestra historia 🙌',
+      `¡Nos vemos a las ${fmtTime(event.startsAt)}! 🥳`,
+      'Ven listo para brindar 🥂',
+      'Primera clase, solo para ti ✨',
+      'Guarda tu pase de abordar 📲',
+    ];
+  }, [event.startsAt, event.dressCode]);
 
   const passUrl = useMemo(
     () => (typeof window === 'undefined' ? '' : `${window.location.origin}${window.location.pathname}?pase=${encodeURIComponent(guest.token)}`),
@@ -282,31 +310,33 @@ function GuestView({ event, guest }: { event: InvitationEvent; guest: Invitation
     setNeedsMotion(motionNeedsPermission());
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const ctx = gsap.context(() => {
-      gsap.from('[data-hero-item]', { y: 30, opacity: 0, duration: 0.8, stagger: 0.1, ease: 'power3.out' });
-      gsap.from('[data-balloon]', { y: 200, opacity: 0, duration: 1.6, stagger: 0.25, ease: 'power2.out' });
-      gsap.to('[data-balloon]', { y: '-=14', rotation: 4, duration: 2.6, yoyo: true, repeat: -1, ease: 'sine.inOut', stagger: 0.6, delay: 1.6 });
-      gsap.to('[data-wave]', { rotation: 18, duration: 0.35, yoyo: true, repeat: 5, ease: 'sine.inOut', delay: 0.8, transformOrigin: '30% 70%' });
       gsap.fromTo('[data-shine]', { xPercent: -160 }, { xPercent: 260, duration: 1.4, repeat: -1, repeatDelay: 1.6, ease: 'power2.inOut' });
-      gsap.to('[data-pin]', { y: -5, duration: 0.6, yoyo: true, repeat: -1, ease: 'power1.inOut' });
-      if (reduce) return;
+      gsap.to('[data-map-pin]', { y: -5, duration: 0.6, yoyo: true, repeat: -1, ease: 'power1.inOut' });
+
+      // El pase se imprime al llegar a el
+      ScrollTrigger.create({ trigger: passWrap.current, start: 'top 85%', once: true, onEnter: () => setPassActive(true) });
+      if (reduce) {
+        setPassActive(true);
+        return;
+      }
+
+      // Saludo, titulo y fecha entran al llegar con el scroll
+      const hero = gsap.timeline({ scrollTrigger: { trigger: '[data-hero]', start: 'top 85%' } });
+      hero.from('[data-hero-item]', { y: 30, opacity: 0, duration: 0.8, stagger: 0.1, ease: 'power3.out' });
+      hero.to('[data-wave]', { rotation: 18, duration: 0.35, yoyo: true, repeat: 5, ease: 'sine.inOut', transformOrigin: '30% 70%' }, 0.4);
 
       const title = SplitText.create('[data-title]', { type: 'words,chars' });
-      gsap.from(title.chars, {
-        yPercent: 110,
-        rotationX: -90,
-        opacity: 0,
-        transformOrigin: '50% 100%',
-        duration: 0.9,
-        stagger: 0.035,
-        ease: 'back.out(1.8)',
-        delay: 0.35,
-      });
-      // Brillo que recorre el titulo de vez en cuando
-      gsap.to(title.chars, { color: '#bae6fd', duration: 0.25, stagger: 0.04, yoyo: true, repeat: 1, repeatDelay: 0.1, delay: 3 });
+      hero.from(
+        title.chars,
+        { yPercent: 110, rotationX: -90, opacity: 0, transformOrigin: '50% 100%', duration: 0.9, stagger: 0.035, ease: 'back.out(1.8)' },
+        0.3
+      );
+      // Brillo que recorre el titulo
+      hero.to(title.chars, { color: '#bae6fd', duration: 0.25, stagger: 0.04, yoyo: true, repeat: 1, repeatDelay: 0.1 }, '+=0.6');
 
       const kicker = document.querySelector<HTMLElement>('[data-kicker]');
       if (kicker) {
-        gsap.to(kicker, { duration: 1.6, delay: 0.2, scrambleText: { text: kicker.textContent ?? '', chars: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', speed: 0.6, revealDelay: 0.3 } });
+        hero.to(kicker, { duration: 1.6, scrambleText: { text: kicker.textContent ?? '', chars: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', speed: 0.6, revealDelay: 0.3 } }, 0.1);
       }
 
       // El mensaje se "ilumina" palabra por palabra al ir bajando
@@ -322,9 +352,6 @@ function GuestView({ event, guest }: { event: InvitationEvent; guest: Invitation
 
   // Celular: los globos siguen la inclinacion; agitar celebra (o recuerda confirmar)
   useEffect(() => {
-    const balloons = gsap.utils.toArray<HTMLElement>('[data-balloon-wrap]');
-    const movers = balloons.map((b, i) => gsap.quickTo(b, 'x', { duration: 1.4, ease: 'power3' }));
-    const offTilt = onTilt((x) => movers.forEach((m, i) => m(x * (i % 2 ? -22 : 22))));
     const offShake = onShake(() => {
       if (confirmedRef.current) {
         navigator.vibrate?.([60, 40, 60]);
@@ -337,7 +364,6 @@ function GuestView({ event, guest }: { event: InvitationEvent; guest: Invitation
       }
     });
     return () => {
-      offTilt();
       offShake();
     };
   }, []);
@@ -393,21 +419,15 @@ function GuestView({ event, guest }: { event: InvitationEvent; guest: Invitation
   const message = event.message || DEFAULT_MESSAGE;
 
   return (
-    <div ref={root} className="relative mx-auto w-full max-w-xl px-4 pb-16 pt-16">
-      {/* Globos decorativos */}
-      <div data-balloon-wrap aria-hidden className="pointer-events-none absolute -left-2 top-24 w-16 sm:-left-16 sm:w-24">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img data-balloon src={ASSETS.balloonBlue} alt="" className="w-full opacity-90" />
-      </div>
-      <div data-balloon-wrap aria-hidden className="pointer-events-none absolute -right-2 top-10 w-14 sm:-right-14 sm:w-20">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img data-balloon src={ASSETS.balloonSilver} alt="" className="w-full opacity-90" />
-      </div>
+    <div ref={root} className="relative mx-auto w-full max-w-xl px-4 pb-16">
+      {/* Portada: ventanilla abierta que se toca */}
+      <OpenWindow title={event.name} messages={bubbleMessages} />
 
-      <div data-hero className="relative text-center text-white">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img data-hero-item src={ASSETS.logo} alt={event.agency.name} className="mx-auto w-40 drop-shadow-lg" />
-        <p data-hero-item className="mt-6 text-lg text-white/90">
+      {/* Ruta con el scroll */}
+      <RouteMap photos={photos} />
+
+      <div data-hero className="relative pt-10 text-center text-white">
+        <p data-hero-item className="text-lg text-white/90">
           ¡Hola, {firstName}!{' '}
           <span data-wave className="inline-block">
             👋
@@ -425,8 +445,8 @@ function GuestView({ event, guest }: { event: InvitationEvent; guest: Invitation
       </div>
 
       {/* Pase */}
-      <div className="mt-8">
-        <BoardingPass ref={pass} event={event} guest={guest} confirmed={confirmed} qr={qr} />
+      <div ref={passWrap} className="mt-8">
+        <BoardingPass ref={pass} event={event} guest={guest} confirmed={confirmed} qr={qr} active={passActive} />
       </div>
 
       {/* Pistas para el celular */}
@@ -587,7 +607,7 @@ function GuestView({ event, guest }: { event: InvitationEvent; guest: Invitation
           {(event.venueName || event.address) && (
             <div className="flex gap-3">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/15">
-                <MapPin data-pin className="h-5 w-5" />
+                <MapPin data-map-pin className="h-5 w-5" />
               </span>
               <div>
                 {event.venueName && <p className="font-bold">{event.venueName}</p>}
@@ -645,15 +665,17 @@ export function EventInvitation({
   event,
   guest,
   invalidPass,
+  photos,
 }: {
   event: InvitationEvent;
   guest: InvitationGuest | null;
   invalidPass: boolean;
+  photos: string[];
 }) {
   const introKey = `tf-ev-intro-${event.id}`;
   // La ventanilla se ve una vez por visita (al volver con su link ya no se repite)
-  // bienvenida (volumen + permiso del sensor) -> ventanilla -> invitacion
-  const [phase, setPhase] = useState<'boot' | 'gate' | 'intro' | 'main'>('boot');
+  // bienvenida (volumen + permiso del sensor) -> invitacion (ventanilla, ruta, pase)
+  const [phase, setPhase] = useState<'boot' | 'gate' | 'main'>('boot');
 
   useEffect(() => {
     let seen = false;
@@ -682,10 +704,13 @@ export function EventInvitation({
       <Sky />
       <SoundToggle />
       <div className="relative z-10">
-        {phase === 'gate' && <WelcomeGate eventName={event.name} onEnter={() => setPhase('intro')} />}
-        {phase === 'intro' && <WindowIntro onDone={endIntro} subtitle={event.name} />}
+        {phase === 'gate' && <WelcomeGate eventName={event.name} onEnter={endIntro} />}
         {phase === 'main' &&
-          (guest ? <GuestView key={guest.token} event={event} guest={guest} /> : <CheckIn event={event} invalidPass={invalidPass} />)}
+          (guest ? (
+            <GuestView key={guest.token} event={event} guest={guest} photos={photos} />
+          ) : (
+            <CheckIn event={event} invalidPass={invalidPass} />
+          ))}
       </div>
     </div>
   );

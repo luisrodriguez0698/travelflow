@@ -55,9 +55,11 @@ interface Props {
   qr: string | null;
   /** Animacion de impresion al aparecer. */
   print?: boolean;
+  /** false = esperar (p. ej. hasta que el pase entre en pantalla) para imprimirlo. */
+  active?: boolean;
 }
 
-export const BoardingPass = forwardRef<BoardingPassHandle, Props>(function BoardingPass({ event, guest, confirmed, qr, print = true }, ref) {
+export const BoardingPass = forwardRef<BoardingPassHandle, Props>(function BoardingPass({ event, guest, confirmed, qr, print = true, active = true }, ref) {
   const wrap = useRef<HTMLDivElement>(null);
   const card = useRef<HTMLDivElement>(null);
   const holo = useRef<HTMLDivElement>(null);
@@ -72,6 +74,11 @@ export const BoardingPass = forwardRef<BoardingPassHandle, Props>(function Board
   useEffect(() => {
     if (!print || !card.current) return;
     const ctx = gsap.context(() => {
+      // Aun no le toca: queda escondido dentro de la ranura
+      if (!active) {
+        gsap.set(card.current, { yPercent: -102 });
+        return;
+      }
       gsap
         .timeline({ delay: 0.3, onComplete: () => setPrinted(true) })
         .fromTo(
@@ -85,7 +92,7 @@ export const BoardingPass = forwardRef<BoardingPassHandle, Props>(function Board
         .fromTo('[data-glint]', { xPercent: -120, opacity: 1 }, { xPercent: 220, duration: 1.1, ease: 'power2.inOut' }, '<');
     }, wrap);
     return () => ctx.revert();
-  }, [print]);
+  }, [print, active]);
 
   // Inclinacion 3D + brillo holografico que sigue al mouse/dedo
   useEffect(() => {

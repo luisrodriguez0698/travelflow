@@ -1,3 +1,5 @@
+import { existsSync, readdirSync } from 'fs';
+import path from 'path';
 import { Plane } from 'lucide-react';
 import { fileUrl } from '@/lib/client-portal';
 import { findGuestByToken, toPublicEvent, toPublicGuest, type PublicEvent } from '@/lib/special-events';
@@ -17,6 +19,26 @@ export function EventUnavailable() {
   );
 }
 
+/**
+ * Fotos de la ruta: public/ruta/foto-1.jpg, foto-2.jpg… en orden por numero.
+ * Si existe la copia optimizada (public/invitacion/web/ruta/<nombre>.webp) se usa esa.
+ */
+function routePhotos(): string[] {
+  try {
+    const publicDir = path.join(process.cwd(), 'public');
+    const files = readdirSync(path.join(publicDir, 'ruta')).filter((f) => /\.(jpe?g|png|webp)$/i.test(f));
+    const num = (f: string) => Number(f.match(/\d+/)?.[0] ?? Number.MAX_SAFE_INTEGER);
+    files.sort((a, b) => num(a) - num(b) || a.localeCompare(b));
+    return files.map((f) => {
+      const base = f.replace(/\.[^.]+$/, '');
+      const optimized = path.join(publicDir, 'invitacion', 'web', 'ruta', `${base}.webp`);
+      return existsSync(optimized) ? `/invitacion/web/ruta/${encodeURIComponent(base)}.webp` : `/ruta/${encodeURIComponent(f)}`;
+    });
+  } catch {
+    return [];
+  }
+}
+
 /** Arma los datos publicos (evento + invitado si trae su pase) y pinta la invitacion. */
 export async function EventInvitationPage({ event, pase }: { event: PublicEvent; pase?: string | string[] }) {
   const token = typeof pase === 'string' ? pase : undefined;
@@ -27,5 +49,5 @@ export async function EventInvitationPage({ event, pase }: { event: PublicEvent;
   if (!guest) {
     Object.assign(data, { message: null, venueName: null, address: null, googleMapsUrl: null, appleMapsUrl: null, dressCode: null });
   }
-  return <EventInvitation event={data} guest={guest ? toPublicGuest(guest) : null} invalidPass={!!token && !guest} />;
+  return <EventInvitation event={data} guest={guest ? toPublicGuest(guest) : null} invalidPass={!!token && !guest} photos={routePhotos()} />;
 }
