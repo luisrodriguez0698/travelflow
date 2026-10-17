@@ -30,8 +30,8 @@ function passTime(iso: string) {
 function Field({ label, value, className }: { label: string; value: React.ReactNode; className?: string }) {
   return (
     <div className={className}>
-      <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-400">{label}</p>
-      <div className="mt-0.5 truncate text-sm font-bold text-slate-800">{value}</div>
+      <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-600">{label}</p>
+      <div className="mt-0.5 truncate text-sm font-bold text-slate-900">{value}</div>
     </div>
   );
 }
@@ -152,7 +152,7 @@ export const BoardingPass = forwardRef<BoardingPassHandle, Props>(function Board
 
       <div className={printed ? '' : 'overflow-hidden'} style={{ perspective: 1200 }}>
         <div ref={card} className="relative" style={{ transformStyle: 'preserve-3d' }}>
-          <div className="relative overflow-hidden rounded-[28px] border border-white/40 bg-white/20 shadow-[0_30px_60px_-20px_rgba(2,6,23,0.6)] backdrop-blur-xl">
+          <div className="relative overflow-hidden rounded-[28px] border border-white/40 bg-white/35 shadow-[0_30px_60px_-20px_rgba(2,6,23,0.6)] backdrop-blur-xl">
             {/* Banda superior */}
             <div className="relative flex items-center justify-between bg-gradient-to-r from-blue-900 via-blue-700 to-sky-500 px-5 py-4 text-white">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -166,7 +166,7 @@ export const BoardingPass = forwardRef<BoardingPassHandle, Props>(function Board
             {/* Datos */}
             <div className="px-5 pb-5 pt-5">
               <p className="text-2xl font-black tracking-tight text-blue-900">{guest.name}</p>
-              <p className="text-[10px] font-medium uppercase tracking-widest text-slate-400">Invitado especial</p>
+              <p className="text-[10px] font-medium uppercase tracking-widest text-slate-600">Invitado especial</p>
 
               <div className="mt-4 rounded-2xl border border-slate-900/20 bg-slate-900/10 p-4 shadow-[inset_0_1px_3px_rgba(15,23,42,0.1)]">
                 <div className="grid grid-cols-3 gap-x-3">
@@ -214,8 +214,8 @@ export const BoardingPass = forwardRef<BoardingPassHandle, Props>(function Board
                 )}
               </div>
               <div className="min-w-0">
-                <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-400">Código de acceso</p>
-                <p className="mt-1 text-sm font-semibold leading-snug text-slate-700">
+                <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-600">Código de acceso</p>
+                <p className="mt-1 text-sm font-semibold leading-snug text-slate-800">
                   {confirmed ? 'Muestra este código en la entrada. ¡Te esperamos!' : 'Confirma tu asistencia para activar tu pase.'}
                 </p>
               </div>
