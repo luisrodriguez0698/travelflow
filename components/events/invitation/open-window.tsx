@@ -296,7 +296,7 @@ export function OpenWindow({ title, messages }: { title: string; messages: strin
                 ref={one}
                 src={ASSETS.cloudOne}
                 alt="1"
-                className="absolute left-[23%] top-[17%] w-[54%] drop-shadow-[0_14px_22px_rgba(15,23,42,0.4)]"
+                className="absolute left-[23%] top-[25%] w-[54%] drop-shadow-[0_14px_22px_rgba(15,23,42,0.4)]"
               />
             </button>
           </div>
