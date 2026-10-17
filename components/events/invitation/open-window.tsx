@@ -256,7 +256,7 @@ export function OpenWindow({ title, messages }: { title: string; messages: strin
   };
 
   return (
-    <section ref={root} className="relative flex min-h-[100dvh] flex-col items-center justify-center overflow-hidden px-4 pb-10 pt-16">
+    <section ref={root} className="relative flex min-h-[100dvh] flex-col items-center justify-center overflow-hidden pb-10 pt-16">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img data-ow-logo src={ASSETS.logo} alt="" className="mb-6 w-36 drop-shadow-lg sm:w-44" />
 

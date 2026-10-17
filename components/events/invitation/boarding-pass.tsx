@@ -2,7 +2,7 @@
 
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import gsap from 'gsap';
-import { Lock, Plane } from 'lucide-react';
+import { Lock } from 'lucide-react';
 import { ASSETS, TZ } from './assets';
 import { onTilt } from './device-motion';
 import type { InvitationEvent, InvitationGuest } from '@/lib/special-events';
@@ -13,18 +13,6 @@ import type { InvitationEvent, InvitationGuest } from '@/lib/special-events';
 
 export interface BoardingPassHandle {
   stamp: () => void;
-}
-
-function initials(name: string) {
-  return (
-    name
-      .split(/\s+/)
-      .filter((w) => /^[A-Za-zÁÉÍÓÚÑáéíóúñ]/.test(w))
-      .slice(0, 2)
-      .map((w) => w[0])
-      .join('')
-      .toUpperCase() || 'VIP'
-  );
 }
 
 function passDate(iso: string) {
@@ -66,8 +54,6 @@ export const BoardingPass = forwardRef<BoardingPassHandle, Props>(function Board
   const stampEl = useRef<HTMLDivElement>(null);
   const qrEl = useRef<HTMLDivElement>(null);
   const [printed, setPrinted] = useState(!print);
-  const code = initials(event.agency.name);
-  const flight = `${code} ${new Date(event.startsAt).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', timeZone: TZ }).replace('/', '')}`;
 
   // Impresion: el pase sale suave de la ranura (con una ligera curva de papel),
   // se asienta y le pasa un destello de luz
@@ -177,46 +163,33 @@ export const BoardingPass = forwardRef<BoardingPassHandle, Props>(function Board
               </div>
             </div>
 
-            {/* Ruta */}
-            <div className="flex items-center justify-between px-5 pt-5">
-              <div>
-                <p className="text-3xl font-black tracking-tight text-blue-900">TÚ</p>
-                <p className="text-[10px] font-medium uppercase tracking-widest text-slate-400">Invitado especial</p>
-              </div>
-              <div className="relative mx-3 flex-1">
-                <div className="border-t-2 border-dashed border-sky-300" />
-                <Plane className="absolute left-1/2 top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rotate-45 fill-sky-500 text-sky-500" />
-              </div>
-              <div className="text-right">
-                <p className="text-3xl font-black tracking-tight text-blue-900">{code}</p>
-                <p className="text-[10px] font-medium uppercase tracking-widest text-slate-400">La celebración</p>
-              </div>
-            </div>
-
             {/* Datos */}
-            <div className="grid grid-cols-3 gap-x-3 gap-y-3 px-5 py-5">
-              <Field label="Pasajero" value={guest.name} className="col-span-2" />
-              <Field label="Asiento" value="VIP ⭐" />
-              <Field
-                label="Aerolínea"
-                className="col-span-2"
-                value={
-                  guest.supplier ? (
-                    guest.supplier.logo ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={guest.supplier.logo} alt={guest.supplier.name} className="mt-0.5 h-7 max-w-[140px] object-contain" />
-                    ) : (
-                      guest.supplier.name
-                    )
-                  ) : (
-                    event.agency.name
-                  )
-                }
-              />
-              <Field label="Vuelo" value={flight} />
-              <Field label="Fecha" value={passDate(event.startsAt)} />
-              <Field label="Abordaje" value={passTime(event.startsAt)} />
-              <Field label="Puerta" value="A1" />
+            <div className="px-5 pb-5 pt-5">
+              <p className="text-2xl font-black tracking-tight text-blue-900">{guest.name}</p>
+              <p className="text-[10px] font-medium uppercase tracking-widest text-slate-400">Invitado especial</p>
+
+              <div className="mt-4 rounded-2xl border border-white/60 bg-slate-100/60 p-4 shadow-inner backdrop-blur-md">
+                <div className="grid grid-cols-3 gap-x-3">
+                  <Field label="Fecha" value={passDate(event.startsAt)} />
+                  <Field label="Hora" value={passTime(event.startsAt)} />
+                  <Field
+                    label="Operador"
+                    value={
+                      guest.supplier ? (
+                        guest.supplier.logo ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={guest.supplier.logo} alt={guest.supplier.name} className="mt-0.5 h-7 max-w-[90px] object-contain" />
+                        ) : (
+                          guest.supplier.name
+                        )
+                      ) : (
+                        event.agency.name
+                      )
+                    }
+                  />
+                </div>
+                {event.dressCode && <Field label="Vestimenta" value={event.dressCode} className="mt-3 border-t border-slate-200/70 pt-3" />}
+              </div>
             </div>
 
             {/* Perforacion */}

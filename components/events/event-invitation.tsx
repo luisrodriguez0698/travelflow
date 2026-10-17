@@ -594,7 +594,7 @@ function GuestView({ event, guest, photos }: { event: InvitationEvent; guest: In
       {/* Mensaje */}
       <Reveal className={`relative mt-5 overflow-hidden p-6 text-white ${glassStrong}`}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={ASSETS.icon} alt="" aria-hidden className="pointer-events-none absolute -bottom-6 -right-4 w-24 opacity-10" />
+        <img src={ASSETS.icon} alt="" aria-hidden className="pointer-events-none absolute -bottom-6 -right-4 w-48 opacity-10" />
         <p data-message className="relative whitespace-pre-line text-[15px] leading-relaxed text-white">
           {message}
         </p>
@@ -610,7 +610,14 @@ function GuestView({ event, guest, photos }: { event: InvitationEvent; guest: In
                 <MapPin data-map-pin className="h-5 w-5" />
               </span>
               <div>
-                {event.venueName && <p className="font-bold">{event.venueName}</p>}
+                {event.venueName && (
+                  <>
+                    <span className="mb-1 inline-flex items-center gap-1 rounded-full border border-amber-200/40 bg-amber-300/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-widest text-amber-200">
+                      ✨ Nuestra nueva oficina
+                    </span>
+                    <p className="font-bold">{event.venueName}</p>
+                  </>
+                )}
                 {event.address && <p className="text-sm text-white/80">{event.address}</p>}
               </div>
             </div>
