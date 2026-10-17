@@ -168,7 +168,7 @@ export const BoardingPass = forwardRef<BoardingPassHandle, Props>(function Board
               <p className="text-2xl font-black tracking-tight text-blue-900">{guest.name}</p>
               <p className="text-[10px] font-medium uppercase tracking-widest text-slate-400">Invitado especial</p>
 
-              <div className="mt-4 rounded-2xl border border-blue-950/10 bg-blue-950/[0.06] p-4 shadow-[inset_0_1px_3px_rgba(15,23,42,0.08)] backdrop-blur-md">
+              <div className="mt-4 rounded-2xl border border-slate-900/20 bg-slate-900/10 p-4 shadow-[inset_0_1px_3px_rgba(15,23,42,0.1)]">
                 <div className="grid grid-cols-3 gap-x-3">
                   <Field label="Fecha" value={passDate(event.startsAt)} />
                   <Field label="Hora" value={passTime(event.startsAt)} />
@@ -188,7 +188,7 @@ export const BoardingPass = forwardRef<BoardingPassHandle, Props>(function Board
                     }
                   />
                 </div>
-                {event.dressCode && <Field label="Vestimenta" value={event.dressCode} className="mt-3 border-t border-slate-200/70 pt-3" />}
+                {event.dressCode && <Field label="Vestimenta" value={event.dressCode} className="mt-3 border-t border-slate-900/15 pt-3" />}
               </div>
             </div>
 
