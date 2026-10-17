@@ -171,20 +171,18 @@ export const BoardingPass = forwardRef<BoardingPassHandle, Props>(function Board
               <div className="relative mt-4 overflow-hidden rounded-2xl border border-white/15 bg-white/10 p-4">
                 {guest.supplier?.logo && (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={guest.supplier.logo} alt="" aria-hidden className="pointer-events-none absolute -bottom-3 -right-3 w-24 opacity-10" />
+                  <img src={guest.supplier.logo} alt="" aria-hidden className="pointer-events-none absolute -bottom-4 -right-4 w-40 opacity-10" />
                 )}
-                <div className="relative grid grid-cols-2 gap-x-3">
+                <div className="relative grid grid-cols-3 gap-x-3">
                   <Field label="Fecha" value={passDate(event.startsAt)} />
                   <Field label="Hora" value={passTime(event.startsAt)} />
-                </div>
-                <div className="relative mt-3 border-t border-white/15 pt-3">
                   <Field
                     label="Operador"
                     value={
                       guest.supplier ? (
                         guest.supplier.logo ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={guest.supplier.logo} alt={guest.supplier.name} className="mt-1 h-10 max-w-[160px] object-contain" />
+                          <img src={guest.supplier.logo} alt={guest.supplier.name} className="mt-0.5 h-8 max-w-[90px] object-contain" />
                         ) : (
                           guest.supplier.name
                         )
@@ -253,7 +251,7 @@ export const BoardingPass = forwardRef<BoardingPassHandle, Props>(function Board
             {/* Sello */}
             <div
               ref={stampEl}
-              className="pointer-events-none absolute right-6 top-[58%] rounded-xl border-[5px] border-double border-emerald-400 bg-blue-950/10 px-3 py-1 text-2xl font-black tracking-widest text-emerald-400"
+              className="pointer-events-none absolute right-6 top-[46%] rounded-xl border-[5px] border-double border-emerald-400 bg-blue-950/10 px-3 py-1 text-2xl font-black tracking-widest text-emerald-400"
               style={{ opacity: confirmed ? 0.9 : 0, transform: 'rotate(-14deg)' }}
             >
               CONFIRMADO
