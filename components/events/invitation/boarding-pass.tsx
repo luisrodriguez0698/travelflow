@@ -152,7 +152,7 @@ export const BoardingPass = forwardRef<BoardingPassHandle, Props>(function Board
 
       <div className={printed ? '' : 'overflow-hidden'} style={{ perspective: 1200 }}>
         <div ref={card} className="relative" style={{ transformStyle: 'preserve-3d' }}>
-          <div className="relative overflow-hidden rounded-[28px] bg-white shadow-[0_30px_60px_-20px_rgba(2,6,23,0.6)]">
+          <div className="relative overflow-hidden rounded-[28px] border border-white/40 bg-white/20 shadow-[0_30px_60px_-20px_rgba(2,6,23,0.6)] backdrop-blur-xl">
             {/* Banda superior */}
             <div className="relative flex items-center justify-between bg-gradient-to-r from-blue-900 via-blue-700 to-sky-500 px-5 py-4 text-white">
               {/* eslint-disable-next-line @next/next/no-img-element */}
