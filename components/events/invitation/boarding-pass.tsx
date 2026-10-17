@@ -164,35 +164,37 @@ export const BoardingPass = forwardRef<BoardingPassHandle, Props>(function Board
             </div>
 
             {/* Datos */}
-            <div className="px-5 pb-5 pt-5">
-              <p className="text-2xl font-black tracking-tight text-white">{guest.name}</p>
-              <p className="text-[10px] font-medium uppercase tracking-widest text-white/60">Invitado especial</p>
+            <div className="relative px-5 pb-5 pt-5">
+              {guest.supplier?.logo && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={guest.supplier.logo} alt="" aria-hidden className="pointer-events-none absolute -bottom-2 -right-2 w-60 opacity-10" />
+              )}
+              <div className="relative z-10">
+                <p className="text-2xl font-black tracking-tight text-white">{guest.name}</p>
+                <p className="text-[10px] font-medium uppercase tracking-widest text-white/60">Invitado especial</p>
 
-              <div className="relative mt-4 overflow-hidden rounded-2xl border border-white/15 bg-white/10 p-4">
-                {guest.supplier?.logo && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={guest.supplier.logo} alt="" aria-hidden className="pointer-events-none absolute -bottom-4 -right-4 w-40 opacity-10" />
-                )}
-                <div className="relative grid grid-cols-3 gap-x-3">
-                  <Field label="Fecha" value={passDate(event.startsAt)} />
-                  <Field label="Hora" value={passTime(event.startsAt)} />
-                  <Field
-                    label="Operador"
-                    value={
-                      guest.supplier ? (
-                        guest.supplier.logo ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={guest.supplier.logo} alt={guest.supplier.name} className="mt-0.5 h-8 max-w-[90px] object-contain" />
+                <div className="mt-4 rounded-2xl border border-white/15 bg-white/10 p-4">
+                  <div className="grid grid-cols-3 gap-x-3">
+                    <Field label="Fecha" value={passDate(event.startsAt)} />
+                    <Field label="Hora" value={passTime(event.startsAt)} />
+                    <Field
+                      label="Operador"
+                      value={
+                        guest.supplier ? (
+                          guest.supplier.logo ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={guest.supplier.logo} alt={guest.supplier.name} className="h-12 max-w-[90px] object-contain" />
+                          ) : (
+                            guest.supplier.name
+                          )
                         ) : (
-                          guest.supplier.name
+                          event.agency.name
                         )
-                      ) : (
-                        event.agency.name
-                      )
-                    }
-                  />
+                      }
+                    />
+                  </div>
+                  {event.dressCode && <Field label="Vestimenta" value={event.dressCode} className="mt-3 border-t border-white/15 pt-3" />}
                 </div>
-                {event.dressCode && <Field label="Vestimenta" value={event.dressCode} className="relative mt-3 border-t border-white/15 pt-3" />}
               </div>
             </div>
 
