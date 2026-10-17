@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import gsap from 'gsap';
 import { SplitText } from 'gsap/SplitText';
 import confetti from 'canvas-confetti';
@@ -8,14 +8,10 @@ import { ChevronsDown, Pointer } from 'lucide-react';
 import { ASSETS } from './assets';
 import { onTilt, requestMotionPermission } from './device-motion';
 import { chime, pop, sparkle, unlockAudio } from './sound';
-import { celebrate } from './celebrate';
 
 // Portada: ventanilla de avion ya abierta con el "1" de nube adentro y globos
 // alrededor. Al tocarla los globos salen volando, cae confeti y aparecen
 // bocadillos con mensajes al azar.
-
-/** Forma de ventanilla: esquinas muy redondeadas (igual en cada capa). */
-const WINDOW_RADIUS = '46% / 34%';
 
 /** Lugares alrededor de la ventanilla donde salen los bocadillos (% del contenedor). */
 const BUBBLE_SLOTS = [
@@ -35,6 +31,68 @@ const BALLOONS = [
   { src: ASSETS.balloonBlue, className: 'right-[1%] top-[36%] w-10 sm:w-14', rotate: 10 },
 ];
 
+/**
+ * Marco de ventanilla en SVG con el centro hueco: plastico exterior + bisel
+ * interior con sombra de profundidad y un reflejo suave del vidrio.
+ */
+function WindowFrame() {
+  const id = useId().replace(/:/g, '');
+  // viewBox 300x400; mismas proporciones de esquina en cada capa
+  const outer = { x: 0, y: 0, w: 300, h: 400, rx: 138, ry: 136 };
+  const bezel = { x: 22, y: 22, w: 256, h: 356, rx: 116, ry: 118 };
+  const hole = { x: 34, y: 34, w: 232, h: 332, rx: 104, ry: 110 };
+  const rect = (r: typeof outer, props: React.SVGProps<SVGRectElement>) => (
+    <rect x={r.x} y={r.y} width={r.w} height={r.h} rx={r.rx} ry={r.ry} {...props} />
+  );
+  return (
+    <svg viewBox="0 0 300 400" className="absolute inset-0 h-full w-full overflow-visible" style={{ filter: 'drop-shadow(0 30px 40px rgba(2,6,23,0.45)) drop-shadow(0 8px 12px rgba(2,6,23,0.3))' }} aria-hidden>
+      <defs>
+        <linearGradient id={`${id}-frame`} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#ffffff" />
+          <stop offset="35%" stopColor="#eef2f7" />
+          <stop offset="75%" stopColor="#c8d2df" />
+          <stop offset="100%" stopColor="#a9b5c5" />
+        </linearGradient>
+        <linearGradient id={`${id}-bezel`} x1="0" y1="0" x2="0.4" y2="1">
+          <stop offset="0%" stopColor="#8f9db0" />
+          <stop offset="30%" stopColor="#f1f5f9" />
+          <stop offset="65%" stopColor="#e2e8f0" />
+          <stop offset="100%" stopColor="#8796aa" />
+        </linearGradient>
+        <linearGradient id={`${id}-glass`} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.28" />
+          <stop offset="30%" stopColor="#ffffff" stopOpacity="0.04" />
+          <stop offset="45%" stopColor="#ffffff" stopOpacity="0" />
+          <stop offset="85%" stopColor="#ffffff" stopOpacity="0.1" />
+        </linearGradient>
+        <mask id={`${id}-cut-frame`}>
+          {rect(outer, { fill: 'white' })}
+          {rect(bezel, { fill: 'black' })}
+        </mask>
+        <mask id={`${id}-cut-bezel`}>
+          {rect(bezel, { fill: 'white' })}
+          {rect(hole, { fill: 'black' })}
+        </mask>
+        <filter id={`${id}-blur`} x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="5" />
+        </filter>
+        <clipPath id={`${id}-hole`}>{rect(hole, {})}</clipPath>
+      </defs>
+
+      {/* Plastico exterior */}
+      {rect(outer, { fill: `url(#${id}-frame)`, mask: `url(#${id}-cut-frame)` })}
+      {rect({ ...outer, x: 1.5, y: 1.5, w: 297, h: 397 }, { fill: 'none', stroke: 'white', strokeOpacity: 0.9, strokeWidth: 2 })}
+      {/* Bisel */}
+      {rect(bezel, { fill: `url(#${id}-bezel)`, mask: `url(#${id}-cut-bezel)` })}
+      {/* Profundidad: sombra hacia adentro del hueco */}
+      <g clipPath={`url(#${id}-hole)`}>
+        {rect(hole, { fill: 'none', stroke: 'rgba(15,23,42,0.55)', strokeWidth: 16, filter: `url(#${id}-blur)` })}
+        {rect(hole, { fill: `url(#${id}-glass)` })}
+      </g>
+    </svg>
+  );
+}
+
 function shuffle<T>(list: T[]) {
   const copy = [...list];
   for (let i = copy.length - 1; i > 0; i--) {
@@ -52,22 +110,19 @@ export function OpenWindow({ title, messages }: { title: string; messages: strin
   const [tapped, setTapped] = useState(false);
   const messageQueue = useRef<string[]>([]);
 
-  // Entrada + flotado + avioncito que cruza la ventanilla de vez en cuando
+  // Entrada + flotado
   useEffect(() => {
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const ctx = gsap.context(() => {
       gsap.from('[data-ow-logo]', { y: -30, opacity: 0, duration: 0.8, ease: 'power3.out' });
       gsap.from(tilt.current, { y: 80, rotationX: 25, scale: 0.85, opacity: 0, duration: 1.2, ease: 'power3.out', delay: 0.15 });
-      gsap.from('[data-ow-balloon]', { y: 260, opacity: 0, duration: 1.6, stagger: 0.12, ease: 'power2.out', delay: 0.4 });
+      gsap.from('[data-ow-balloon]', { scale: 0, opacity: 0, duration: 0.9, stagger: 0.12, ease: 'back.out(1.8)', delay: 0.6 });
       if (reduce) return;
       gsap.to('[data-ow-float]', { y: -10, duration: 3, yoyo: true, repeat: -1, ease: 'sine.inOut' });
       gsap.to(one.current, { y: -6, rotation: 2, duration: 2.4, yoyo: true, repeat: -1, ease: 'sine.inOut' });
       gsap.utils.toArray<HTMLElement>('[data-ow-balloon]').forEach((b, i) => {
         gsap.to(b, { y: '-=16', rotation: `+=${i % 2 ? -5 : 5}`, duration: 2.4 + i * 0.3, yoyo: true, repeat: -1, ease: 'sine.inOut', delay: 1.8 + i * 0.2 });
       });
-      gsap
-        .timeline({ repeat: -1, repeatDelay: 5, delay: 2 })
-        .fromTo('[data-ow-plane]', { xPercent: -160, yPercent: 120, rotation: -10, opacity: 1 }, { xPercent: 260, yPercent: -140, rotation: -22, duration: 3, ease: 'power1.inOut' });
 
       const split = SplitText.create('[data-ow-title]', { type: 'chars' });
       gsap.from(split.chars, { yPercent: 100, rotationX: -90, opacity: 0, transformOrigin: '50% 100%', stagger: 0.05, duration: 0.8, ease: 'back.out(1.8)', delay: 0.9 });
@@ -120,6 +175,33 @@ export function OpenWindow({ title, messages }: { title: string; messages: strin
       .to(bubble, { opacity: 0, y: -30, scale: 0.9, duration: 0.5, ease: 'power2.in' });
   }, []);
 
+  /** Globos que brotan de los costados de la ventanilla y suben hasta perderse. */
+  const sideBalloons = useCallback(() => {
+    const layer = bubbleLayer.current;
+    const frame = tilt.current;
+    if (!layer || !frame) return;
+    const box = layer.getBoundingClientRect();
+    const win = frame.getBoundingClientRect();
+    const sources = [ASSETS.balloonSilver, ASSETS.balloonBlue, ASSETS.balloonGold];
+    for (let i = 0; i < 6; i++) {
+      const left = i % 2 === 0;
+      const img = document.createElement('img');
+      img.src = sources[i % sources.length];
+      img.alt = '';
+      const size = gsap.utils.random(46, 78);
+      // Junto al borde izquierdo o derecho de la ventanilla, a media altura
+      const x = (left ? win.left - box.left - size * 0.6 : win.right - box.left - size * 0.4) + gsap.utils.random(-12, 12);
+      const y = win.top - box.top + win.height * gsap.utils.random(0.35, 0.75);
+      img.style.cssText = `position:absolute;left:${x}px;top:${y}px;width:${size}px`;
+      layer.appendChild(img);
+      gsap
+        .timeline({ delay: i * 0.12, onComplete: () => img.remove() })
+        .fromTo(img, { scale: 0, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.45, ease: 'back.out(2)' })
+        .to(img, { y: -(y + 260), x: (left ? -1 : 1) * gsap.utils.random(20, 70), rotation: gsap.utils.random(-15, 15), duration: gsap.utils.random(2.4, 3.4), ease: 'power1.in' })
+        .to(img, { opacity: 0, duration: 0.6 }, '-=0.7');
+    }
+  }, []);
+
   const nextMessages = useCallback(
     (count: number) => {
       const out: string[] = [];
@@ -166,9 +248,8 @@ export function OpenWindow({ title, messages }: { title: string; messages: strin
       });
       setTimeout(chime, 300);
       setTapped(true);
-    } else {
-      celebrate();
     }
+    sideBalloons();
 
     const slots = shuffle([...BUBBLE_SLOTS]).slice(0, 3);
     nextMessages(3).forEach((text, i) => spawnBubble(text, slots[i], 0.15 + i * 0.45));
@@ -208,51 +289,15 @@ export function OpenWindow({ title, messages }: { title: string; messages: strin
               className="relative block w-[min(64vw,270px)] cursor-pointer outline-none"
               style={{ transformStyle: 'preserve-3d', aspectRatio: '3 / 4' }}
             >
-              <div
-                className="absolute inset-0 p-[8%]"
-                style={{
-                  borderRadius: WINDOW_RADIUS,
-                  background: 'linear-gradient(150deg, #ffffff 0%, #e8edf3 35%, #c5cfdc 75%, #aab6c6 100%)',
-                  boxShadow:
-                    '0 50px 90px -25px rgba(2,6,23,0.65), 0 18px 30px -12px rgba(2,6,23,0.35), inset 0 3px 2px #ffffff, inset 0 -10px 18px rgba(71,85,105,0.35)',
-                }}
-              >
-                <div
-                  className="h-full w-full p-[4%]"
-                  style={{
-                    borderRadius: WINDOW_RADIUS,
-                    background: 'linear-gradient(160deg, #94a3b8 0%, #f1f5f9 35%, #e2e8f0 60%, #8a99ad 100%)',
-                    boxShadow: 'inset 0 10px 20px rgba(15,23,42,0.45), 0 2px 0 rgba(255,255,255,0.8)',
-                  }}
-                >
-                  <div
-                    className="relative h-full w-full overflow-hidden"
-                    style={{ borderRadius: WINDOW_RADIUS, background: 'linear-gradient(180deg, #1d4ed8 0%, #3b82f6 35%, #93c5fd 75%, #dbeafe 100%)' }}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={ASSETS.cloud} alt="" className="absolute -left-1/4 bottom-[-8%] w-[150%] max-w-none opacity-90" />
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={ASSETS.cloud} alt="" className="absolute -right-1/3 top-[10%] w-[90%] max-w-none opacity-50" />
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img data-ow-plane src={ASSETS.plane} alt="" className="absolute left-0 top-[45%] w-[46%] opacity-0 drop-shadow-[0_10px_12px_rgba(15,23,42,0.35)]" />
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      ref={one}
-                      src={ASSETS.cloudOne}
-                      alt="1"
-                      className="absolute left-[24%] top-[18%] w-[52%] drop-shadow-[0_10px_20px_rgba(30,58,138,0.35)]"
-                    />
-                    <div
-                      className="pointer-events-none absolute inset-0"
-                      style={{
-                        borderRadius: WINDOW_RADIUS,
-                        background: 'linear-gradient(125deg, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0.05) 30%, transparent 45%, transparent 70%, rgba(255,255,255,0.12) 85%)',
-                        boxShadow: 'inset 0 0 28px rgba(15,23,42,0.5)',
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
+              <WindowFrame />
+              {/* El "1" flota en el hueco, sobre el cielo de fondo */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                ref={one}
+                src={ASSETS.cloudOne}
+                alt="1"
+                className="absolute left-[23%] top-[17%] w-[54%] drop-shadow-[0_14px_22px_rgba(15,23,42,0.4)]"
+              />
             </button>
           </div>
         </div>

@@ -21,6 +21,8 @@ const DOODLES = [Camera, Palmtree, Sun, Heart, Compass, Star, MapPin];
 export function RouteMap({ photos }: { photos: string[] }) {
   const root = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
+  // Fotos horizontales: su marco se vuelve horizontal para no recortarlas
+  const [landscape, setLandscape] = useState<Record<string, boolean>>({});
   const maskId = `route-mask-${useId().replace(/:/g, '')}`;
 
   useEffect(() => {
@@ -194,7 +196,7 @@ export function RouteMap({ photos }: { photos: string[] }) {
             <div
               key={item.src}
               className="absolute -translate-x-1/2 -translate-y-1/2"
-              style={{ left: item.x, top: item.y, width: layout.photoWidth, perspective: 900 }}
+              style={{ left: item.x, top: item.y, width: landscape[item.src] ? Math.min(layout.photoWidth * 1.25, width * 0.52) : layout.photoWidth, perspective: 900 }}
             >
               <figure
                 data-photo
@@ -212,9 +214,18 @@ export function RouteMap({ photos }: { photos: string[] }) {
                     boxShadow: '0 3px 4px rgba(2,6,23,0.45)',
                   }}
                 />
-                <div className="aspect-[3/4] overflow-hidden bg-slate-200">
+                <div className={`${landscape[item.src] ? 'aspect-[4/3]' : 'aspect-[3/4]'} overflow-hidden bg-slate-200`}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={item.src} alt={`Foto ${i + 1}`} loading="lazy" className="h-full w-full object-cover" />
+                  <img
+                    src={item.src}
+                    alt={`Foto ${i + 1}`}
+                    loading="lazy"
+                    className="h-full w-full object-cover"
+                    onLoad={(e) => {
+                      const { naturalWidth: w, naturalHeight: h } = e.currentTarget;
+                      if (w > h * 1.1) setLandscape((prev) => (prev[item.src] ? prev : { ...prev, [item.src]: true }));
+                    }}
+                  />
                 </div>
               </figure>
             </div>
