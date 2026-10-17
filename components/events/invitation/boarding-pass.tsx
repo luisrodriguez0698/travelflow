@@ -168,7 +168,7 @@ export const BoardingPass = forwardRef<BoardingPassHandle, Props>(function Board
               <p className="text-2xl font-black tracking-tight text-blue-900">{guest.name}</p>
               <p className="text-[10px] font-medium uppercase tracking-widest text-slate-400">Invitado especial</p>
 
-              <div className="mt-4 rounded-2xl border border-white/60 bg-slate-100/60 p-4 shadow-inner backdrop-blur-md">
+              <div className="mt-4 rounded-2xl border border-blue-950/10 bg-blue-950/[0.06] p-4 shadow-[inset_0_1px_3px_rgba(15,23,42,0.08)] backdrop-blur-md">
                 <div className="grid grid-cols-3 gap-x-3">
                   <Field label="Fecha" value={passDate(event.startsAt)} />
                   <Field label="Hora" value={passTime(event.startsAt)} />
@@ -247,7 +247,7 @@ export const BoardingPass = forwardRef<BoardingPassHandle, Props>(function Board
             {/* Sello */}
             <div
               ref={stampEl}
-              className="pointer-events-none absolute right-6 top-[38%] rounded-xl border-[5px] border-double border-emerald-600 px-3 py-1 text-2xl font-black tracking-widest text-emerald-600"
+              className="pointer-events-none absolute right-6 top-[46%] rounded-xl border-[5px] border-double border-emerald-600 px-3 py-1 text-2xl font-black tracking-widest text-emerald-600"
               style={{ opacity: confirmed ? 0.85 : 0, transform: 'rotate(-14deg)', mixBlendMode: 'multiply' }}
             >
               CONFIRMADO
