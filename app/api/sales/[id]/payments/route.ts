@@ -45,6 +45,19 @@ export async function POST(
       );
     }
 
+    // Fecha en que entro el dinero (por defecto ahora). No puede ser futura.
+    let paidAt = new Date();
+    if (body.paidAt) {
+      const parsed = new Date(body.paidAt);
+      if (Number.isNaN(parsed.getTime())) {
+        return NextResponse.json({ error: 'Fecha del abono no válida' }, { status: 400 });
+      }
+      if (parsed.getTime() > Date.now() + 60 * 60 * 1000) {
+        return NextResponse.json({ error: 'La fecha del abono no puede ser futura' }, { status: 400 });
+      }
+      paidAt = parsed;
+    }
+
     // Verify bank account ownership
     const bankAccount = await prisma.bankAccount.findFirst({
       where: { id: bankAccountId, ...access.bankScope, isActive: true },
@@ -91,7 +104,7 @@ export async function POST(
         where: { id: payment.id },
         data: {
           paidAmount: newPaidAmount,
-          paidDate: isPaid ? new Date() : payment.paidDate,
+          paidDate: isPaid ? paidAt : payment.paidDate,
           status: isPaid ? 'PAID' : 'PENDING',
           notes: i === startingPaymentIndex ? (notes || payment.notes) : payment.notes,
         },
@@ -131,7 +144,7 @@ export async function POST(
           description: `Abono venta - ${bookingWithClient?.client?.fullName || ''} - ${bookingWithClient?.destination?.name || ''}`,
           reference: notes || null,
           bookingId,
-          date: new Date(),
+          date: paidAt,
         },
       }),
       prisma.bankAccount.update({
@@ -150,6 +163,7 @@ export async function POST(
       debts: supplierDebts,
       source: 'abono',
       user: actor ? { id: actor.id, name: actor.name } : null,
+      date: paidAt,
     });
     if (actor) {
       await notifyActivity({

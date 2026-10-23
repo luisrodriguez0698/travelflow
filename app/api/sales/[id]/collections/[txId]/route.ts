@@ -10,7 +10,7 @@ type Params = { params: { id: string; txId: string } };
 
 /**
  * Corrige o anula un cobro en un solo paso.
- * body: { action: 'correct', bankAccountId, supplierAllocations } | { action: 'void' }
+ * body: { action: 'correct', bankAccountId, supplierAllocations, date?, note? } | { action: 'void' }
  */
 export async function POST(request: NextRequest, { params }: Params) {
   try {
@@ -31,6 +31,8 @@ export async function POST(request: NextRequest, { params }: Params) {
             incomeId: txId,
             bankAccountId: body.bankAccountId,
             allocations: body.supplierAllocations,
+            date: body.date,
+            note: body.note,
             user,
           });
     if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });

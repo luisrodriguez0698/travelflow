@@ -174,6 +174,7 @@ export default function QuotationsPage() {
   const [deletingQuotation, setDeletingQuotation] = useState<Quotation | null>(null);
   const [convertingQuotation, setConvertingQuotation] = useState<Quotation | null>(null);
   const [convertBankAccountId, setConvertBankAccountId] = useState('');
+  const [convertNote, setConvertNote] = useState('');
   const convertDebts = useSupplierDebts(convertingQuotation?.id, isConvertModalOpen);
   const [convertAllocations, setConvertAllocations] = useState<AllocationValue[]>([]);
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
@@ -506,7 +507,7 @@ export default function QuotationsPage() {
       const res = await fetch(`/api/quotations/${convertingQuotation.id}/convert`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bankAccountId: convertBankAccountId || null, supplierAllocations: convertBankAccountId ? convertAllocations : [] }),
+        body: JSON.stringify({ bankAccountId: convertBankAccountId || null, supplierAllocations: convertBankAccountId ? convertAllocations : [], initialPaymentNote: convertBankAccountId ? convertNote : null }),
       });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || '');
       toast({ title: 'Éxito', description: 'Cotización convertida a venta' });
@@ -1526,7 +1527,7 @@ export default function QuotationsPage() {
       </Dialog>
 
       {/* ===== CONVERT TO SALE MODAL ===== */}
-      <Dialog open={isConvertModalOpen} onOpenChange={(open) => { setIsConvertModalOpen(open); if (!open) { setConvertBankAccountId(''); setConvertAllocations([]); } }}>
+      <Dialog open={isConvertModalOpen} onOpenChange={(open) => { setIsConvertModalOpen(open); if (!open) { setConvertBankAccountId(''); setConvertAllocations([]); setConvertNote(''); } }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>¿Convertir a venta?</DialogTitle>
@@ -1542,6 +1543,8 @@ export default function QuotationsPage() {
                 cash={convertingQuotation.paymentType === 'CASH'}
                 value={convertBankAccountId}
                 onChange={setConvertBankAccountId}
+                note={convertNote}
+                onNoteChange={setConvertNote}
               />
               {convertBankAccountId && (
                 <div className="mt-3">

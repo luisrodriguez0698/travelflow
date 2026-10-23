@@ -71,6 +71,7 @@ export default function NewSalePage() {
   const [paymentAmounts, setPaymentAmounts] = useState<number[] | null>(null);
   // Cuenta donde entra el anticipo / pago de contado (obligatoria si hay dinero)
   const [bankAccountId, setBankAccountId] = useState('');
+  const [initialNote, setInitialNote] = useState('');
   const [bankAccountName, setBankAccountName] = useState('');
   // Resumen de a donde va el dinero, antes de crear la venta
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -189,6 +190,7 @@ export default function NewSalePage() {
           paymentAmounts: formData.paymentType === 'CREDIT' ? paymentAmounts : null,
           bankAccountId: bankAccountId || null,
           supplierAllocations: bankAccountId ? supplierAllocations : [],
+          initialPaymentNote: bankAccountId ? initialNote : null,
           departureDate: formData.departureDate?.toISOString() || null,
           returnDate: formData.returnDate?.toISOString() || null,
           totalPrice: formData.totalPrice,
@@ -447,6 +449,8 @@ export default function NewSalePage() {
               value={bankAccountId}
               onChange={setBankAccountId}
               onAccountName={setBankAccountName}
+              note={initialNote}
+              onNoteChange={setInitialNote}
             />
             {bankAccountId && (
               <SupplierAllocation

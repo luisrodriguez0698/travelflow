@@ -5,6 +5,8 @@ import { Landmark, Loader2, Pencil, Receipt, Truck, Undo2 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { DatePicker } from '@/components/ui/date-picker';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
@@ -36,6 +38,7 @@ interface Collection {
   amount: number;
   date: string;
   description: string;
+  note: string;
   account: { id: string; name: string; bank: string };
   suppliers: { transactionId: string; supplierId: string; name: string; amount: number }[];
 }
@@ -49,6 +52,12 @@ interface Account {
 const KIND_LABEL = { anticipo: 'Anticipo', contado: 'Pago de contado', abono: 'Abono' } as const;
 const money = (n: number) => `$${n.toLocaleString('es-MX', { maximumFractionDigits: 2 })}`;
 const fmtDate = (d: string) => new Date(d).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' });
+/** Mediodia del dia elegido: evita que cambie de dia por la zona horaria. */
+const middayOf = (d: Date) => {
+  const at = new Date(d);
+  at.setHours(12, 0, 0, 0);
+  return at;
+};
 
 /**
  * Cobros registrados de la venta. Cada uno se puede corregir (cuenta y/o
@@ -75,6 +84,8 @@ export function SaleCollections({
   const [voiding, setVoiding] = useState<Collection | null>(null);
   const [accountId, setAccountId] = useState('');
   const [allocations, setAllocations] = useState<AllocationValue[]>([]);
+  const [date, setDate] = useState<Date>(new Date());
+  const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
   const rawDebts = useSupplierDebts(saleId, !!editing);
 
@@ -105,6 +116,8 @@ export function SaleCollections({
   const openEdit = (c: Collection) => {
     setEditing(c);
     setAccountId(c.account.id);
+    setDate(new Date(c.date));
+    setNote(c.note || '');
     const merged = new Map<string, number>();
     for (const s of c.suppliers) merged.set(s.supplierId, (merged.get(s.supplierId) ?? 0) + s.amount);
     setAllocations([...merged.entries()].map(([supplierId, amount]) => ({ supplierId, amount })));
@@ -123,7 +136,18 @@ export function SaleCollections({
       const res = await fetch(`/api/sales/${saleId}/collections/${c.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(action === 'void' ? { action } : { action, bankAccountId: accountId, supplierAllocations: allocations }),
+        body: JSON.stringify(
+          action === 'void'
+            ? { action }
+            : {
+                action,
+                bankAccountId: accountId,
+                supplierAllocations: allocations,
+                // Solo si se eligio otro dia
+                date: date.toDateString() !== new Date(c.date).toDateString() ? middayOf(date).toISOString() : undefined,
+                note,
+              }
+        ),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error);
@@ -168,6 +192,7 @@ export function SaleCollections({
                 <Landmark className="w-3.5 h-3.5" />
                 {c.account.name} · {c.account.bank}
               </p>
+              {c.note && <p className="text-xs text-muted-foreground">Ref. {c.note}</p>}
               {c.suppliers.length > 0 && (
                 <p className="text-xs text-orange-600 dark:text-orange-400 flex items-center gap-1.5 flex-wrap">
                   <Truck className="w-3.5 h-3.5" />
@@ -197,7 +222,7 @@ export function SaleCollections({
           <DialogHeader>
             <DialogTitle>Corregir {editing ? KIND_LABEL[editing.kind].toLowerCase() : ''}</DialogTitle>
             <DialogDescription>
-              Cambia la cuenta y/o a qué proveedores se pagó. El monto y la venta no cambian; los saldos y deudas se ajustan solos.
+              Cambia la cuenta, la fecha, la referencia y/o a qué proveedores se pagó. El monto y la venta no cambian; los saldos y deudas se ajustan solos.
             </DialogDescription>
           </DialogHeader>
           {editing && (
@@ -222,6 +247,22 @@ export function SaleCollections({
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Fecha en que entró el dinero</Label>
+                  <DatePicker
+                    value={date}
+                    onChange={(d) => d && setDate(d)}
+                    maxDate={new Date()}
+                    fromYear={new Date().getFullYear() - 2}
+                    toYear={new Date().getFullYear()}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Referencia del banco / notas</Label>
+                  <Input value={note} onChange={(e) => setNote(e.target.value)} maxLength={200} placeholder="Ej. 0119498527" />
+                </div>
               </div>
               <SupplierAllocation amount={editing.amount} debts={debts} value={allocations} onChange={setAllocations} />
               <div className="border-t pt-3">

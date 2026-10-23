@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { AlertTriangle, Landmark } from 'lucide-react';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useCan } from '@/hooks/use-can';
 
@@ -24,6 +25,8 @@ export function InitialPaymentAccount({
   value,
   onChange,
   onAccountName,
+  note,
+  onNoteChange,
 }: {
   amount: number;
   cash: boolean;
@@ -31,6 +34,9 @@ export function InitialPaymentAccount({
   onChange: (id: string) => void;
   /** Nombre legible de la cuenta elegida (para el resumen antes de guardar) */
   onAccountName?: (name: string) => void;
+  /** Referencia del banco / notas del pago (opcional): se muestra si se pasa onNoteChange */
+  note?: string;
+  onNoteChange?: (note: string) => void;
 }) {
   const can = useCan();
   const [accounts, setAccounts] = useState<Account[] | null>(null);
@@ -90,6 +96,14 @@ export function InitialPaymentAccount({
           ))}
         </SelectContent>
       </Select>
+      {onNoteChange && (
+        <Input
+          value={note ?? ''}
+          onChange={(e) => onNoteChange(e.target.value)}
+          maxLength={200}
+          placeholder="Referencia del banco / notas (opcional)"
+        />
+      )}
     </div>
   );
 }

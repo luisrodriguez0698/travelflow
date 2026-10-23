@@ -173,6 +173,7 @@ export default function QuotationDetailPage() {
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [converting, setConverting] = useState(false);
   const [convertBankAccountId, setConvertBankAccountId] = useState('');
+  const [convertNote, setConvertNote] = useState('');
   const [showConvertDialog, setShowConvertDialog] = useState(false);
   const [convertAllocations, setConvertAllocations] = useState<AllocationValue[]>([]);
   const convertDebts = useSupplierDebts(id, showConvertDialog);
@@ -234,7 +235,7 @@ export default function QuotationDetailPage() {
       const res = await fetch(`/api/quotations/${id}/convert`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bankAccountId: convertBankAccountId || null, supplierAllocations: convertBankAccountId ? convertAllocations : [] }),
+        body: JSON.stringify({ bankAccountId: convertBankAccountId || null, supplierAllocations: convertBankAccountId ? convertAllocations : [], initialPaymentNote: convertBankAccountId ? convertNote : null }),
       });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || '');
       toast({
@@ -936,6 +937,8 @@ export default function QuotationDetailPage() {
                 cash={quotation.paymentType === 'CASH'}
                 value={convertBankAccountId}
                 onChange={setConvertBankAccountId}
+                note={convertNote}
+                onNoteChange={setConvertNote}
               />
               {convertBankAccountId && (
                 <div className="mt-3">

@@ -204,6 +204,8 @@ export default function SaleDetailPage() {
   const [paymentConfirming, setPaymentConfirming] = useState(false);
   const supplierDebts = useSupplierDebts(id, isPaymentModalOpen);
   const [paymentNotes, setPaymentNotes] = useState('');
+  // Dia en que realmente entro el dinero (por defecto hoy)
+  const [paymentDate, setPaymentDate] = useState<Date>(new Date());
   const [editingDeadline, setEditingDeadline] = useState(false);
   const [deadlineValue, setDeadlineValue] = useState<Date | undefined>(undefined);
   const [savingDeadline, setSavingDeadline] = useState(false);
@@ -253,10 +255,20 @@ export default function SaleDetailPage() {
     const pendingAmount = payment.amount - (payment.paidAmount || 0);
     setPaymentAmount(pendingAmount.toString());
     setPaymentNotes('');
+    setPaymentDate(new Date());
     setSelectedBankAccountId('');
     setPaymentAllocations([]);
     setPaymentConfirming(false);
     setIsPaymentModalOpen(true);
+  };
+
+  /** Hoy: la hora actual. Otro dia: a mediodia (evita que cambie de dia por zona horaria). */
+  const paidAtValue = (d: Date) => {
+    const now = new Date();
+    if (d.toDateString() === now.toDateString()) return now;
+    const at = new Date(d);
+    at.setHours(12, 0, 0, 0);
+    return at;
   };
 
   const handleRegisterPayment = async () => {
@@ -312,6 +324,7 @@ export default function SaleDetailPage() {
           amount,
           notes: paymentNotes,
           bankAccountId: selectedBankAccountId,
+          paidAt: paidAtValue(paymentDate).toISOString(),
           supplierAllocations: paymentAllocations,
         }),
       });
@@ -1067,7 +1080,10 @@ export default function SaleDetailPage() {
                   name: supplierDebts.find((d) => d.supplierId === a.supplierId)?.name || 'Proveedor',
                   amount: a.amount,
                 }))}
-                extra={[`Se aplica desde el pago #${selectedPayment?.paymentNumber}; si sobra, pasa a los siguientes.`]}
+                extra={[
+                  `Fecha del abono: ${format(paymentDate, "d 'de' MMMM yyyy", { locale: es })}`,
+                  `Se aplica desde el pago #${selectedPayment?.paymentNumber}; si sobra, pasa a los siguientes.`,
+                ]}
               />
             </div>
           ) : (
@@ -1097,6 +1113,17 @@ export default function SaleDetailPage() {
                   No hay cuentas bancarias disponibles. Primero da de alta una cuenta en Bancos (o pide que te compartan una).
                 </p>
               )}
+            </div>
+            <div className="space-y-2">
+              <Label>Fecha en que se recibió *</Label>
+              <DatePicker
+                value={paymentDate}
+                onChange={(d) => d && setPaymentDate(d)}
+                maxDate={new Date()}
+                fromYear={new Date().getFullYear() - 2}
+                toYear={new Date().getFullYear()}
+              />
+              <p className="text-xs text-muted-foreground">Si el cliente depositó otro día, elige esa fecha.</p>
             </div>
             <div className="space-y-2">
               <Label>Monto del Abono *</Label>

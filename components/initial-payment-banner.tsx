@@ -32,6 +32,7 @@ export function InitialPaymentBanner({
   const can = useCan();
   const { toast } = useToast();
   const [accountId, setAccountId] = useState('');
+  const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
   const [allocations, setAllocations] = useState<AllocationValue[]>([]);
   const pendingRegistration = !!info && info.amount > 0 && !info.account;
@@ -61,7 +62,7 @@ export function InitialPaymentBanner({
       const res = await fetch(`/api/sales/${saleId}/initial-payment`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bankAccountId: accountId, supplierAllocations: allocations }),
+        body: JSON.stringify({ bankAccountId: accountId, supplierAllocations: allocations, initialPaymentNote: note }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error);
@@ -89,7 +90,7 @@ export function InitialPaymentBanner({
       {can('ventas', 'payments') ? (
         <div className="flex flex-col sm:flex-row sm:items-end gap-3">
           <div className="flex-1">
-            <InitialPaymentAccount amount={info.amount} cash={cash} value={accountId} onChange={setAccountId} />
+            <InitialPaymentAccount amount={info.amount} cash={cash} value={accountId} onChange={setAccountId} note={note} onNoteChange={setNote} />
           </div>
           <Button onClick={register} disabled={!accountId || saving}>
             {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}

@@ -54,11 +54,14 @@ export async function registerInitialPayment(params: {
   bankAccountId: string;
   clientName: string;
   date?: Date;
+  /** Referencia bancaria / notas que escribe quien registra (opcional) */
+  note?: unknown;
 }) {
   const amount = initialPaymentAmount(params.booking);
   if (amount <= 0) return null;
   const cash = params.booking.paymentType === 'CASH';
   const folio = params.booking.id.slice(-8).toUpperCase();
+  const note = typeof params.note === 'string' ? params.note.trim().slice(0, 200) : '';
   const [transaction] = await prisma.$transaction([
     prisma.bankTransaction.create({
       data: {
@@ -66,7 +69,8 @@ export async function registerInitialPayment(params: {
         bankAccountId: params.bankAccountId,
         type: 'INCOME',
         amount,
-        description: `${cash ? 'Pago de contado' : 'Anticipo'} - ${params.clientName} (venta ${folio})`,
+        // "reference" identifica el pago inicial; la referencia del banco va en la descripcion
+        description: `${cash ? 'Pago de contado' : 'Anticipo'} - ${params.clientName} (venta ${folio})${note ? ` · Ref. ${note}` : ''}`,
         reference: cash ? INITIAL_PAYMENT_REFS.CASH : INITIAL_PAYMENT_REFS.DOWN_PAYMENT,
         bookingId: params.booking.id,
         date: params.date ?? new Date(),
