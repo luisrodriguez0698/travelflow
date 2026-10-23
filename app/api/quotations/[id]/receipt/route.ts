@@ -311,7 +311,7 @@ export async function GET(
           </tr>`;
       }).join('');
 
-      const frequencyLabel = (booking as any).paymentFrequency === 'MENSUAL' ? 'Mensual' : 'Quincenal';
+      const frequencyLabel = (booking as any).paymentFrequency === 'MENSUAL' ? 'Mensual' : (booking as any).paymentFrequency === 'PERSONALIZADO' ? 'Personalizado' : 'Quincenal';
       paymentSectionHtml = `
       <div class="section">
         <div class="section-title">Plan de Pagos Propuesto</div>

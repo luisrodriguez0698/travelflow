@@ -30,6 +30,7 @@ import { Plus, Search, Pencil, Trash2, ShoppingCart, Loader2, Eye, TrendingUp, C
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { PeriodSelect, SortableHead, SortSelect, useListSort } from '@/components/list-controls';
 import { SaleLinkMenu } from '@/components/sale-link-menu';
+import { RowActions } from '@/components/row-actions';
 import { DateRange } from 'react-day-picker';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
@@ -811,17 +812,19 @@ export default function SalesPage() {
                   <Link href={`/sales/${sale.id}`}>
                     <Button size="sm" variant="outline"><Eye className="w-4 h-4 mr-1" />Ver</Button>
                   </Link>
-                  {can('ventas', 'edit') && (<Link href={`/sales/${sale.id}/edit`}>
-                    <Button size="sm" variant="outline"><Pencil className="w-4 h-4" /></Button>
-                  </Link>)}
-                  {can('ventas', 'delete') && (<Button
-                    size="sm"
-                    variant="outline"
-                    className="text-red-600 hover:text-red-700"
-                    onClick={() => { setDeletingSale(sale); setIsDeleteModalOpen(true); }}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>)}
+                  <RowActions
+                    actions={[
+                      { label: 'Editar', icon: Pencil, href: `/sales/${sale.id}/edit`, hidden: !can('ventas', 'edit') },
+                      {
+                        label: 'Eliminar',
+                        icon: Trash2,
+                        destructive: true,
+                        separator: true,
+                        hidden: !can('ventas', 'delete'),
+                        onSelect: () => { setDeletingSale(sale); setIsDeleteModalOpen(true); },
+                      },
+                    ]}
+                  />
                 </div>
               </div>
             ))}
@@ -899,17 +902,22 @@ export default function SalesPage() {
                     <CreatorHistoryButton entity="sales" entityId={sale.id} creatorName={sale.creatorName} />
                   </TableCell>
                   <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
+                    <div className="flex items-center justify-end gap-1.5">
                       <SaleLinkMenu saleId={sale.id} active={!!sale.shareEnabled && !!sale.shareToken} onChanged={fetchSales} />
-                      <Link href={`/sales/${sale.id}`}>
-                        <Button size="sm" variant="outline" title="Ver detalle"><Eye className="w-4 h-4" /></Button>
-                      </Link>
-                      {can('ventas', 'edit') && (<Link href={`/sales/${sale.id}/edit`}>
-                        <Button size="sm" variant="outline" title="Editar"><Pencil className="w-4 h-4" /></Button>
-                      </Link>)}
-                      {can('ventas', 'delete') && (<Button size="sm" variant="outline" className="text-red-600 hover:text-red-700" onClick={() => { setDeletingSale(sale); setIsDeleteModalOpen(true); }} title="Eliminar">
-                        <Trash2 className="w-4 h-4" />
-                      </Button>)}
+                      <RowActions
+                        actions={[
+                          { label: 'Ver detalle', icon: Eye, href: `/sales/${sale.id}` },
+                          { label: 'Editar', icon: Pencil, href: `/sales/${sale.id}/edit`, hidden: !can('ventas', 'edit') },
+                          {
+                            label: 'Eliminar',
+                            icon: Trash2,
+                            destructive: true,
+                            separator: true,
+                            hidden: !can('ventas', 'delete'),
+                            onSelect: () => { setDeletingSale(sale); setIsDeleteModalOpen(true); },
+                          },
+                        ]}
+                      />
                     </div>
                   </TableCell>
                 </TableRow>

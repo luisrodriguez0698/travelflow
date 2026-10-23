@@ -46,7 +46,7 @@ interface FormData {
   paymentType: 'CASH' | 'CREDIT';
   downPayment: number;
   numberOfPayments: number;
-  paymentFrequency: 'QUINCENAL' | 'MENSUAL';
+  paymentFrequency: 'QUINCENAL' | 'MENSUAL' | 'PERSONALIZADO';
   paymentStartDate: Date | null;
   notes: string;
   expirationDate: Date | null;
@@ -68,6 +68,8 @@ export default function EditQuotationPage() {
   const [sellerId, setSellerId] = useState<string | null>(null);
   // Montos del plan editados a mano (null = reparto sugerido)
   const [paymentAmounts, setPaymentAmounts] = useState<number[] | null>(null);
+  // Plan personalizado: fecha pactada de cada pago
+  const [paymentDates, setPaymentDates] = useState<Date[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [clients, setClients] = useState<Client[]>([]);
   const [destinations, setDestinations] = useState<Destination[]>([]);
@@ -98,6 +100,12 @@ export default function EditQuotationPage() {
       if (quotation) {
         setSellerId(quotation.createdBy ?? null);
         // Montos guardados del plan (si cuadran con el saldo, se muestran como personalizados)
+        // Fechas guardadas: punto de partida si el plan es (o se vuelve) personalizado
+        setPaymentDates(
+          [...(quotation.payments || [])]
+            .sort((a: { paymentNumber: number }, b: { paymentNumber: number }) => a.paymentNumber - b.paymentNumber)
+            .map((p: { dueDate: string }) => new Date(p.dueDate))
+        );
         const savedAmounts = [...(quotation.payments || [])]
           .sort((a: { paymentNumber: number }, b: { paymentNumber: number }) => a.paymentNumber - b.paymentNumber)
           .map((p: { amount: number }) => p.amount);
@@ -171,6 +179,10 @@ export default function EditQuotationPage() {
           clientId: formData.clientId,
           sellerId,
           paymentAmounts: formData.paymentType === 'CREDIT' ? paymentAmounts : null,
+          paymentDates:
+            formData.paymentType === 'CREDIT' && formData.paymentFrequency === 'PERSONALIZADO' && paymentDates
+              ? paymentDates.map((d) => d.toISOString())
+              : null,
           departureDate: formData.departureDate?.toISOString() || null,
           returnDate: formData.returnDate?.toISOString() || null,
           totalPrice: formData.totalPrice,
@@ -395,9 +407,9 @@ export default function EditQuotationPage() {
                 </div>
                 <div className="space-y-2">
                   <Label>Frecuencia de Pagos</Label>
-                  <Select value={formData.paymentFrequency} onValueChange={(v: 'QUINCENAL' | 'MENSUAL') => setFormData(p => ({ ...p, paymentFrequency: v }))}>
+                  <Select value={formData.paymentFrequency} onValueChange={(v: 'QUINCENAL' | 'MENSUAL' | 'PERSONALIZADO') => setFormData(p => ({ ...p, paymentFrequency: v }))}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent><SelectItem value="QUINCENAL">Quincenal</SelectItem><SelectItem value="MENSUAL">Mensual</SelectItem></SelectContent>
+                    <SelectContent><SelectItem value="QUINCENAL">Quincenal</SelectItem><SelectItem value="MENSUAL">Mensual</SelectItem><SelectItem value="PERSONALIZADO">Personalizado (fechas libres)</SelectItem></SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
@@ -409,7 +421,9 @@ export default function EditQuotationPage() {
                   <p className="text-xs text-muted-foreground">
                     {formData.paymentFrequency === 'QUINCENAL'
                       ? 'Selecciona desde qué fecha inicia el plan quincenal (15 o fin de mes)'
-                      : 'Selecciona el mes a partir del cual inicia el plan mensual'}
+                      : formData.paymentFrequency === 'PERSONALIZADO'
+                        ? 'Solo sirve para sugerir fechas; en el plan de abajo eliges la fecha pactada de cada pago'
+                        : 'Selecciona el mes a partir del cual inicia el plan mensual'}
                   </p>
                 </div>
                 {/* Plan de pagos (montos editables; sugerido por defecto) */}
@@ -421,6 +435,9 @@ export default function EditQuotationPage() {
                     startDate={formData.paymentStartDate}
                     amounts={paymentAmounts}
                     onChange={setPaymentAmounts}
+                    dates={paymentDates}
+                    onDatesChange={setPaymentDates}
+                    onCountChange={(n) => setFormData((p) => ({ ...p, numberOfPayments: n }))}
                   />
                 )}
               </div>

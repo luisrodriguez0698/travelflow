@@ -56,6 +56,7 @@ import { SupplierAllocation, allocationError, useSupplierDebts, type AllocationV
 import { DatePicker } from '@/components/ui/date-picker';
 import { PaymentMethodSelect } from '@/components/payment-method-select';
 import { DEFAULT_PAYMENT_METHOD, paymentMethodLabel } from '@/lib/payment-methods';
+import { frequencyLabel } from '@/lib/payment-plan';
 import { HistoryButton } from '@/components/record-history';
 import { useCan } from '@/hooks/use-can';
 import { ItemPriceBlock, ItemPriceCells, ItemPriceHeads } from '@/components/item-price';
@@ -949,7 +950,7 @@ export default function SaleDetailPage() {
                 <h3 className="text-lg font-semibold">Plan de Pagos</h3>
                 {sale.paymentFrequency && (
                   <Badge variant="outline" className="ml-1 text-xs">
-                    {sale.paymentFrequency === 'MENSUAL' ? 'Mensual' : 'Quincenal'}
+                    {frequencyLabel(sale.paymentFrequency)}
                   </Badge>
                 )}
               </div>

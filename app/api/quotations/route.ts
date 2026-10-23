@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAccess, accessErrorResponse } from '@/lib/access';
 import { saleTotalFromItems, salePriceToStore } from '@/lib/booking-pricing';
-import { parsePaymentAmounts, planUpdateError } from '@/lib/payment-plan';
+import { parsePaymentAmounts, planUpdateError, resolvePlanDates } from '@/lib/payment-plan';
 import { resolveAgent } from '@/lib/booking-agent';
 import { getSessionUser } from '@/lib/get-tenant';
 import { prisma } from '@/lib/prisma';
@@ -121,6 +121,17 @@ export async function POST(request: NextRequest) {
       : { amounts: [] as number[] };
     if ('error' in plan) return NextResponse.json({ error: plan.error }, { status: 400 });
 
+    // Fechas de los pagos: personalizadas (si vienen) o por frecuencia
+    const planDates = body.paymentType === 'CREDIT' && body.numberOfPayments > 0
+      ? resolvePlanDates({
+          frequency: body.paymentFrequency || 'QUINCENAL',
+          start: body.paymentStartDate ? new Date(body.paymentStartDate) : new Date(),
+          count: body.numberOfPayments,
+          customDates: body.paymentDates,
+        })
+      : { dates: [] as Date[] };
+    if ('error' in planDates) return NextResponse.json({ error: planDates.error }, { status: 400 });
+
     const booking = await prisma.booking.create({
       data: {
         tenantId,
@@ -221,41 +232,9 @@ export async function POST(request: NextRequest) {
       const remaining = body.totalPrice - (body.downPayment || 0);
       const payments = [];
 
-      const frequency = body.paymentFrequency || 'QUINCENAL';
 
-      const getNextQuincenalDate = (fromDate: Date, count: number): Date => {
-        const result = new Date(fromDate);
-        for (let i = 0; i < count; i++) {
-          const currentDay = result.getDate();
-          const currentMonth = result.getMonth();
-          const currentYear = result.getFullYear();
-          const lastDayOfMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-          if (currentDay < 15) {
-            result.setDate(15);
-          } else if (currentDay < lastDayOfMonth) {
-            result.setDate(lastDayOfMonth);
-          } else {
-            result.setDate(1);
-            result.setMonth(currentMonth + 1);
-            result.setDate(15);
-          }
-        }
-        return result;
-      };
-
-      const getNextMonthlyDate = (fromDate: Date, count: number): Date => {
-        const result = new Date(fromDate);
-        result.setDate(1); // avoid overflow
-        result.setMonth(result.getMonth() + count);
-        result.setDate(new Date(result.getFullYear(), result.getMonth() + 1, 0).getDate());
-        return result;
-      };
-
-      const startDate = body.paymentStartDate ? new Date(body.paymentStartDate) : new Date();
       for (let i = 0; i < body.numberOfPayments; i++) {
-        const dueDate = frequency === 'MENSUAL'
-          ? getNextMonthlyDate(startDate, i)
-          : getNextQuincenalDate(startDate, i + 1);
+        const dueDate = planDates.dates[i];
         payments.push({
           bookingId: booking.id,
           paymentNumber: i + 1,

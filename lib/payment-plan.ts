@@ -93,9 +93,69 @@ export function nextMonthlyDate(fromDate: Date, count: number): Date {
   return result;
 }
 
-/** Fechas de vencimiento del plan (misma regla que usan las APIs). */
+// ── Frecuencia del plan ──────────────────────────────────────────────────────
+// PERSONALIZADO: cada pago tiene la fecha que se pacta con el cliente.
+
+export const PAYMENT_FREQUENCIES = [
+  { value: 'QUINCENAL', label: 'Quincenal' },
+  { value: 'MENSUAL', label: 'Mensual' },
+  { value: 'PERSONALIZADO', label: 'Personalizado (fechas libres)' },
+] as const;
+
+export type PaymentFrequency = (typeof PAYMENT_FREQUENCIES)[number]['value'];
+
+export function frequencyLabel(frequency: string | null | undefined) {
+  if (frequency === 'MENSUAL') return 'Mensual';
+  if (frequency === 'PERSONALIZADO') return 'Personalizado';
+  return 'Quincenal';
+}
+
+/** Fechas de vencimiento del plan (misma regla que usan las APIs). Personalizado sugiere mensual. */
 export function planDueDates(start: Date, count: number, frequency: string): Date[] {
   return Array.from({ length: count }, (_, i) =>
-    frequency === 'MENSUAL' ? nextMonthlyDate(start, i) : nextQuincenalDate(start, i + 1)
+    frequency === 'QUINCENAL' ? nextQuincenalDate(start, i + 1) : nextMonthlyDate(start, i)
   );
+}
+
+/**
+ * Ajusta las fechas personalizadas a `count` pagos: conserva las que hay y
+ * agrega las que falten un mes despues de la ultima.
+ */
+export function fitCustomDates(dates: Date[] | null | undefined, count: number, start: Date): Date[] {
+  const base = (dates ?? []).slice(0, count);
+  if (!base.length) return planDueDates(start, count, 'MENSUAL');
+  while (base.length < count) {
+    const last = base[base.length - 1];
+    const next = new Date(last);
+    next.setMonth(next.getMonth() + 1);
+    base.push(next);
+  }
+  return base;
+}
+
+/** Lee y valida las fechas personalizadas (en orden, una por pago). */
+export function parsePaymentDates(input: unknown, count: number): { dates: Date[] } | { error: string } {
+  if (!Array.isArray(input) || input.length !== count) return { error: 'Faltan fechas en el plan personalizado' };
+  const dates = input.map((d) => new Date(String(d)));
+  if (dates.some((d) => Number.isNaN(d.getTime()))) return { error: 'Hay una fecha de pago no válida' };
+  for (let i = 1; i < dates.length; i++) {
+    if (dates[i].getTime() < dates[i - 1].getTime()) return { error: `La fecha del pago #${i + 1} es anterior a la del pago #${i}` };
+  }
+  return { dates };
+}
+
+/**
+ * Fechas de vencimiento para guardar: personalizadas (si vienen) o calculadas
+ * por la frecuencia desde la fecha de inicio.
+ */
+export function resolvePlanDates(params: {
+  frequency: string;
+  start: Date;
+  count: number;
+  customDates?: unknown;
+}): { dates: Date[] } | { error: string } {
+  if (params.frequency === 'PERSONALIZADO' && params.customDates != null) {
+    return parsePaymentDates(params.customDates, params.count);
+  }
+  return { dates: planDueDates(params.start, params.count, params.frequency) };
 }

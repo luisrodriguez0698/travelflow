@@ -858,7 +858,7 @@ export async function generateReceiptPdf(sale: SaleData) {
     doc.setFont('helvetica', 'bold');
     doc.text('Historial de Pagos', margin, y);
     if (sale.paymentFrequency) {
-      const freqLabel = sale.paymentFrequency === 'MENSUAL' ? 'Mensual' : 'Quincenal';
+      const freqLabel = sale.paymentFrequency === 'MENSUAL' ? 'Mensual' : sale.paymentFrequency === 'PERSONALIZADO' ? 'Personalizado' : 'Quincenal';
       doc.setFontSize(9);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(...GRAY);

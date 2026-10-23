@@ -33,6 +33,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useCan } from '@/hooks/use-can';
 import { MoneySummary } from '@/components/money-summary';
+import { RowActions } from '@/components/row-actions';
 import { SupplierAllocation, allocationError, useSupplierDebts, type AllocationValue } from '@/components/supplier-allocation';
 
 interface Collection {
@@ -232,13 +233,13 @@ export function SaleCollections({
                 <TableCell className="max-w-[220px] break-words text-sm">{c.note || '—'}</TableCell>
                 {canFix && (
                   <TableCell className="pr-4 text-right sm:pr-6">
-                    <div className="flex justify-end gap-1">
-                      <Button size="sm" variant="ghost" onClick={() => openEdit(c)} title="Corregir">
-                        <Pencil className="w-3.5 h-3.5" />
-                      </Button>
-                      <Button size="sm" variant="ghost" className="text-red-600 hover:text-red-700" onClick={() => setVoiding(c)} title="Anular">
-                        <Undo2 className="w-3.5 h-3.5" />
-                      </Button>
+                    <div className="flex justify-end">
+                      <RowActions
+                        actions={[
+                          { label: 'Corregir', icon: Pencil, onSelect: () => openEdit(c) },
+                          { label: 'Anular', icon: Undo2, destructive: true, separator: true, onSelect: () => setVoiding(c) },
+                        ]}
+                      />
                     </div>
                   </TableCell>
                 )}

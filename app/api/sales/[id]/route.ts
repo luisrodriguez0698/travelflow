@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAccess, accessErrorResponse } from '@/lib/access';
 import { saleTotalFromItems, salePriceToStore } from '@/lib/booking-pricing';
-import { parsePaymentAmounts, planUpdateError } from '@/lib/payment-plan';
+import { parsePaymentAmounts, planUpdateError, resolvePlanDates } from '@/lib/payment-plan';
 import { resolveAgent } from '@/lib/booking-agent';
 import { findInitialPayment, initialPaymentAmount } from '@/lib/initial-payment';
 import { prisma } from '@/lib/prisma';
@@ -113,16 +113,30 @@ export async function PUT(
       : { amounts: [] as number[] };
     if ('error' in plan) return NextResponse.json({ error: plan.error }, { status: 400 });
 
+    // Fechas de los pagos: personalizadas (si vienen) o por frecuencia
+    const frequency0 = body.paymentFrequency || existing.paymentFrequency || 'QUINCENAL';
+    const planDates = body.paymentType === 'CREDIT' && body.numberOfPayments > 0
+      ? resolvePlanDates({
+          frequency: frequency0,
+          start: body.paymentStartDate ? new Date(body.paymentStartDate) : new Date(),
+          count: body.numberOfPayments,
+          customDates: body.paymentDates,
+        })
+      : { dates: [] as Date[] };
+    if ('error' in planDates) return NextResponse.json({ error: planDates.error }, { status: 400 });
+    // Personalizado con fechas: tambien se guardan sobre el plan existente
+    const customDatesSent = frequency0 === 'PERSONALIZADO' && Array.isArray(body.paymentDates);
+
     // Montos editados sin regenerar el plan: validar contra lo ya abonado antes de guardar
     const keepsPlan =
       existing.paymentType === body.paymentType &&
       existing.numberOfPayments === body.numberOfPayments &&
       existing.downPayment === body.downPayment &&
       existing.totalPrice === body.totalPrice;
-    const savedPlans = keepsPlan && body.paymentAmounts != null && plan.amounts.length
+    const savedPlans = keepsPlan && (body.paymentAmounts != null || customDatesSent) && plan.amounts.length
       ? await prisma.paymentPlan.findMany({ where: { bookingId: id }, orderBy: { paymentNumber: 'asc' } })
       : [];
-    if (savedPlans.length) {
+    if (savedPlans.length && body.paymentAmounts != null) {
       const updateError = planUpdateError(savedPlans, plan.amounts);
       if (updateError) return NextResponse.json({ error: updateError }, { status: 400 });
     }
@@ -260,33 +274,9 @@ export async function PUT(
       const remaining = body.totalPrice - (body.downPayment || 0);
       const payments = [];
 
-      const frequency = body.paymentFrequency || existing.paymentFrequency || 'QUINCENAL';
-      const getNextQuincenalDate = (fromDate: Date, count: number): Date => {
-        const result = new Date(fromDate);
-        for (let i = 0; i < count; i++) {
-          const currentDay = result.getDate();
-          const currentMonth = result.getMonth();
-          const currentYear = result.getFullYear();
-          const lastDayOfMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-          if (currentDay < 15) { result.setDate(15); }
-          else if (currentDay < lastDayOfMonth) { result.setDate(lastDayOfMonth); }
-          else { result.setDate(1); result.setMonth(currentMonth + 1); result.setDate(15); }
-        }
-        return result;
-      };
-      const getNextMonthlyDate = (fromDate: Date, count: number): Date => {
-        const result = new Date(fromDate);
-        result.setDate(1); // avoid overflow
-        result.setMonth(result.getMonth() + count);
-        result.setDate(new Date(result.getFullYear(), result.getMonth() + 1, 0).getDate());
-        return result;
-      };
 
-      const startDate = body.paymentStartDate ? new Date(body.paymentStartDate) : new Date();
       for (let i = 0; i < body.numberOfPayments; i++) {
-        const dueDate = frequency === 'MENSUAL'
-          ? getNextMonthlyDate(startDate, i)
-          : getNextQuincenalDate(startDate, i + 1);
+        const dueDate = planDates.dates[i];
         payments.push({
           bookingId: booking.id,
           paymentNumber: i + 1,
@@ -299,11 +289,21 @@ export async function PUT(
       await prisma.paymentPlan.createMany({ data: payments });
     }
 
+    // Personalizado: las fechas pactadas se guardan sobre el plan existente
+    if (savedPlans.length && customDatesSent) {
+      await prisma.$transaction(
+        savedPlans
+          .map((p, i) => ({ p, dueDate: planDates.dates[i] }))
+          .filter(({ p, dueDate }) => dueDate && p.dueDate.getTime() !== dueDate.getTime())
+          .map(({ p, dueDate }) => prisma.paymentPlan.update({ where: { id: p.id }, data: { dueDate } }))
+      );
+    }
+
     // Actualizar montos del plan existente (se conservan fechas y abonos)
     if (savedPlans.length) {
       await prisma.$transaction(
         savedPlans
-          .map((p, i) => ({ p, amount: plan.amounts[i] }))
+          .map((p, i) => ({ p, amount: body.paymentAmounts != null ? plan.amounts[i] : p.amount }))
           .filter(({ p, amount }) => Math.abs(p.amount - amount) > 0.001)
           .map(({ p, amount }) => {
             const covered = p.paidAmount >= amount - 0.01;

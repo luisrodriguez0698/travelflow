@@ -108,7 +108,7 @@ const VALUE_LABELS: Record<string, Record<string, string>> = {
     PENDING: 'Pendiente', PAID: 'Pagado', OVERDUE: 'Vencido', PARTIAL: 'Parcial',
   },
   paymentType: { CASH: 'Contado', CREDIT: 'Crédito' },
-  paymentFrequency: { QUINCENAL: 'Quincenal', MENSUAL: 'Mensual' },
+  paymentFrequency: { QUINCENAL: 'Quincenal', MENSUAL: 'Mensual', PERSONALIZADO: 'Personalizado' },
   direction: { IDA: 'Ida', REGRESO: 'Regreso', IDA_Y_VUELTA: 'Ida y vuelta' },
   flightClass: { ECONOMICA: 'Económica', BUSINESS: 'Business', PRIMERA: 'Primera' },
 };

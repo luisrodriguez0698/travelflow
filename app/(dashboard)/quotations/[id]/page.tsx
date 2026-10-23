@@ -48,6 +48,7 @@ import { useCan } from '@/hooks/use-can';
 import { ItemPriceBlock, ItemPriceCells, ItemPriceHeads } from '@/components/item-price';
 import { PageSkeleton } from '@/components/skeletons';
 import { InitialPaymentAccount } from '@/components/initial-payment-account';
+import { frequencyLabel } from '@/lib/payment-plan';
 import { DEFAULT_PAYMENT_METHOD } from '@/lib/payment-methods';
 import { SupplierAllocation, useSupplierDebts, type AllocationValue } from '@/components/supplier-allocation';
 
@@ -851,7 +852,7 @@ export default function QuotationDetailPage() {
                 <Badge variant="secondary" className="ml-2">Vista previa</Badge>
                 {quotation.paymentFrequency && (
                   <Badge variant="outline" className="text-xs">
-                    {quotation.paymentFrequency === 'MENSUAL' ? 'Mensual' : 'Quincenal'}
+                    {frequencyLabel(quotation.paymentFrequency)}
                   </Badge>
                 )}
               </div>

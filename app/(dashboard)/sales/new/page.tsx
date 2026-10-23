@@ -51,7 +51,7 @@ interface FormData {
   paymentType: 'CASH' | 'CREDIT';
   downPayment: number;
   numberOfPayments: number;
-  paymentFrequency: 'QUINCENAL' | 'MENSUAL';
+  paymentFrequency: 'QUINCENAL' | 'MENSUAL' | 'PERSONALIZADO';
   paymentStartDate: Date | null;
   notes: string;
 }
@@ -70,6 +70,8 @@ export default function NewSalePage() {
   const [sellerId, setSellerId] = useState<string | null>(null);
   // Montos del plan editados a mano (null = reparto sugerido)
   const [paymentAmounts, setPaymentAmounts] = useState<number[] | null>(null);
+  // Plan personalizado: fecha pactada de cada pago
+  const [paymentDates, setPaymentDates] = useState<Date[] | null>(null);
   // Cuenta donde entra el anticipo / pago de contado (obligatoria si hay dinero)
   const [bankAccountId, setBankAccountId] = useState('');
   const [initialNote, setInitialNote] = useState('');
@@ -190,6 +192,10 @@ export default function NewSalePage() {
           clientId: formData.clientId,
           sellerId,
           paymentAmounts: formData.paymentType === 'CREDIT' ? paymentAmounts : null,
+          paymentDates:
+            formData.paymentType === 'CREDIT' && formData.paymentFrequency === 'PERSONALIZADO' && paymentDates
+              ? paymentDates.map((d) => d.toISOString())
+              : null,
           bankAccountId: bankAccountId || null,
           supplierAllocations: bankAccountId ? supplierAllocations : [],
           initialPaymentNote: bankAccountId ? initialNote : null,
@@ -414,9 +420,9 @@ export default function NewSalePage() {
                 </div>
                 <div className="space-y-2">
                   <Label>Frecuencia de Pagos</Label>
-                  <Select value={formData.paymentFrequency} onValueChange={(v: 'QUINCENAL' | 'MENSUAL') => setFormData(p => ({ ...p, paymentFrequency: v }))}>
+                  <Select value={formData.paymentFrequency} onValueChange={(v: 'QUINCENAL' | 'MENSUAL' | 'PERSONALIZADO') => setFormData(p => ({ ...p, paymentFrequency: v }))}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent><SelectItem value="QUINCENAL">Quincenal</SelectItem><SelectItem value="MENSUAL">Mensual</SelectItem></SelectContent>
+                    <SelectContent><SelectItem value="QUINCENAL">Quincenal</SelectItem><SelectItem value="MENSUAL">Mensual</SelectItem><SelectItem value="PERSONALIZADO">Personalizado (fechas libres)</SelectItem></SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
@@ -428,7 +434,9 @@ export default function NewSalePage() {
                   <p className="text-xs text-muted-foreground">
                     {formData.paymentFrequency === 'QUINCENAL'
                       ? 'Selecciona desde qué fecha inicia el plan quincenal (15 o fin de mes)'
-                      : 'Selecciona el mes a partir del cual inicia el plan mensual'}
+                      : formData.paymentFrequency === 'PERSONALIZADO'
+                        ? 'Solo sirve para sugerir fechas; en el plan de abajo eliges la fecha pactada de cada pago'
+                        : 'Selecciona el mes a partir del cual inicia el plan mensual'}
                   </p>
                 </div>
                 {/* Plan de pagos (montos editables; sugerido por defecto) */}
@@ -440,6 +448,9 @@ export default function NewSalePage() {
                     startDate={formData.paymentStartDate}
                     amounts={paymentAmounts}
                     onChange={setPaymentAmounts}
+                    dates={paymentDates}
+                    onDatesChange={setPaymentDates}
+                    onCountChange={(n) => setFormData((p) => ({ ...p, numberOfPayments: n }))}
                   />
                 )}
               </div>
@@ -565,7 +576,7 @@ export default function NewSalePage() {
             }))}
             extra={
               formData.paymentType === 'CREDIT'
-                ? [`Resto a crédito: $${(formData.totalPrice - (formData.downPayment || 0)).toLocaleString('es-MX')} en ${formData.numberOfPayments} pago(s) ${formData.paymentFrequency === 'MENSUAL' ? 'mensuales' : 'quincenales'}.`]
+                ? [`Resto a crédito: $${(formData.totalPrice - (formData.downPayment || 0)).toLocaleString('es-MX')} en ${formData.numberOfPayments} pago(s) ${formData.paymentFrequency === 'MENSUAL' ? 'mensuales' : formData.paymentFrequency === 'PERSONALIZADO' ? 'en las fechas pactadas' : 'quincenales'}.`]
                 : undefined
             }
           />
