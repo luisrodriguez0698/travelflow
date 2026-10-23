@@ -67,7 +67,7 @@ export async function POST(
 
     // Anticipo (o pago de contado): entra a la cuenta elegida
     if (initialAccount) {
-      const income = await registerInitialPayment({ tenantId, booking: { ...booking, saleDate: new Date() }, bankAccountId: initialAccount, clientName: booking.client?.fullName || 'Cliente', note: body.initialPaymentNote });
+      const income = await registerInitialPayment({ tenantId, booking: { ...booking, saleDate: new Date() }, bankAccountId: initialAccount, clientName: booking.client?.fullName || 'Cliente', note: body.initialPaymentNote, createdBy: access.userId, paymentMethod: body.initialPaymentMethod });
       const payer = await getSessionUser();
       await paySuppliersFromIncome({
         sourceTransactionId: income?.id,

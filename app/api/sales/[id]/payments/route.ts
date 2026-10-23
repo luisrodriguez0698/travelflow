@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { cleanPaymentMethod } from '@/lib/payment-methods';
 import { requireAccess, accessErrorResponse } from '@/lib/access';
 import { bookingDestination } from '@/lib/booking-destination';
 import { findInitialPayment, initialPaymentAmount } from '@/lib/initial-payment';
@@ -145,6 +146,8 @@ export async function POST(
           reference: notes || null,
           bookingId,
           date: paidAt,
+          createdBy: access.userId,
+          paymentMethod: cleanPaymentMethod(body.paymentMethod),
         },
       }),
       prisma.bankAccount.update({

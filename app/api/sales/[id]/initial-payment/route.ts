@@ -52,6 +52,8 @@ export async function POST(request: NextRequest, { params }: Params) {
       clientName: booking.client.fullName,
       date: booking.saleDate,
       note: body.initialPaymentNote,
+      createdBy: access.userId,
+      paymentMethod: body.initialPaymentMethod,
     });
     const user = await getSessionUser();
     await paySuppliersFromIncome({

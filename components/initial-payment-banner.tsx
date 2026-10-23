@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useCan } from '@/hooks/use-can';
 import { InitialPaymentAccount } from '@/components/initial-payment-account';
+import { DEFAULT_PAYMENT_METHOD } from '@/lib/payment-methods';
 import { SupplierAllocation, allocationError, useSupplierDebts, type AllocationValue } from '@/components/supplier-allocation';
 
 export interface InitialPaymentInfo {
@@ -33,6 +34,7 @@ export function InitialPaymentBanner({
   const { toast } = useToast();
   const [accountId, setAccountId] = useState('');
   const [note, setNote] = useState('');
+  const [method, setMethod] = useState<string>(DEFAULT_PAYMENT_METHOD);
   const [saving, setSaving] = useState(false);
   const [allocations, setAllocations] = useState<AllocationValue[]>([]);
   const pendingRegistration = !!info && info.amount > 0 && !info.account;
@@ -62,7 +64,7 @@ export function InitialPaymentBanner({
       const res = await fetch(`/api/sales/${saleId}/initial-payment`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bankAccountId: accountId, supplierAllocations: allocations, initialPaymentNote: note }),
+        body: JSON.stringify({ bankAccountId: accountId, supplierAllocations: allocations, initialPaymentNote: note, initialPaymentMethod: method }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error);
@@ -90,7 +92,7 @@ export function InitialPaymentBanner({
       {can('ventas', 'payments') ? (
         <div className="flex flex-col sm:flex-row sm:items-end gap-3">
           <div className="flex-1">
-            <InitialPaymentAccount amount={info.amount} cash={cash} value={accountId} onChange={setAccountId} note={note} onNoteChange={setNote} />
+            <InitialPaymentAccount amount={info.amount} cash={cash} value={accountId} onChange={setAccountId} note={note} onNoteChange={setNote} method={method} onMethodChange={setMethod} />
           </div>
           <Button onClick={register} disabled={!accountId || saving}>
             {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}

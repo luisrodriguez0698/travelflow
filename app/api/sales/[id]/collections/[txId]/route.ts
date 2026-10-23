@@ -33,6 +33,7 @@ export async function POST(request: NextRequest, { params }: Params) {
             allocations: body.supplierAllocations,
             date: body.date,
             note: body.note,
+            paymentMethod: body.paymentMethod,
             user,
           });
     if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });

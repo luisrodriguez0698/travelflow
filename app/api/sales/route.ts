@@ -309,7 +309,7 @@ export async function POST(request: NextRequest) {
 
     if (initialAccount) {
       const client = await prisma.client.findUnique({ where: { id: booking.clientId }, select: { fullName: true } });
-      const income = await registerInitialPayment({ tenantId, booking, bankAccountId: initialAccount, clientName: client?.fullName || 'Cliente', note: body.initialPaymentNote });
+      const income = await registerInitialPayment({ tenantId, booking, bankAccountId: initialAccount, clientName: client?.fullName || 'Cliente', note: body.initialPaymentNote, createdBy: access.userId, paymentMethod: body.initialPaymentMethod });
       await paySuppliersFromIncome({
         sourceTransactionId: income?.id,
         access,

@@ -2,6 +2,8 @@ import { prisma } from './prisma';
 import { logAudit } from './audit';
 import type { Access } from './access';
 import { INITIAL_PAYMENT_REFS } from './initial-payment';
+import { cleanPaymentMethod } from './payment-methods';
+import { decrypt } from './encryption';
 import { bookingSupplierDebts, validateAllocations, type Allocation, type SupplierDebt } from './supplier-allocation';
 
 // Cobros de una venta (anticipo, pago de contado, abonos) con los pagos a
@@ -38,7 +40,10 @@ export interface CollectionView {
   description: string;
   /** Referencia del banco / notas */
   note: string;
-  account: { id: string; name: string; bank: string };
+  paymentMethod: string | null;
+  /** Quien registro el cobro */
+  agent: string | null;
+  account: { id: string; name: string; bank: string; last4: string | null };
   suppliers: { transactionId: string; supplierId: string; name: string; amount: number }[];
 }
 
@@ -53,7 +58,7 @@ async function loadCollections(bookingId: string, tenantId: string) {
     prisma.bankTransaction.findMany({
       where: { bookingId, tenantId, type: 'INCOME', status: 'ACTIVE' },
       orderBy: { createdAt: 'asc' },
-      include: { bankAccount: { select: { id: true, referenceName: true, bankName: true } } },
+      include: { bankAccount: { select: { id: true, referenceName: true, bankName: true, accountNumber: true, cardNumber: true } } },
     }),
     prisma.bankTransaction.findMany({
       where: { bookingId, tenantId, type: 'EXPENSE', status: 'ACTIVE', reference: SUPPLIER_REF },
@@ -76,8 +81,54 @@ async function loadCollections(bookingId: string, tenantId: string) {
   });
 }
 
+/** Ultimos 4 digitos de la cuenta (o tarjeta) para identificarla sin mostrar el numero. */
+function last4(account: { accountNumber: string; cardNumber: string | null }) {
+  for (const value of [account.accountNumber, account.cardNumber]) {
+    if (!value) continue;
+    try {
+      const digits = decrypt(value).replace(/\D/g, '');
+      if (digits.length >= 4) return digits.slice(-4);
+    } catch {
+      // valor no cifrado o ilegible: se omite
+    }
+  }
+  return null;
+}
+
+/**
+ * Quien registro cada cobro. Los nuevos lo guardan; para los anteriores se toma
+ * de la bitacora de la venta (el cambio registrado en el mismo momento).
+ */
+async function agentNames(bookingId: string, tenantId: string, incomes: { id: string; createdBy: string | null; createdAt: Date }[]) {
+  const names = new Map<string, string>();
+  const ids = [...new Set(incomes.map((i) => i.createdBy).filter(Boolean))] as string[];
+  if (ids.length) {
+    const users = await prisma.user.findMany({ where: { id: { in: ids }, tenantId }, select: { id: true, name: true, email: true } });
+    for (const i of incomes) {
+      const u = users.find((x) => x.id === i.createdBy);
+      if (u) names.set(i.id, u.name || u.email);
+    }
+  }
+  const legacy = incomes.filter((i) => !names.has(i.id));
+  if (legacy.length) {
+    const logs = await prisma.auditLog.findMany({
+      where: { tenantId, entity: { in: ['sales', 'bookings'] }, entityId: bookingId },
+      select: { userName: true, createdAt: true },
+    });
+    for (const i of legacy) {
+      const near = logs
+        .map((l) => ({ name: l.userName, gap: Math.abs(l.createdAt.getTime() - i.createdAt.getTime()) }))
+        .filter((l) => l.gap <= 15_000)
+        .sort((a, b) => a.gap - b.gap)[0];
+      if (near) names.set(i.id, near.name);
+    }
+  }
+  return names;
+}
+
 export async function listCollections(bookingId: string, tenantId: string): Promise<CollectionView[]> {
   const rows = await loadCollections(bookingId, tenantId);
+  const agents = await agentNames(bookingId, tenantId, rows.map((r) => r.income));
   return rows.map(({ income, linked }) => ({
     id: income.id,
     kind: kindOf(income.reference),
@@ -85,7 +136,14 @@ export async function listCollections(bookingId: string, tenantId: string): Prom
     date: income.date,
     description: income.description,
     note: noteOf(kindOf(income.reference), income),
-    account: { id: income.bankAccount.id, name: income.bankAccount.referenceName, bank: income.bankAccount.bankName },
+    paymentMethod: income.paymentMethod,
+    agent: agents.get(income.id) ?? null,
+    account: {
+      id: income.bankAccount.id,
+      name: income.bankAccount.referenceName,
+      bank: income.bankAccount.bankName,
+      last4: last4(income.bankAccount),
+    },
     suppliers: linked
       .filter((e) => e.supplierPayment)
       .map((e) => ({
@@ -119,6 +177,8 @@ export async function correctCollection(params: {
   date?: unknown;
   /** Referencia del banco / notas. undefined = no cambia. */
   note?: unknown;
+  /** Forma de pago. undefined = no cambia. */
+  paymentMethod?: unknown;
   user: { id: string; name: string } | null;
 }): Promise<Result> {
   const { access, bookingId, incomeId, user } = params;
@@ -138,6 +198,8 @@ export async function correctCollection(params: {
   const oldNote = noteOf(kind, income);
   const newNote = typeof params.note === 'string' ? params.note.trim().slice(0, 200) : oldNote;
   const noteChanged = newNote !== oldNote;
+  const newMethod = params.paymentMethod === undefined ? income.paymentMethod : cleanPaymentMethod(params.paymentMethod);
+  const methodChanged = newMethod !== income.paymentMethod;
 
   const targetId = typeof params.bankAccountId === 'string' && params.bankAccountId ? params.bankAccountId : income.bankAccountId;
   const target = await prisma.bankAccount.findFirst({ where: { id: targetId, ...access.bankScope, isActive: true } });
@@ -158,7 +220,7 @@ export async function correctCollection(params: {
   const sameAllocation =
     current.size === allocations.length && allocations.every((a) => Math.abs((current.get(a.supplierId) ?? -1) - a.amount) < 0.01);
   const moving = target.id !== income.bankAccountId;
-  if (!moving && sameAllocation && !dateChanged && !noteChanged) return { ok: true, message: 'No hubo cambios' };
+  if (!moving && sameAllocation && !dateChanged && !noteChanged && !methodChanged) return { ok: true, message: 'No hubo cambios' };
 
   if (!sameAllocation && !access.can('proveedores', 'payments')) {
     return { ok: false, error: 'No tienes permiso para cambiar pagos a proveedores', status: 403 };
@@ -167,11 +229,12 @@ export async function correctCollection(params: {
   const folio = bookingId.slice(-8).toUpperCase();
   await prisma.$transaction(async (tx) => {
     // 0) Fecha y referencia del cobro
-    if (dateChanged || noteChanged) {
+    if (dateChanged || noteChanged || methodChanged) {
       await tx.bankTransaction.update({
         where: { id: income.id },
         data: {
           ...(dateChanged && { date: newDate }),
+          ...(methodChanged && { paymentMethod: newMethod }),
           ...(noteChanged && (kind === 'abono' ? { reference: newNote || null } : { description: withNote(income.description, newNote) })),
         },
       });
@@ -262,6 +325,7 @@ export async function correctCollection(params: {
         ...(moving && { bankAccountId: { old: income.bankAccountId, new: target.id } }),
         ...(dateChanged && { fecha: { old: income.date.toISOString().slice(0, 10), new: newDate.toISOString().slice(0, 10) } }),
         ...(noteChanged && { referencia: { old: oldNote || '—', new: newNote || '—' } }),
+        ...(methodChanged && { formaDePago: { old: income.paymentMethod || '—', new: newMethod || '—' } }),
         ...(!sameAllocation && {
           proveedores: {
             old: [...current.entries()].map(([id, amt]) => `${debts.find((d) => d.supplierId === id)?.name ?? id}: $${amt}`).join(', ') || 'ninguno',

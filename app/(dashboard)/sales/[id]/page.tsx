@@ -54,6 +54,8 @@ import { SaleCollections } from '@/components/sale-collections';
 import { ClientLinkButton } from '@/components/client-link-dialog';
 import { SupplierAllocation, allocationError, useSupplierDebts, type AllocationValue } from '@/components/supplier-allocation';
 import { DatePicker } from '@/components/ui/date-picker';
+import { PaymentMethodSelect } from '@/components/payment-method-select';
+import { DEFAULT_PAYMENT_METHOD, paymentMethodLabel } from '@/lib/payment-methods';
 import { HistoryButton } from '@/components/record-history';
 import { useCan } from '@/hooks/use-can';
 import { ItemPriceBlock, ItemPriceCells, ItemPriceHeads } from '@/components/item-price';
@@ -206,6 +208,7 @@ export default function SaleDetailPage() {
   const [paymentNotes, setPaymentNotes] = useState('');
   // Dia en que realmente entro el dinero (por defecto hoy)
   const [paymentDate, setPaymentDate] = useState<Date>(new Date());
+  const [paymentMethod, setPaymentMethod] = useState<string>(DEFAULT_PAYMENT_METHOD);
   const [editingDeadline, setEditingDeadline] = useState(false);
   const [deadlineValue, setDeadlineValue] = useState<Date | undefined>(undefined);
   const [savingDeadline, setSavingDeadline] = useState(false);
@@ -256,6 +259,7 @@ export default function SaleDetailPage() {
     setPaymentAmount(pendingAmount.toString());
     setPaymentNotes('');
     setPaymentDate(new Date());
+    setPaymentMethod(DEFAULT_PAYMENT_METHOD);
     setSelectedBankAccountId('');
     setPaymentAllocations([]);
     setPaymentConfirming(false);
@@ -325,6 +329,7 @@ export default function SaleDetailPage() {
           notes: paymentNotes,
           bankAccountId: selectedBankAccountId,
           paidAt: paidAtValue(paymentDate).toISOString(),
+          paymentMethod,
           supplierAllocations: paymentAllocations,
         }),
       });
@@ -1081,7 +1086,7 @@ export default function SaleDetailPage() {
                   amount: a.amount,
                 }))}
                 extra={[
-                  `Fecha del abono: ${format(paymentDate, "d 'de' MMMM yyyy", { locale: es })}`,
+                  `Fecha del abono: ${format(paymentDate, "d 'de' MMMM yyyy", { locale: es })} · ${paymentMethodLabel(paymentMethod)}`,
                   `Se aplica desde el pago #${selectedPayment?.paymentNumber}; si sobra, pasa a los siguientes.`,
                 ]}
               />
@@ -1113,6 +1118,10 @@ export default function SaleDetailPage() {
                   No hay cuentas bancarias disponibles. Primero da de alta una cuenta en Bancos (o pide que te compartan una).
                 </p>
               )}
+            </div>
+            <div className="space-y-2">
+              <Label>Forma de pago *</Label>
+              <PaymentMethodSelect value={paymentMethod} onChange={setPaymentMethod} />
             </div>
             <div className="space-y-2">
               <Label>Fecha en que se recibió *</Label>
@@ -1151,7 +1160,7 @@ export default function SaleDetailPage() {
               <Textarea
                 value={paymentNotes}
                 onChange={(e) => setPaymentNotes(e.target.value)}
-                placeholder="Método de pago, referencia, etc."
+                placeholder="Referencia del banco, etc."
                 rows={2}
               />
             </div>

@@ -33,6 +33,7 @@ import { PageSkeleton } from '@/components/skeletons';
 import { AgentSelect } from '@/components/agent-select';
 import { PaymentPlanEditor } from '@/components/payment-plan-editor';
 import { InitialPaymentAccount } from '@/components/initial-payment-account';
+import { DEFAULT_PAYMENT_METHOD } from '@/lib/payment-methods';
 import { MoneySummary } from '@/components/money-summary';
 import { SupplierAllocation, allocationError, type AllocationValue } from '@/components/supplier-allocation';
 import { planError } from '@/lib/payment-plan';
@@ -72,6 +73,7 @@ export default function NewSalePage() {
   // Cuenta donde entra el anticipo / pago de contado (obligatoria si hay dinero)
   const [bankAccountId, setBankAccountId] = useState('');
   const [initialNote, setInitialNote] = useState('');
+  const [initialMethod, setInitialMethod] = useState<string>(DEFAULT_PAYMENT_METHOD);
   const [bankAccountName, setBankAccountName] = useState('');
   // Resumen de a donde va el dinero, antes de crear la venta
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -191,6 +193,7 @@ export default function NewSalePage() {
           bankAccountId: bankAccountId || null,
           supplierAllocations: bankAccountId ? supplierAllocations : [],
           initialPaymentNote: bankAccountId ? initialNote : null,
+          initialPaymentMethod: bankAccountId ? initialMethod : null,
           departureDate: formData.departureDate?.toISOString() || null,
           returnDate: formData.returnDate?.toISOString() || null,
           totalPrice: formData.totalPrice,
@@ -451,6 +454,8 @@ export default function NewSalePage() {
               onAccountName={setBankAccountName}
               note={initialNote}
               onNoteChange={setInitialNote}
+              method={initialMethod}
+              onMethodChange={setInitialMethod}
             />
             {bankAccountId && (
               <SupplierAllocation

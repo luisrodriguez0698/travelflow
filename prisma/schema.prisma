@@ -715,6 +715,9 @@ model BankTransaction {
   destinationAccountId String?  // Para transferencias: cuenta destino
   // Pago a proveedor hecho desde un cobro: id del ingreso (anticipo/abono) de donde salio
   sourceTransactionId  String?
+  // Cobros: quien lo registro y como pago el cliente (TRANSFER, CASH, DEPOSIT, CARD, OTHER)
+  createdBy            String?
+  paymentMethod        String?
   status               String   @default("ACTIVE") // ACTIVE, CANCELLED
   date                 DateTime @default(now())
   createdAt            DateTime @default(now())

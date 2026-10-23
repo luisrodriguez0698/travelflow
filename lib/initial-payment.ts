@@ -1,5 +1,6 @@
 import { prisma } from './prisma';
 import type { Access } from './access';
+import { cleanPaymentMethod } from './payment-methods';
 
 // Pago inicial de una venta: el anticipo (credito) o el total (contado). Ese
 // dinero entra a una cuenta bancaria; se registra como ingreso vinculado a la
@@ -56,6 +57,10 @@ export async function registerInitialPayment(params: {
   date?: Date;
   /** Referencia bancaria / notas que escribe quien registra (opcional) */
   note?: unknown;
+  /** Usuario que registra el cobro */
+  createdBy?: string | null;
+  /** Forma de pago (TRANSFER, CASH…) */
+  paymentMethod?: unknown;
 }) {
   const amount = initialPaymentAmount(params.booking);
   if (amount <= 0) return null;
@@ -74,6 +79,8 @@ export async function registerInitialPayment(params: {
         reference: cash ? INITIAL_PAYMENT_REFS.CASH : INITIAL_PAYMENT_REFS.DOWN_PAYMENT,
         bookingId: params.booking.id,
         date: params.date ?? new Date(),
+        createdBy: params.createdBy ?? null,
+        paymentMethod: cleanPaymentMethod(params.paymentMethod),
       },
     }),
     prisma.bankAccount.update({

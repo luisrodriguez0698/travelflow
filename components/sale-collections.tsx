@@ -1,12 +1,15 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Landmark, Loader2, Pencil, Receipt, Truck, Undo2 } from 'lucide-react';
+import { Landmark, Loader2, Lock, Pencil, Receipt, Truck, Undo2, UserRound } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { DatePicker } from '@/components/ui/date-picker';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { PaymentMethodSelect } from '@/components/payment-method-select';
+import { DEFAULT_PAYMENT_METHOD, paymentMethodLabel } from '@/lib/payment-methods';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
@@ -39,7 +42,9 @@ interface Collection {
   date: string;
   description: string;
   note: string;
-  account: { id: string; name: string; bank: string };
+  paymentMethod: string | null;
+  agent: string | null;
+  account: { id: string; name: string; bank: string; last4: string | null };
   suppliers: { transactionId: string; supplierId: string; name: string; amount: number }[];
 }
 
@@ -86,6 +91,7 @@ export function SaleCollections({
   const [allocations, setAllocations] = useState<AllocationValue[]>([]);
   const [date, setDate] = useState<Date>(new Date());
   const [note, setNote] = useState('');
+  const [method, setMethod] = useState<string>(DEFAULT_PAYMENT_METHOD);
   const [saving, setSaving] = useState(false);
   const rawDebts = useSupplierDebts(saleId, !!editing);
 
@@ -118,6 +124,7 @@ export function SaleCollections({
     setAccountId(c.account.id);
     setDate(new Date(c.date));
     setNote(c.note || '');
+    setMethod(c.paymentMethod || DEFAULT_PAYMENT_METHOD);
     const merged = new Map<string, number>();
     for (const s of c.suppliers) merged.set(s.supplierId, (merged.get(s.supplierId) ?? 0) + s.amount);
     setAllocations([...merged.entries()].map(([supplierId, amount]) => ({ supplierId, amount })));
@@ -146,6 +153,8 @@ export function SaleCollections({
                 // Solo si se eligio otro dia
                 date: date.toDateString() !== new Date(c.date).toDateString() ? middayOf(date).toISOString() : undefined,
                 note,
+                // Los cobros anteriores no tenian forma de pago: solo se guarda si se elige otra
+                paymentMethod: c.paymentMethod || method !== DEFAULT_PAYMENT_METHOD ? method : undefined,
               }
         ),
       });
@@ -176,32 +185,96 @@ export function SaleCollections({
         <Receipt className="w-4 h-4 text-primary" />
         Cobros registrados
       </h2>
-      <p className="text-xs text-muted-foreground mb-4">
-        ¿Se registró en la cuenta equivocada o con otro proveedor? Corrígelo aquí en un solo paso.
+      <p className="text-xs text-muted-foreground mb-1">
+        Quién registró cada cobro, a qué cuenta entró y su referencia. ¿Algo quedó mal? Corrígelo aquí en un solo paso.
       </p>
-      <div className="divide-y">
+      <p className="mb-3 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+        <Lock className="h-3 w-3" />
+        Uso interno: no aparece en el recibo del cliente.
+      </p>
+      {/* Computadora: tabla */}
+      <div className="hidden md:block -mx-4 sm:-mx-6">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="pl-4 sm:pl-6">Fecha</TableHead>
+              <TableHead>Concepto</TableHead>
+              <TableHead className="text-right">Monto</TableHead>
+              <TableHead>Agente</TableHead>
+              <TableHead>Cuenta</TableHead>
+              <TableHead>Forma de pago</TableHead>
+              <TableHead>Referencia</TableHead>
+              {canFix && <TableHead className="pr-4 text-right sm:pr-6">Acciones</TableHead>}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {items.map((c) => (
+              <TableRow key={c.id}>
+                <TableCell className="pl-4 whitespace-nowrap sm:pl-6">{fmtDate(c.date)}</TableCell>
+                <TableCell>
+                  <Badge variant="outline">{KIND_LABEL[c.kind]}</Badge>
+                  {c.suppliers.length > 0 && (
+                    <p className="mt-1 flex items-center gap-1 text-xs text-orange-600 dark:text-orange-400">
+                      <Truck className="h-3 w-3" />
+                      {c.suppliers.map((sp) => `${sp.name} ${money(sp.amount)}`).join(' · ')}
+                    </p>
+                  )}
+                </TableCell>
+                <TableCell className="text-right font-semibold whitespace-nowrap">{money(c.amount)}</TableCell>
+                <TableCell className="whitespace-nowrap">{c.agent ?? '—'}</TableCell>
+                <TableCell>
+                  <span className="whitespace-nowrap">
+                    {c.account.bank} · {c.account.name}
+                  </span>
+                  {c.account.last4 && <span className="ml-1 text-muted-foreground">··{c.account.last4}</span>}
+                </TableCell>
+                <TableCell className="whitespace-nowrap">{paymentMethodLabel(c.paymentMethod) ?? '—'}</TableCell>
+                <TableCell className="max-w-[220px] break-words text-sm">{c.note || '—'}</TableCell>
+                {canFix && (
+                  <TableCell className="pr-4 text-right sm:pr-6">
+                    <div className="flex justify-end gap-1">
+                      <Button size="sm" variant="ghost" onClick={() => openEdit(c)} title="Corregir">
+                        <Pencil className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button size="sm" variant="ghost" className="text-red-600 hover:text-red-700" onClick={() => setVoiding(c)} title="Anular">
+                        <Undo2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                )}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+
+      {/* Celular: tarjetas */}
+      <div className="divide-y md:hidden">
         {items.map((c) => (
-          <div key={c.id} className="py-3 flex flex-col sm:flex-row sm:items-center gap-3">
-            <div className="flex-1 min-w-0 space-y-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <Badge variant="outline">{KIND_LABEL[c.kind]}</Badge>
-                <span className="font-semibold">{money(c.amount)}</span>
-                <span className="text-xs text-muted-foreground">{fmtDate(c.date)}</span>
-              </div>
-              <p className="text-sm text-muted-foreground flex items-center gap-1.5">
-                <Landmark className="w-3.5 h-3.5" />
-                {c.account.name} · {c.account.bank}
-              </p>
-              {c.note && <p className="text-xs text-muted-foreground">Ref. {c.note}</p>}
-              {c.suppliers.length > 0 && (
-                <p className="text-xs text-orange-600 dark:text-orange-400 flex items-center gap-1.5 flex-wrap">
-                  <Truck className="w-3.5 h-3.5" />
-                  {c.suppliers.map((s) => `${s.name} ${money(s.amount)}`).join(' · ')}
-                </p>
-              )}
+          <div key={c.id} className="py-3 space-y-1.5">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge variant="outline">{KIND_LABEL[c.kind]}</Badge>
+              <span className="font-semibold">{money(c.amount)}</span>
+              <span className="text-xs text-muted-foreground">{fmtDate(c.date)}</span>
             </div>
+            <p className="text-sm text-muted-foreground flex items-center gap-1.5">
+              <Landmark className="w-3.5 h-3.5" />
+              {c.account.bank} · {c.account.name}
+              {c.account.last4 && ` ··${c.account.last4}`}
+            </p>
+            <p className="text-xs text-muted-foreground flex items-center gap-1.5 flex-wrap">
+              <UserRound className="w-3.5 h-3.5" />
+              {c.agent ?? '—'} · {paymentMethodLabel(c.paymentMethod) ?? 'Forma de pago —'}
+              {c.note && ` · Ref. ${c.note}`}
+            </p>
+            {c.suppliers.length > 0 && (
+              <p className="text-xs text-orange-600 dark:text-orange-400 flex items-center gap-1.5 flex-wrap">
+                <Truck className="w-3.5 h-3.5" />
+                {c.suppliers.map((sp) => `${sp.name} ${money(sp.amount)}`).join(' · ')}
+              </p>
+            )}
             {canFix && (
-              <div className="flex gap-2 shrink-0">
+              <div className="flex gap-2 pt-1">
                 <Button size="sm" variant="outline" onClick={() => openEdit(c)}>
                   <Pencil className="w-3.5 h-3.5 mr-1.5" />
                   Corregir
@@ -250,6 +323,10 @@ export function SaleCollections({
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
+                  <Label>Forma de pago</Label>
+                  <PaymentMethodSelect value={method} onChange={setMethod} />
+                </div>
+                <div className="space-y-2">
                   <Label>Fecha en que entró el dinero</Label>
                   <DatePicker
                     value={date}
@@ -259,7 +336,7 @@ export function SaleCollections({
                     toYear={new Date().getFullYear()}
                   />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2 sm:col-span-2">
                   <Label>Referencia del banco / notas</Label>
                   <Input value={note} onChange={(e) => setNote(e.target.value)} maxLength={200} placeholder="Ej. 0119498527" />
                 </div>

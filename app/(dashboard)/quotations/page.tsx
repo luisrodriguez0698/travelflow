@@ -39,6 +39,7 @@ import { es } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import { useCan } from '@/hooks/use-can';
 import { InitialPaymentAccount } from '@/components/initial-payment-account';
+import { DEFAULT_PAYMENT_METHOD } from '@/lib/payment-methods';
 import { SupplierAllocation, useSupplierDebts, type AllocationValue } from '@/components/supplier-allocation';
 import { PageSkeleton } from '@/components/skeletons';
 import { EmptyState } from '@/components/empty-state';
@@ -175,6 +176,7 @@ export default function QuotationsPage() {
   const [convertingQuotation, setConvertingQuotation] = useState<Quotation | null>(null);
   const [convertBankAccountId, setConvertBankAccountId] = useState('');
   const [convertNote, setConvertNote] = useState('');
+  const [convertMethod, setConvertMethod] = useState<string>(DEFAULT_PAYMENT_METHOD);
   const convertDebts = useSupplierDebts(convertingQuotation?.id, isConvertModalOpen);
   const [convertAllocations, setConvertAllocations] = useState<AllocationValue[]>([]);
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
@@ -507,7 +509,7 @@ export default function QuotationsPage() {
       const res = await fetch(`/api/quotations/${convertingQuotation.id}/convert`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bankAccountId: convertBankAccountId || null, supplierAllocations: convertBankAccountId ? convertAllocations : [], initialPaymentNote: convertBankAccountId ? convertNote : null }),
+        body: JSON.stringify({ bankAccountId: convertBankAccountId || null, supplierAllocations: convertBankAccountId ? convertAllocations : [], initialPaymentNote: convertBankAccountId ? convertNote : null, initialPaymentMethod: convertBankAccountId ? convertMethod : null }),
       });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || '');
       toast({ title: 'Éxito', description: 'Cotización convertida a venta' });
@@ -1545,6 +1547,8 @@ export default function QuotationsPage() {
                 onChange={setConvertBankAccountId}
                 note={convertNote}
                 onNoteChange={setConvertNote}
+                method={convertMethod}
+                onMethodChange={setConvertMethod}
               />
               {convertBankAccountId && (
                 <div className="mt-3">

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { AlertTriangle, Landmark } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { PaymentMethodSelect } from '@/components/payment-method-select';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useCan } from '@/hooks/use-can';
 
@@ -27,6 +28,8 @@ export function InitialPaymentAccount({
   onAccountName,
   note,
   onNoteChange,
+  method,
+  onMethodChange,
 }: {
   amount: number;
   cash: boolean;
@@ -37,6 +40,9 @@ export function InitialPaymentAccount({
   /** Referencia del banco / notas del pago (opcional): se muestra si se pasa onNoteChange */
   note?: string;
   onNoteChange?: (note: string) => void;
+  /** Forma de pago: se muestra si se pasa onMethodChange */
+  method?: string;
+  onMethodChange?: (method: string) => void;
 }) {
   const can = useCan();
   const [accounts, setAccounts] = useState<Account[] | null>(null);
@@ -96,13 +102,18 @@ export function InitialPaymentAccount({
           ))}
         </SelectContent>
       </Select>
-      {onNoteChange && (
-        <Input
-          value={note ?? ''}
-          onChange={(e) => onNoteChange(e.target.value)}
-          maxLength={200}
-          placeholder="Referencia del banco / notas (opcional)"
-        />
+      {(onMethodChange || onNoteChange) && (
+        <div className="grid gap-2 sm:grid-cols-[180px_1fr]">
+          {onMethodChange && <PaymentMethodSelect value={method ?? ''} onChange={onMethodChange} />}
+          {onNoteChange && (
+            <Input
+              value={note ?? ''}
+              onChange={(e) => onNoteChange(e.target.value)}
+              maxLength={200}
+              placeholder="Referencia del banco / notas (opcional)"
+            />
+          )}
+        </div>
       )}
     </div>
   );
