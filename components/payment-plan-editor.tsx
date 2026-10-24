@@ -25,6 +25,7 @@ export function PaymentPlanEditor({
   dates: customDates,
   onDatesChange,
   onCountChange,
+  onFrequencyChange,
 }: {
   /** Saldo a financiar (total - anticipo) */
   remaining: number;
@@ -38,6 +39,8 @@ export function PaymentPlanEditor({
   onDatesChange?: (dates: Date[]) => void;
   /** Agregar / quitar pagos desde el plan (solo PERSONALIZADO) */
   onCountChange?: (count: number) => void;
+  /** Si se pasa, cambiar una fecha en Quincenal/Mensual vuelve el plan Personalizado */
+  onFrequencyChange?: (frequency: 'PERSONALIZADO') => void;
 }) {
   const suggested = useMemo(() => suggestedAmounts(remaining, count), [remaining, count]);
   const custom_ = frequency === 'PERSONALIZADO';
@@ -55,7 +58,10 @@ export function PaymentPlanEditor({
     const next = [...dates];
     next[i] = d;
     onDatesChange?.(next);
+    // Quincenal/Mensual con una fecha cambiada a mano = plan personalizado
+    if (!custom_) onFrequencyChange?.('PERSONALIZADO');
   };
+  const datesEditable = !!onDatesChange && (custom_ || !!onFrequencyChange);
   const addPayment = () => {
     if (count >= 24) return;
     onDatesChange?.(fitCustomDates(dates, count + 1, startDate || new Date()));
@@ -140,7 +146,7 @@ export function PaymentPlanEditor({
               <tr key={i} className="border-t border-border/50">
                 <td className="px-3 py-1 text-muted-foreground">{i + 1}</td>
                 <td className="px-3 py-1 font-medium">
-                  {custom_ && onDatesChange ? (
+                  {datesEditable ? (
                     <DatePicker
                       value={dates[i]}
                       onChange={(d) => d && setDate(i, d)}
@@ -220,7 +226,9 @@ export function PaymentPlanEditor({
           <span>
             {custom_
               ? 'Elige la fecha pactada de cada pago y ajusta el monto; los demás se reparten solos.'
-              : 'Haz clic en un monto para ajustarlo; los demás se reparten solos.'}
+              : datesEditable
+                ? 'Toca una fecha o un monto para ajustarlo; si cambias una fecha, el plan pasa a Personalizado.'
+                : 'Haz clic en un monto para ajustarlo; los demás se reparten solos.'}
           </span>
         )}
       </div>

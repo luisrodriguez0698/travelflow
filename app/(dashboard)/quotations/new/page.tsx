@@ -405,6 +405,7 @@ export default function NewQuotationPage() {
                     dates={paymentDates}
                     onDatesChange={setPaymentDates}
                     onCountChange={(n) => setFormData((p) => ({ ...p, numberOfPayments: n }))}
+                    onFrequencyChange={(v) => setFormData((p) => ({ ...p, paymentFrequency: v }))}
                   />
                 )}
               </div>

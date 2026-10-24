@@ -439,6 +439,7 @@ export default function EditSalePage() {
                     dates={paymentDates}
                     onDatesChange={setPaymentDates}
                     onCountChange={(n) => setFormData((p) => ({ ...p, numberOfPayments: n }))}
+                    onFrequencyChange={(v) => setFormData((p) => ({ ...p, paymentFrequency: v }))}
                   />
                 )}
               </div>

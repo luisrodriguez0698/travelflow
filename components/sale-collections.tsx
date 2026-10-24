@@ -75,6 +75,7 @@ export function SaleCollections({
   accounts,
   refreshKey,
   onChanged,
+  showEmpty = false,
 }: {
   saleId: string;
   clientName?: string | null;
@@ -82,10 +83,13 @@ export function SaleCollections({
   /** Cambia cuando la venta se recarga (p. ej. tras un abono) */
   refreshKey?: unknown;
   onChanged: () => void;
+  /** Mostrar "cargando" / "sin cobros" en vez de ocultarse (ventana desde la lista de ventas) */
+  showEmpty?: boolean;
 }) {
   const can = useCan();
   const { toast } = useToast();
   const [items, setItems] = useState<Collection[]>([]);
+  const [loaded, setLoaded] = useState(false);
   const [editing, setEditing] = useState<Collection | null>(null);
   const [voiding, setVoiding] = useState<Collection | null>(null);
   const [accountId, setAccountId] = useState('');
@@ -100,7 +104,8 @@ export function SaleCollections({
     fetch(`/api/sales/${saleId}/collections`)
       .then((r) => (r.ok ? r.json() : []))
       .then((d) => setItems(Array.isArray(d) ? d : []))
-      .catch(() => setItems([]));
+      .catch(() => setItems([]))
+      .finally(() => setLoaded(true));
   }, [saleId]);
 
   useEffect(() => {
@@ -173,7 +178,22 @@ export function SaleCollections({
     }
   };
 
-  if (!items.length) return null;
+  if (!items.length) {
+    if (!showEmpty) return null;
+    return (
+      <div className="flex flex-col items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
+        {loaded ? (
+          <>
+            <Receipt className="h-8 w-8 opacity-40" />
+            Aún no hay cobros registrados en esta venta.
+          </>
+        ) : (
+          <Loader2 className="h-5 w-5 animate-spin" />
+        )}
+      </div>
+    );
+  }
+  const totalCollected = items.reduce((sum, c) => sum + c.amount, 0);
   const canFix = can('ventas', 'payments');
   const targetName = (() => {
     const a = accounts.find((x) => x.id === accountId);
@@ -288,6 +308,12 @@ export function SaleCollections({
             )}
           </div>
         ))}
+      </div>
+
+      <div className="mt-3 flex justify-end border-t pt-3 text-sm">
+        <span className="text-muted-foreground">
+          Total cobrado: <b className="text-foreground tabular-nums">{money(totalCollected)}</b>
+        </span>
       </div>
 
       {/* Corregir: cuenta y reparto a proveedores en un paso */}

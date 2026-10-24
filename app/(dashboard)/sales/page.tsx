@@ -26,11 +26,12 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Switch } from '@/components/ui/switch';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Plus, Search, Pencil, Trash2, ShoppingCart, Loader2, Eye, TrendingUp, Check, ChevronsUpDown, ChevronDown, DollarSign, X, Filter, Hotel, UserPlus, Target, Plane, MapPin } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, ShoppingCart, Loader2, Eye, Receipt, TrendingUp, Check, ChevronsUpDown, ChevronDown, DollarSign, X, Filter, Hotel, UserPlus, Target, Plane, MapPin } from 'lucide-react';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { PeriodSelect, SortableHead, SortSelect, useListSort } from '@/components/list-controls';
 import { SaleLinkMenu } from '@/components/sale-link-menu';
 import { RowActions } from '@/components/row-actions';
+import { SaleCollectionsDialog } from '@/components/sale-collections-dialog';
 import { DateRange } from 'react-day-picker';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
@@ -186,6 +187,8 @@ export default function SalesPage() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [editingSale, setEditingSale] = useState<Sale | null>(null);
   const [deletingSale, setDeletingSale] = useState<Sale | null>(null);
+  // Cobros de una venta en ventana (sin entrar al detalle)
+  const [collectionsSale, setCollectionsSale] = useState<{ id: string; clientName?: string | null } | null>(null);
   const [formData, setFormData] = useState<FormData>(initialFormData);
 
   // Inline creation/edit modals
@@ -814,6 +817,7 @@ export default function SalesPage() {
                   </Link>
                   <RowActions
                     actions={[
+                      { label: 'Ver cobros', icon: Receipt, onSelect: () => setCollectionsSale({ id: sale.id, clientName: sale.client?.fullName }) },
                       { label: 'Editar', icon: Pencil, href: `/sales/${sale.id}/edit`, hidden: !can('ventas', 'edit') },
                       {
                         label: 'Eliminar',
@@ -907,6 +911,7 @@ export default function SalesPage() {
                       <RowActions
                         actions={[
                           { label: 'Ver detalle', icon: Eye, href: `/sales/${sale.id}` },
+                          { label: 'Ver cobros', icon: Receipt, onSelect: () => setCollectionsSale({ id: sale.id, clientName: sale.client?.fullName }) },
                           { label: 'Editar', icon: Pencil, href: `/sales/${sale.id}/edit`, hidden: !can('ventas', 'edit') },
                           {
                             label: 'Eliminar',
@@ -1641,6 +1646,8 @@ export default function SalesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <SaleCollectionsDialog sale={collectionsSale} onOpenChange={(o) => !o && setCollectionsSale(null)} onChanged={fetchSales} />
     </div>
   );
 }
