@@ -13,7 +13,6 @@ import {
   ResponsiveDialogHeader as DialogHeader,
   ResponsiveDialogTitle as DialogTitle,
 } from '@/components/ui/responsive-dialog';
-import { SupplierLogo } from '@/components/supplier-logo';
 import { cn } from '@/lib/utils';
 import type { EventGuestRow } from './event-types';
 
@@ -221,9 +220,9 @@ export function CheckinScanner({ open, onOpenChange, eventId, guests, onCheckedI
                 )}
               >
                 {result.result === 'ok' ? (
-                  <CheckCircle2 className="h-14 w-14" />
+                  <CheckCircle2 className="h-11 w-11" />
                 ) : result.result === 'already' ? (
-                  <AlertTriangle className="h-14 w-14" />
+                  <AlertTriangle className="h-11 w-11" />
                 ) : (
                   <XCircle className="h-14 w-14" />
                 )}
@@ -236,9 +235,24 @@ export function CheckinScanner({ open, onOpenChange, eventId, guests, onCheckedI
                     </p>
                     <p className="text-2xl font-black leading-tight">{result.guest.name}</p>
                     {result.guest.supplier && (
-                      <div className="flex items-center gap-2 rounded-xl bg-white/15 px-3 py-1.5">
-                        <SupplierLogo name={result.guest.supplier.name} logo={result.guest.supplier.logo} className="h-8 w-10" />
-                        <span className="text-sm font-semibold">{result.guest.supplier.name}</span>
+                      <div className="flex flex-col items-center gap-1.5">
+                        {/* Fondo oscuro: casi todos los logos son blancos o de color y asi se ven todos */}
+                        <div className="flex h-20 w-44 items-center justify-center rounded-2xl border border-white/20 bg-slate-950/70 p-3 shadow-lg">
+                          {result.guest.supplier.logo ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={result.guest.supplier.logo} alt={result.guest.supplier.name} className="max-h-full max-w-full object-contain" />
+                          ) : (
+                            <span className="text-2xl font-black tracking-wide text-white/90">
+                              {result.guest.supplier.name
+                                .split(/\s+/)
+                                .slice(0, 2)
+                                .map((w) => w[0])
+                                .join('')
+                                .toUpperCase()}
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-sm font-bold uppercase tracking-wider">{result.guest.supplier.name}</span>
                       </div>
                     )}
                   </>

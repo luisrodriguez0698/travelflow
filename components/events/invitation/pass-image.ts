@@ -111,26 +111,38 @@ export async function passImage(event: InvitationEvent, guest: InvitationGuest, 
   const d = new Date(event.startsAt);
   const day = d.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', timeZone: TZ });
   const time = d.toLocaleTimeString('es-MX', { hour: 'numeric', minute: '2-digit', timeZone: TZ });
+  /**
+   * Etiqueta + valor. Si el valor no cabe, primero achica la letra (hasta 30px)
+   * y despues lo parte en dos lineas. Devuelve cuanto alto ocupo.
+   */
   const field = (label: string, value: string, x: number, fy: number) => {
+    const maxWidth = cw / 2 - 60;
     ctx.fillStyle = '#94a3b8';
     ctx.font = '600 24px system-ui, sans-serif';
     ctx.fillText(label.toUpperCase(), x, fy);
     ctx.fillStyle = '#0f172a';
-    ctx.font = '800 38px system-ui, sans-serif';
-    ctx.fillText(wrap(ctx, value, cw / 2 - 60)[0] ?? '', x, fy + 48);
+    let size = 38;
+    ctx.font = `800 ${size}px system-ui, sans-serif`;
+    while (size > 30 && ctx.measureText(value).width > maxWidth) {
+      size -= 2;
+      ctx.font = `800 ${size}px system-ui, sans-serif`;
+    }
+    const lines = wrap(ctx, value, maxWidth).slice(0, 2);
+    lines.forEach((line, i) => ctx.fillText(line, x, fy + 48 + i * (size + 8)));
+    return 48 + (lines.length - 1) * (size + 8);
+  };
+  /** Fila de dos campos: avanza lo que ocupe el mas alto. */
+  const row = (left: [string, string], right: [string, string] | null) => {
+    const h = Math.max(field(left[0], left[1], cx + 50, y), right ? field(right[0], right[1], cx + cw / 2 + 30, y) : 0);
+    y += h + 72;
   };
   y += 20;
-  field('Pasajero', guest.name, cx + 50, y);
-  field('Asiento', 'VIP', cx + cw / 2 + 30, y);
-  y += 120;
-  field('Fecha', day.charAt(0).toUpperCase() + day.slice(1), cx + 50, y);
-  field('Abordaje', time, cx + cw / 2 + 30, y);
-  y += 120;
-  field('Aerolínea', guest.supplier?.name ?? event.agency.name, cx + 50, y);
-  if (event.venueName) field('Lugar', event.venueName, cx + cw / 2 + 30, y);
+  row(['Pasajero', guest.name], ['Asiento', 'VIP']);
+  row(['Fecha', day.charAt(0).toUpperCase() + day.slice(1)], ['Abordaje', time]);
+  row(['Aerolínea', guest.supplier?.name ?? event.agency.name], event.venueName ? ['Lugar', event.venueName] : null);
 
   // Perforacion
-  y += 110;
+  y -= 10;
   ctx.setLineDash([16, 14]);
   ctx.strokeStyle = '#e2e8f0';
   ctx.lineWidth = 4;
