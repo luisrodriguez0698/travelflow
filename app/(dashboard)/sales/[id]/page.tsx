@@ -54,6 +54,9 @@ import { generateReceiptPdf } from '@/lib/generate-receipt-pdf';
 import { InitialPaymentBanner, type InitialPaymentInfo } from '@/components/initial-payment-banner';
 import { MoneySummary } from '@/components/money-summary';
 import { SaleCollections } from '@/components/sale-collections';
+import { SalePassport } from '@/components/sale-passport';
+import { SaleProgressBar } from '@/components/sale-progress-bar';
+import { celebratePayment } from '@/components/payment-celebration';
 import { ClientLinkButton } from '@/components/client-link-dialog';
 import { SupplierAllocation, allocationError, useSupplierDebts, type AllocationValue } from '@/components/supplier-allocation';
 import { DatePicker } from '@/components/ui/date-picker';
@@ -344,6 +347,8 @@ export default function SaleDetailPage() {
 
       const data = await res.json();
 
+      // Confeti en cada abono; si liquida la venta, sello de "¡PAGADO!"
+      celebratePayment(amount >= remaining - 0.01);
       toast({
         title: 'Éxito',
         description: data.message || 'Abono registrado correctamente',
@@ -883,6 +888,17 @@ export default function SaleDetailPage() {
       {/* Anticipo / pago de contado: en que banco entro */}
       <InitialPaymentBanner saleId={sale.id} cash={isCash} info={sale.initialPayment} onRegistered={fetchSale} />
 
+      {/* Pasaporte: cada etapa de la venta como un sello */}
+      <SalePassport
+        saleId={sale.id}
+        saleDate={sale.saleDate}
+        creatorName={sale.creatorName}
+        destination={sale.destination?.name ?? null}
+        departureDate={sale.departureDate ?? null}
+        settled={!isCash ? remaining <= 0.01 : true}
+        refreshKey={sale}
+      />
+
       {/* Cobros registrados: corregir cuenta/proveedor o anular en un paso */}
       <SaleCollections saleId={sale.id} clientName={sale.client?.fullName} accounts={bankAccounts} refreshKey={sale} onChanged={fetchSale} />
 
@@ -942,12 +958,7 @@ export default function SaleDetailPage() {
               <span className="text-sm font-medium">Progreso de pago</span>
               <span className="text-sm font-medium">{progress}%</span>
             </div>
-            <div className="w-full bg-muted rounded-full h-3">
-              <div
-                className="bg-gradient-to-r from-blue-500 to-cyan-500 h-3 rounded-full transition-all duration-500"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
+            <SaleProgressBar progress={progress} />
           </Card>
 
           {/* Payment Plan Table */}

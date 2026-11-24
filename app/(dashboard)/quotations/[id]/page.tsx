@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { playConvertAnimation } from '@/components/convert-celebration';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { HistoryButton } from '@/components/record-history';
@@ -241,11 +242,17 @@ export default function QuotationDetailPage() {
         body: JSON.stringify({ bankAccountId: convertBankAccountId || null, supplierAllocations: convertBankAccountId ? convertAllocations : [], initialPaymentNote: convertBankAccountId ? convertNote : null, initialPaymentMethod: convertBankAccountId ? convertMethod : null }),
       });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || '');
+      // La cotizacion gira y se vuelve pase de abordar; despues se abre la venta
+      await playConvertAnimation({
+        clientName: quotation?.client?.fullName,
+        folio: id.slice(-8).toUpperCase(),
+        total: quotation?.totalPrice,
+      });
       toast({
         title: 'Convertida a venta',
         description: 'La cotización se ha convertido a venta exitosamente',
       });
-      router.push('/sales');
+      router.push(`/sales/${id}`);
     } catch (err) {
       toast({
         title: 'Error',

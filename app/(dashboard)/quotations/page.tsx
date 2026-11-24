@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
+import { playConvertAnimation } from '@/components/convert-celebration';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { PhoneInput } from '@/components/ui/phone-input';
@@ -512,8 +513,14 @@ export default function QuotationsPage() {
         body: JSON.stringify({ bankAccountId: convertBankAccountId || null, supplierAllocations: convertBankAccountId ? convertAllocations : [], initialPaymentNote: convertBankAccountId ? convertNote : null, initialPaymentMethod: convertBankAccountId ? convertMethod : null }),
       });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || '');
-      toast({ title: 'Éxito', description: 'Cotización convertida a venta' });
       setIsConvertModalOpen(false);
+      // La cotizacion gira y se vuelve pase de abordar; despues se abre la venta
+      await playConvertAnimation({
+        clientName: convertingQuotation.client?.fullName,
+        folio: convertingQuotation.id.slice(-8).toUpperCase(),
+        total: convertingQuotation.totalPrice,
+      });
+      toast({ title: 'Éxito', description: 'Cotización convertida a venta' });
       router.push(`/sales/${convertingQuotation.id}`);
     } catch (err) {
       toast({ title: 'Error', description: (err as Error).message || 'No se pudo convertir la cotización', variant: 'destructive' });

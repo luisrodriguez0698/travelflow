@@ -30,6 +30,7 @@ export async function GET(request: NextRequest) {
         ],
       },
       include: {
+        client: { select: { fullName: true } },
         items: {
           where: { supplierId: { not: null }, cost: { gt: 0 } },
           select: { supplierId: true, cost: true, supplierDeadline: true },
@@ -51,7 +52,16 @@ export async function GET(request: NextRequest) {
       overdueCount: number;
     }>();
 
-    const addToSupplier = (suppId: string, debt: number, paid: number, deadline: Date | null | undefined) => {
+    // Fechas limite con saldo pendiente (para el semaforo de deudas)
+    const deadlines: { bookingId: string; supplierId: string; client: string; remaining: number; deadline: string; daysRemaining: number }[] = [];
+
+    const addToSupplier = (
+      suppId: string,
+      debt: number,
+      paid: number,
+      deadline: Date | null | undefined,
+      meta?: { bookingId: string; client: string }
+    ) => {
       const remaining = Math.max(0, debt - paid);
       const existing = supplierMap.get(suppId) || {
         totalDebt: 0, totalPaid: 0, totalRemaining: 0, salesCount: 0, overdueCount: 0,
@@ -66,6 +76,9 @@ export async function GET(request: NextRequest) {
           (new Date(deadline).getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
         );
         if (daysRemaining < 0) existing.overdueCount += 1;
+        if (meta && remaining > 0.01) {
+          deadlines.push({ ...meta, supplierId: suppId, remaining, deadline: new Date(deadline).toISOString(), daysRemaining });
+        }
       }
       supplierMap.set(suppId, existing);
     };
@@ -86,12 +99,12 @@ export async function GET(request: NextRequest) {
         for (const item of booking.items) {
           if (!item.supplierId) continue;
           const paid = paymentsBySupplierId.get(item.supplierId) || 0;
-          addToSupplier(item.supplierId, item.cost, paid, item.supplierDeadline);
+          addToSupplier(item.supplierId, item.cost, paid, item.supplierDeadline, { bookingId: booking.id, client: booking.client?.fullName ?? 'Cliente' });
         }
       } else if (booking.supplierId && booking.netCost > 0) {
         // Old way: single supplier at booking level
         const paid = paymentsBySupplierId.get(booking.supplierId) || 0;
-        addToSupplier(booking.supplierId, booking.netCost, paid, (booking as any).supplierDeadline);
+        addToSupplier(booking.supplierId, booking.netCost, paid, (booking as any).supplierDeadline, { bookingId: booking.id, client: booking.client?.fullName ?? 'Cliente' });
       }
     }
 
@@ -123,9 +136,18 @@ export async function GET(request: NextRequest) {
     const total = result.length;
     const paged = result.slice((page - 1) * limit, page * limit);
 
+    // Lo mas urgente primero: vencidas y las de los proximos 30 dias
+    const supplierNames = new Map(suppliers.map((sp) => [sp.id, sp.name]));
+    const urgent = deadlines
+      .filter((d) => d.daysRemaining <= 30)
+      .sort((a, b) => a.daysRemaining - b.daysRemaining)
+      .slice(0, 8)
+      .map((d) => ({ ...d, supplier: supplierNames.get(d.supplierId) ?? 'Proveedor', remaining: Math.round(d.remaining * 100) / 100 }));
+
     return NextResponse.json({
       data: paged,
       totals,
+      deadlines: urgent,
       pagination: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) },
     });
   } catch (error) {

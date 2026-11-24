@@ -3,9 +3,10 @@
 import { useState } from 'react';
 import {
   Bar,
-  BarChart,
   CartesianGrid,
+  ComposedChart,
   LabelList,
+  Line,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -26,6 +27,8 @@ export interface MonthlySalesPoint {
   sales: number;
   profit: number;
   count: number;
+  /** Vendido en el mismo mes del año anterior */
+  lastYear?: number;
 }
 
 // Colores: slots 1 y 2 de la paleta categorica, validados en claro y oscuro (globals.css)
@@ -59,6 +62,22 @@ function ChartTooltip({ active, payload }: TooltipProps<number, string>) {
           <span className="font-semibold tabular-nums">{money(point[s.key])}</span>
         </div>
       ))}
+      {point.lastYear !== undefined && (
+        <div className="flex items-center justify-between gap-4 py-0.5">
+          <span className="flex items-center gap-1.5 text-muted-foreground">
+            <span className="w-2.5 border-t-2 border-dashed border-muted-foreground" />
+            Año pasado
+          </span>
+          <span className="font-semibold tabular-nums">
+            {money(point.lastYear)}
+            {point.lastYear > 0 && (
+              <span className={cn('ml-1.5 text-[10px]', point.sales >= point.lastYear ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400')}>
+                {point.sales >= point.lastYear ? '▲' : '▼'} {Math.abs(Math.round(((point.sales - point.lastYear) / point.lastYear) * 100))}%
+              </span>
+            )}
+          </span>
+        </div>
+      )}
       <div className="mt-1.5 pt-1.5 border-t flex justify-between text-muted-foreground">
         <span>{point.count} venta{point.count !== 1 ? 's' : ''}</span>
         <span>Margen {margin(point).toFixed(1)}%</span>
@@ -70,6 +89,9 @@ function ChartTooltip({ active, payload }: TooltipProps<number, string>) {
 export function SalesChart({ data }: { data: MonthlySalesPoint[] }) {
   const [range, setRange] = useState<(typeof RANGES)[number]>(6);
   const [view, setView] = useState<'chart' | 'table'>('chart');
+  const hasLastYear = data.some((p) => (p.lastYear ?? 0) > 0);
+  const [showLastYear, setShowLastYear] = useState(true);
+  const lastYearOn = hasLastYear && showLastYear;
 
   const points = data.slice(-range);
   const totals = points.reduce(
@@ -104,7 +126,21 @@ export function SalesChart({ data }: { data: MonthlySalesPoint[] }) {
           <h2 className="text-lg font-semibold">Ventas por mes</h2>
           <p className="text-sm text-muted-foreground">Lo vendido y tu ganancia (precio de venta − costo neto)</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {hasLastYear && (
+            <button
+              type="button"
+              onClick={() => setShowLastYear(!showLastYear)}
+              aria-pressed={showLastYear}
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors',
+                showLastYear ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <span className="w-3 border-t-2 border-dashed border-current" />
+              Año pasado
+            </button>
+          )}
           <div className="inline-flex rounded-lg border p-0.5" role="group" aria-label="Periodo">
             {RANGES.map((r) => (
               <button
@@ -160,6 +196,7 @@ export function SalesChart({ data }: { data: MonthlySalesPoint[] }) {
                 <th className="text-right font-medium py-2">Vendido</th>
                 <th className="text-right font-medium py-2">Ganancia</th>
                 <th className="text-right font-medium py-2">Margen</th>
+                {hasLastYear && <th className="text-right font-medium py-2">Año pasado</th>}
               </tr>
             </thead>
             <tbody>
@@ -170,6 +207,7 @@ export function SalesChart({ data }: { data: MonthlySalesPoint[] }) {
                   <td className="py-2 text-right tabular-nums">{money(p.sales)}</td>
                   <td className="py-2 text-right tabular-nums">{money(p.profit)}</td>
                   <td className="py-2 text-right tabular-nums text-muted-foreground">{margin(p).toFixed(1)}%</td>
+                  {hasLastYear && <td className="py-2 text-right tabular-nums text-muted-foreground">{money(p.lastYear ?? 0)}</td>}
                 </tr>
               ))}
             </tbody>
@@ -187,7 +225,7 @@ export function SalesChart({ data }: { data: MonthlySalesPoint[] }) {
           aria-label={`Ventas de los últimos ${range} meses: ${money(totals.sales)} vendidos, ${money(totals.profit)} de ganancia.`}
         >
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={points} barGap={2} barCategoryGap="28%" margin={{ top: 20, right: 8, left: 0, bottom: 0 }}>
+            <ComposedChart data={points} barGap={2} barCategoryGap="28%" margin={{ top: 20, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid vertical={false} stroke="hsl(var(--border))" strokeOpacity={0.7} />
               <XAxis
                 dataKey="label"
@@ -212,7 +250,20 @@ export function SalesChart({ data }: { data: MonthlySalesPoint[] }) {
                   <LabelList dataKey={s.key} content={renderCurrentLabel} />
                 </Bar>
               ))}
-            </BarChart>
+              {lastYearOn && (
+                <Line
+                  type="monotone"
+                  dataKey="lastYear"
+                  name="Año pasado"
+                  stroke="hsl(var(--muted-foreground))"
+                  strokeWidth={2}
+                  strokeDasharray="5 4"
+                  dot={{ r: 2.5, fill: 'hsl(var(--muted-foreground))', strokeWidth: 0 }}
+                  activeDot={{ r: 4 }}
+                  animationDuration={1200}
+                />
+              )}
+            </ComposedChart>
           </ResponsiveContainer>
         </div>
       )}

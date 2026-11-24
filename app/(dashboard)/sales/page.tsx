@@ -26,7 +26,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Switch } from '@/components/ui/switch';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Plus, Search, Pencil, Trash2, ShoppingCart, Loader2, Eye, Receipt, Users, UserCheck, TrendingUp, Check, ChevronsUpDown, ChevronDown, DollarSign, X, Filter, Hotel, UserPlus, Target, Plane, MapPin } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, ShoppingCart, Loader2, Eye, Receipt, Users, UserCheck, Radar, TrendingUp, Check, ChevronsUpDown, ChevronDown, DollarSign, X, Filter, Hotel, UserPlus, Target, Plane, MapPin } from 'lucide-react';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { PeriodSelect, SortableHead, SortSelect, useListSort } from '@/components/list-controls';
 import { SaleLinkMenu } from '@/components/sale-link-menu';
@@ -751,7 +751,13 @@ export default function SalesPage() {
           <h1 className="text-3xl font-bold">Ventas</h1>
           <p className="text-muted-foreground mt-1">Gestiona tus ventas y pagos</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Link href="/sales/tower">
+            <Button variant="outline" className="border-sky-500/40 text-sky-700 hover:bg-sky-50 dark:text-sky-300 dark:hover:bg-sky-950/30">
+              <Radar className="w-4 h-4 mr-2" />
+              Torre de control
+            </Button>
+          </Link>
           <Link href="/sales/goals">
             <Button variant="outline">
               <Target className="w-4 h-4 mr-2" />

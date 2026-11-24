@@ -37,6 +37,7 @@ import {
 } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { PageSkeleton } from '@/components/skeletons';
+import { TripDeparturesBoard } from '@/components/calendar/trip-departures-board';
 
 // ─── Types ───────────────────────────────────────────
 
@@ -182,6 +183,9 @@ export default function CalendarPage() {
           </p>
         </div>
       </div>
+
+      {/* Tablero de salidas: los viajes que vienen, con cuenta regresiva */}
+      <TripDeparturesBoard />
 
       {/* Controls */}
       <Card className="p-4">

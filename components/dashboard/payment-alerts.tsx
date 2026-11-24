@@ -30,11 +30,18 @@ export function PaymentAlerts({
 }: PaymentAlertsProps) {
   return (
     <Card className="p-6">
-      <div className="flex items-center space-x-2 mb-6">
-        <AlertCircle className="w-5 h-5 text-orange-500" />
-        <h2 className="text-xl font-bold text-foreground">
-          Alertas de Cobranza
-        </h2>
+      <div className="flex items-center justify-between gap-2 mb-6">
+        <div className="flex items-center space-x-2">
+          <AlertCircle className="w-5 h-5 text-orange-500" />
+          <h2 className="text-xl font-bold text-foreground">
+            Alertas de Cobranza
+          </h2>
+        </div>
+        {(overduePayments?.length > 3 || upcomingPayments?.length > 3) && (
+          <Link href="/sales/tower" className="text-xs font-medium text-primary hover:underline shrink-0">
+            Ver todas → Torre de control
+          </Link>
+        )}
       </div>
 
       <div className="space-y-6">
@@ -45,7 +52,7 @@ export function PaymentAlerts({
               Pagos Vencidos ({overduePayments.length})
             </h3>
             <div className="space-y-2">
-              {overduePayments.slice(0, 5).map((payment) => (
+              {overduePayments.slice(0, 3).map((payment) => (
                 <Link
                   key={payment?.id}
                   href={`/sales/${payment?.booking?.id}`}
@@ -82,7 +89,7 @@ export function PaymentAlerts({
               Próximos 7 Días ({upcomingPayments.length})
             </h3>
             <div className="space-y-2">
-              {upcomingPayments.slice(0, 5).map((payment) => (
+              {upcomingPayments.slice(0, 3).map((payment) => (
                 <Link
                   key={payment?.id}
                   href={`/sales/${payment?.booking?.id}`}

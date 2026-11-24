@@ -119,13 +119,11 @@ export default function MarginsPage() {
     const totalRevenue = filteredSales.reduce((sum, s) => sum + s.totalPrice, 0);
     const totalCost = filteredSales.reduce((sum, s) => sum + s.netCost, 0);
     const totalProfit = totalRevenue - totalCost;
-    const avgMargin =
-      withCost.length > 0
-        ? withCost.reduce((sum, s) => {
-            const margin = s.netCost > 0 ? ((s.totalPrice - s.netCost) / s.netCost) * 100 : 0;
-            return sum + margin;
-          }, 0) / withCost.length
-        : 0;
+    // Margen del periodo: ganancia total / costo total (las ventas grandes pesan
+    // mas que las chicas). Es el mismo calculo que la Cabina de vuelo del Dashboard.
+    const costWithCost = withCost.reduce((sum, s) => sum + s.netCost, 0);
+    const profitWithCost = withCost.reduce((sum, s) => sum + (s.totalPrice - s.netCost), 0);
+    const avgMargin = costWithCost > 0 ? (profitWithCost / costWithCost) * 100 : 0;
     return { totalRevenue, totalCost, totalProfit, avgMargin, count: filteredSales.length };
   }, [filteredSales]);
 
@@ -237,7 +235,7 @@ export default function MarginsPage() {
         <Card className="p-4 bg-purple-50 dark:bg-purple-950/20 border-purple-200 dark:border-purple-800">
           <div className="flex items-center gap-2 mb-1">
             <TrendingUp className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-            <p className="text-sm font-medium text-purple-600 dark:text-purple-400">Margen Promedio</p>
+            <p className="text-sm font-medium text-purple-600 dark:text-purple-400">Margen</p>
           </div>
           <p className="text-2xl font-bold text-purple-700 dark:text-purple-300">
             {metrics.avgMargin.toFixed(1)}%

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card } from '@/components/ui/card';
+import { GoalRace } from '@/components/goal-race';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -556,6 +557,9 @@ function MonthlyView({
           </div>
         </div>
       </Card>
+
+      {/* Carrera de metas */}
+      <GoalRace runners={userCards} title={`${MONTHS[selectedMonth - 1]} ${selectedYear}`} />
 
       {/* Per-User Goal Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">

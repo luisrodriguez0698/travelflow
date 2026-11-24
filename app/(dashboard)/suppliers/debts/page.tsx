@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
+import { DebtsTrafficLight, type DebtDeadline } from '@/components/debts-traffic-light';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { DatePicker } from '@/components/ui/date-picker';
@@ -161,6 +162,7 @@ export default function SupplierDebtsPage() {
   // Level 1 state
   const [suppliers, setSuppliers] = useState<SupplierSummary[]>([]);
   const [totals, setTotals] = useState({ totalDebt: 0, totalPaid: 0, totalRemaining: 0 });
+  const [deadlines, setDeadlines] = useState<DebtDeadline[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
@@ -197,6 +199,7 @@ export default function SupplierDebtsPage() {
         const data = await res.json();
         setSuppliers(data.data);
         setTotals(data.totals);
+        setDeadlines(Array.isArray(data.deadlines) ? data.deadlines : []);
         if (data.pagination) setPagination(data.pagination);
       }
     } catch {
@@ -887,6 +890,9 @@ export default function SupplierDebtsPage() {
           </p>
         </Card>
       </div>
+
+      {/* Semaforo: medidor de pagado vs debido y fechas limite cercanas */}
+      {totals.totalDebt > 0 && <DebtsTrafficLight totals={totals} deadlines={deadlines} />}
 
       {/* Suppliers Table */}
       <Card>

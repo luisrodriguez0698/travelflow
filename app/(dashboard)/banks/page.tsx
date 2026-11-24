@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
+import { MoneyFlow } from '@/components/banks/money-flow';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -1244,6 +1245,9 @@ export default function BanksPage() {
           </div>
         </div>
       </Card>
+
+      {/* Flujo de dinero del mes: entradas -> cuentas -> salidas */}
+      {accounts.length > 0 && <MoneyFlow />}
 
       {/* Accounts Grid */}
       {accounts.length > 0 ? (
