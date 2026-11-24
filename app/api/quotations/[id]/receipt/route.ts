@@ -151,7 +151,7 @@ export async function GET(
       if (hotelItems.length > 0) {
         servicesSectionHtml += '<div style="margin-bottom: 15px;">';
         servicesSectionHtml += '<div style="font-weight: 600; font-size: 14px; color: #2563eb; margin-bottom: 8px;">Hospedaje</div>';
-        servicesSectionHtml += '<table><thead><tr><th>#</th><th>Hotel</th><th>Tipo Hab.</th><th>Plan</th><th>Ocupación</th><th>Noches</th><th style="text-align:right;">Costo</th></tr></thead><tbody>';
+        servicesSectionHtml += '<table><thead><tr><th>#</th><th>Hotel</th><th>Tipo Hab.</th><th>Plan</th><th>Ocupación</th><th>Noches</th></tr></thead><tbody>';
         hotelItems.forEach((item: any, idx: number) => {
           servicesSectionHtml += '<tr>';
           servicesSectionHtml += '<td>Hab. ' + (idx + 1) + '</td>';
@@ -160,7 +160,6 @@ export async function GET(
           servicesSectionHtml += '<td>' + (item.plan || '-') + '</td>';
           servicesSectionHtml += '<td>' + (item.numAdults || 0) + ' Ad. / ' + (item.numChildren || 0) + ' Men.</td>';
           servicesSectionHtml += '<td>' + (item.numNights || 0) + '</td>';
-          servicesSectionHtml += '<td style="text-align:right;">' + formatCurrency(item.cost || 0) + '</td>';
           servicesSectionHtml += '</tr>';
         });
         servicesSectionHtml += '</tbody></table></div>';
@@ -213,7 +212,7 @@ export async function GET(
       if (flightItems.length > 0) {
         servicesSectionHtml += '<div style="margin-bottom: 15px;">';
         servicesSectionHtml += '<div style="font-weight: 600; font-size: 14px; color: #0891b2; margin-bottom: 8px;">Vuelos</div>';
-        servicesSectionHtml += '<table><thead><tr><th>Dirección</th><th>Aerolínea</th><th>Vuelo</th><th>Ruta</th><th>Horario</th><th>Clase</th><th style="text-align:right;">Costo</th></tr></thead><tbody>';
+        servicesSectionHtml += '<table><thead><tr><th>Dirección</th><th>Aerolínea</th><th>Vuelo</th><th>Ruta</th><th>Horario</th><th>Clase</th></tr></thead><tbody>';
         flightItems.forEach((item: any) => {
           let timeStr = '';
           if (item.departureTime) {
@@ -232,7 +231,6 @@ export async function GET(
           servicesSectionHtml += '<td>' + (item.origin || '?') + ' → ' + (item.flightDestination || '?') + '</td>';
           servicesSectionHtml += '<td>' + (timeStr || '-') + '</td>';
           servicesSectionHtml += '<td>' + classLabel + '</td>';
-          servicesSectionHtml += '<td style="text-align:right;">' + formatCurrency(item.cost || 0) + '</td>';
           servicesSectionHtml += '</tr>';
         });
         servicesSectionHtml += '</tbody></table></div>';
@@ -242,21 +240,17 @@ export async function GET(
       if (tourItems.length > 0) {
         servicesSectionHtml += '<div style="margin-bottom: 15px;">';
         servicesSectionHtml += '<div style="font-weight: 600; font-size: 14px; color: #b45309; margin-bottom: 8px;">Tours</div>';
-        servicesSectionHtml += '<table><thead><tr><th>Tour</th><th>Fecha</th><th>Personas</th><th style="text-align:right;">Precio/Persona</th><th style="text-align:right;">Costo</th></tr></thead><tbody>';
+        servicesSectionHtml += '<table><thead><tr><th>Tour</th><th>Fecha</th><th>Personas</th></tr></thead><tbody>';
         tourItems.forEach((item: any) => {
           servicesSectionHtml += '<tr>';
           servicesSectionHtml += '<td>' + (item.tourName || '-') + '</td>';
           servicesSectionHtml += '<td>' + (item.tourDate ? formatDate(item.tourDate) : '-') + '</td>';
           servicesSectionHtml += '<td>' + (item.numPeople || 0) + '</td>';
-          servicesSectionHtml += '<td style="text-align:right;">' + formatCurrency(item.pricePerPerson || 0) + '</td>';
-          servicesSectionHtml += '<td style="text-align:right;">' + formatCurrency(item.cost || 0) + '</td>';
           servicesSectionHtml += '</tr>';
         });
         servicesSectionHtml += '</tbody></table></div>';
       }
 
-      const totalCost = items.reduce((s: number, i: any) => s + (i.cost || 0), 0);
-      servicesSectionHtml += '<div style="text-align: right; font-weight: bold; font-size: 14px; color: #1e293b; margin-top: 8px;">Costo Neto Total: ' + formatCurrency(totalCost) + '</div>';
       servicesSectionHtml += '</div>';
     }
 

@@ -396,18 +396,17 @@ export async function generateReceiptPdf(sale: SaleData) {
         item.plan || '-',
         `${item.numAdults || 0} Ad. / ${item.numChildren || 0} Men.`,
         `${item.numNights || 0} noches`,
-        formatCurrency(item.cost || 0),
       ]);
 
       autoTable(doc, {
         startY: y,
-        head: [['#', 'Hotel', '# Reservación', 'Tipo Hab.', 'Plan', 'Ocupación', 'Noches', 'Costo']],
+        head: [['#', 'Hotel', '# Reservación', 'Tipo Hab.', 'Plan', 'Ocupación', 'Noches']],
         body: hotelBody,
         margin: { left: margin, right: margin },
         styles: { fontSize: 8, cellPadding: 2.5, textColor: [30, 41, 59] },
         headStyles: { fillColor: [239, 246, 255], textColor: [37, 99, 235], fontStyle: 'bold', lineWidth: 0.3, lineColor: [226, 232, 240] },
         bodyStyles: { lineWidth: 0.2, lineColor: [226, 232, 240] },
-        columnStyles: { 0: { cellWidth: 14 }, 2: { fontStyle: 'bold' }, 7: { halign: 'right' } },
+        columnStyles: { 0: { cellWidth: 14 }, 2: { fontStyle: 'bold' } },
       });
       y = (doc as any).lastAutoTable.finalY + 6;
 
@@ -635,19 +634,18 @@ export async function generateReceiptPdf(sale: SaleData) {
           `${item.origin || '?'} → ${item.flightDestination || '?'}`,
           timeStr || '-',
           item.flightClass === 'ECONOMICA' ? 'Económica' : item.flightClass === 'BUSINESS' ? 'Business' : item.flightClass || '-',
-          formatCurrency(item.cost || 0),
         ];
       });
 
       autoTable(doc, {
         startY: y,
-        head: [['Dirección', 'Aerolínea', 'Vuelo', 'Ruta', 'Horario', 'Clase', 'Costo']],
+        head: [['Dirección', 'Aerolínea', 'Vuelo', 'Ruta', 'Horario', 'Clase']],
         body: flightBody,
         margin: { left: margin, right: margin },
         styles: { fontSize: 8, cellPadding: 2.5, textColor: [30, 41, 59] },
         headStyles: { fillColor: [236, 254, 255], textColor: [8, 145, 178], fontStyle: 'bold', lineWidth: 0.3, lineColor: [226, 232, 240] },
         bodyStyles: { lineWidth: 0.2, lineColor: [226, 232, 240] },
-        columnStyles: { 6: { halign: 'right' } },
+        columnStyles: {},
       });
       y = (doc as any).lastAutoTable.finalY + 6;
     }
@@ -665,19 +663,17 @@ export async function generateReceiptPdf(sale: SaleData) {
         item.tourName || '-',
         item.tourDate ? formatDate(item.tourDate) : '-',
         String(item.numPeople || 0),
-        formatCurrency(item.pricePerPerson || 0),
-        formatCurrency(item.cost || 0),
       ]);
 
       autoTable(doc, {
         startY: y,
-        head: [['Tour', 'Fecha', 'Personas', 'Precio/Persona', 'Costo']],
+        head: [['Tour', 'Fecha', 'Personas']],
         body: tourBody,
         margin: { left: margin, right: margin },
         styles: { fontSize: 8, cellPadding: 2.5, textColor: [30, 41, 59] },
         headStyles: { fillColor: [255, 251, 235], textColor: [180, 83, 9], fontStyle: 'bold', lineWidth: 0.3, lineColor: [226, 232, 240] },
         bodyStyles: { lineWidth: 0.2, lineColor: [226, 232, 240] },
-        columnStyles: { 2: { halign: 'center' }, 3: { halign: 'right' }, 4: { halign: 'right' } },
+        columnStyles: { 2: { halign: 'center' } },
       });
       y = (doc as any).lastAutoTable.finalY + 6;
     }
@@ -718,29 +714,26 @@ export async function generateReceiptPdf(sale: SaleData) {
           timeStr || '-',
           String(item.numPeople || 0),
           item.isInternational ? 'Internacional' : 'Nacional',
-          formatCurrency(item.cost || 0),
         ];
       });
 
       autoTable(doc, {
         startY: y,
-        head: [['Unidad', 'Dirección', 'Ruta', 'Horario', 'Pasajeros', 'Modalidad', 'Costo']],
+        head: [['Unidad', 'Dirección', 'Ruta', 'Horario', 'Pasajeros', 'Modalidad']],
         body: transferBody,
         margin: { left: margin, right: margin },
         styles: { fontSize: 8, cellPadding: 2.5, textColor: [30, 41, 59] },
         headStyles: { fillColor: [236, 253, 245], textColor: [5, 150, 105], fontStyle: 'bold', lineWidth: 0.3, lineColor: [226, 232, 240] },
         bodyStyles: { lineWidth: 0.2, lineColor: [226, 232, 240] },
-        columnStyles: { 4: { halign: 'center' }, 6: { halign: 'right' } },
+        columnStyles: { 4: { halign: 'center' } },
       });
       y = (doc as any).lastAutoTable.finalY + 6;
     }
 
     // Total services cost
-    const totalServicesCost = bookingItems.reduce((sum, i) => sum + (i.cost || 0), 0);
     doc.setFontSize(9);
     doc.setTextColor(...DARK);
     doc.setFont('helvetica', 'bold');
-    // doc.text(`Costo Neto Total: ${formatCurrency(totalServicesCost)}`, pageWidth - margin, y, { align: 'right' });
     y += 10;
   }
 

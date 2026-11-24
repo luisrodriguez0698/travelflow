@@ -42,7 +42,10 @@ import {
   Plane,
   MapPinned,
   Package,
+  TrendingUp,
+  Info,
 } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -132,6 +135,8 @@ interface BookingItem {
 interface Sale {
   id: string;
   initialPayment?: InitialPaymentInfo;
+  /** Dinero real del expediente: cobrado al cliente, pagado a proveedores y lo que queda */
+  cashFlow?: { clientPaid: number; supplierPaid: number; available: number };
   totalPrice: number;
   netCost: number;
   paymentType: string;
@@ -881,6 +886,9 @@ export default function SaleDetailPage() {
       {/* Cobros registrados: corregir cuenta/proveedor o anular en un paso */}
       <SaleCollections saleId={sale.id} clientName={sale.client?.fullName} accounts={bankAccounts} refreshKey={sale} onChanged={fetchSale} />
 
+      {/* Flujo disponible del expediente (interno) */}
+      {sale.cashFlow && <CashFlowCard total={sale.totalPrice || 0} flow={sale.cashFlow} />}
+
       {/* Financial Summary */}
       {isCash ? (
         <Card className="p-6 bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800">
@@ -1185,5 +1193,67 @@ export default function SaleDetailPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+/**
+ * Flujo del expediente: lo que el cliente ya pago (y entro a tus cuentas) menos
+ * lo que ya se pago a mayoristas por esta venta. No es la cartera: es el dinero
+ * de esta venta que tienes disponible hoy.
+ */
+function CashFlowCard({ total, flow }: { total: number; flow: { clientPaid: number; supplierPaid: number; available: number } }) {
+  const money = (n: number) => `$${n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const cols = [
+    { label: 'Venta total', value: total, hint: 'Precio de venta del expediente.', className: '' },
+    {
+      label: 'Pagos cliente',
+      value: flow.clientPaid,
+      hint: 'Anticipo y abonos que ya entraron a tus cuentas (sin los anulados).',
+      className: 'text-blue-600 dark:text-blue-400',
+    },
+    {
+      label: 'Pagos mayoristas',
+      value: flow.supplierPaid,
+      hint: 'Lo que ya pagaste a proveedores por esta venta (desde un cobro o desde Deudas).',
+      className: 'text-orange-600 dark:text-orange-400',
+    },
+    {
+      label: 'Disponible',
+      value: flow.available,
+      hint: 'Pagos del cliente menos pagos a mayoristas: el dinero de esta venta que tienes hoy.',
+      className: flow.available < 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400',
+    },
+  ];
+  return (
+    <Card className="overflow-hidden">
+      <div className="flex items-center gap-2 border-b px-4 py-3 sm:px-6">
+        <TrendingUp className="h-4 w-4 text-primary" />
+        <h2 className="font-semibold">Flujo disponible</h2>
+        <span className="text-xs text-muted-foreground">· Uso interno</span>
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 md:divide-x">
+        {cols.map((c) => (
+          <div key={c.label} className="border-b p-4 sm:px-6 md:border-b-0">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <p className="flex w-fit cursor-help items-center gap-1 text-xs font-medium text-muted-foreground">
+                    {c.label}
+                    <Info className="h-3.5 w-3.5 text-primary/70" />
+                  </p>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-[240px]">{c.hint}</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <p className={`mt-1 text-xl font-bold tabular-nums sm:text-2xl ${c.className}`}>{money(c.value)}</p>
+          </div>
+        ))}
+      </div>
+      {flow.available < 0 && (
+        <p className="border-t bg-red-500/5 px-4 py-2 text-xs text-red-600 dark:text-red-400 sm:px-6">
+          Has pagado a mayoristas más de lo que te ha pagado el cliente en esta venta.
+        </p>
+      )}
+    </Card>
   );
 }

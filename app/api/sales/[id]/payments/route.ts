@@ -252,7 +252,24 @@ export async function GET(
       account: initialTx ? { name: initialTx.bankAccount.referenceName, bank: initialTx.bankAccount.bankName, date: initialTx.date } : null,
     };
 
-    return NextResponse.json({ ...booking, destination, creatorName, initialPayment });
+    // Flujo del expediente: dinero que de verdad entro (anticipo + abonos activos)
+    // menos lo que ya se pago a proveedores por esta venta (desde cobros o desde Deudas)
+    const [incomeSum, supplierSum] = await Promise.all([
+      prisma.bankTransaction.aggregate({
+        where: { bookingId: booking.id, tenantId, type: 'INCOME', status: 'ACTIVE' },
+        _sum: { amount: true },
+      }),
+      prisma.supplierPayment.aggregate({
+        where: { bookingId: booking.id, tenantId, status: 'ACTIVE' },
+        _sum: { amount: true },
+      }),
+    ]);
+    const round2 = (n: number) => Math.round(n * 100) / 100;
+    const clientPaid = round2(incomeSum._sum.amount ?? 0);
+    const supplierPaid = round2(supplierSum._sum.amount ?? 0);
+    const cashFlow = { clientPaid, supplierPaid, available: round2(clientPaid - supplierPaid) };
+
+    return NextResponse.json({ ...booking, destination, creatorName, initialPayment, cashFlow });
   } catch (error) {
     const accessError = accessErrorResponse(error);
     if (accessError) return accessError;

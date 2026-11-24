@@ -26,11 +26,12 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Switch } from '@/components/ui/switch';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Plus, Search, Pencil, Trash2, ShoppingCart, Loader2, Eye, Receipt, TrendingUp, Check, ChevronsUpDown, ChevronDown, DollarSign, X, Filter, Hotel, UserPlus, Target, Plane, MapPin } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, ShoppingCart, Loader2, Eye, Receipt, Users, UserCheck, TrendingUp, Check, ChevronsUpDown, ChevronDown, DollarSign, X, Filter, Hotel, UserPlus, Target, Plane, MapPin } from 'lucide-react';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { PeriodSelect, SortableHead, SortSelect, useListSort } from '@/components/list-controls';
 import { SaleLinkMenu } from '@/components/sale-link-menu';
 import { RowActions } from '@/components/row-actions';
+import { MultiSelectFilter } from '@/components/multi-select-filter';
 import { SaleCollectionsDialog } from '@/components/sale-collections-dialog';
 import { DateRange } from 'react-day-picker';
 import { cn } from '@/lib/utils';
@@ -106,7 +107,25 @@ interface Sale {
   client: Client;
   destination?: Destination;
   supplier?: Supplier;
-  items?: { type: string }[];
+  reservationNumber?: string | null;
+  hotel?: { id: string; name: string } | null;
+  items?: { type: string; reservationNumber?: string | null; hotel?: { id: string; name: string } | null }[];
+}
+
+/** Numeros de reservacion de la venta (de sus servicios o el general). */
+function reservationsOf(s: Sale): string[] {
+  const all = [...(s.items || []).map((i) => i.reservationNumber), s.reservationNumber]
+    .map((r) => (r ?? '').trim())
+    .filter(Boolean);
+  return [...new Set(all)];
+}
+
+/** Hoteles de la venta (de sus servicios o el general). */
+function hotelsOf(s: Sale): { id: string; name: string }[] {
+  const map = new Map<string, string>();
+  for (const i of s.items || []) if (i.hotel) map.set(i.hotel.id, i.hotel.name);
+  if (s.hotel) map.set(s.hotel.id, s.hotel.name);
+  return [...map.entries()].map(([id, name]) => ({ id, name }));
 }
 
 type SaleSortField = 'createdAt' | 'client' | 'departure' | 'paymentType' | 'total' | 'status' | 'agent';
@@ -228,22 +247,23 @@ export default function SalesPage() {
     from: startOfMonth(new Date()),
     to: endOfMonth(new Date()),
   });
-  const [filterClientId, setFilterClientId] = useState('');
-  const [filterClientOpen, setFilterClientOpen] = useState(false);
+  // Clientes y hoteles: seleccion multiple, se aplican sobre la lista ya cargada
+  const [filterClientIds, setFilterClientIds] = useState<string[]>([]);
+  const [filterHotelIds, setFilterHotelIds] = useState<string[]>([]);
+  const [filterAgentIds, setFilterAgentIds] = useState<string[]>([]);
 
   const fetchSales = useCallback(async () => {
     try {
       const params = new URLSearchParams();
       if (dateRange.from) params.set('dateFrom', format(dateRange.from, 'yyyy-MM-dd'));
       if (dateRange.to) params.set('dateTo', format(dateRange.to, 'yyyy-MM-dd'));
-      if (filterClientId) params.set('clientId', filterClientId);
       if (folioSearch.trim()) params.set('folio', folioSearch.trim());
       const res = await fetch(`/api/sales?${params.toString()}`);
       if (res.ok) setSales(await res.json());
     } catch {
       toast({ title: 'Error', description: 'No se pudieron cargar las ventas', variant: 'destructive' });
     }
-  }, [dateRange, filterClientId, folioSearch, toast]);
+  }, [dateRange, folioSearch, toast]);
 
   // Tiempo real: si otro usuario cambia algo, la lista se actualiza sola
   const live = useLiveList('sales', () => { fetchSales(); });
@@ -277,7 +297,11 @@ export default function SalesPage() {
   useEffect(() => {
     fetchSales();
     setCurrentPage(1);
-  }, [dateRange, filterClientId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [dateRange]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterClientIds, filterHotelIds, filterAgentIds]);
 
   // Debounced folio search
   useEffect(() => {
@@ -306,9 +330,52 @@ export default function SalesPage() {
     setLoading(false);
   };
 
+  // Opciones de los filtros: solo clientes y hoteles que aparecen en las ventas del periodo
+  const clientOptions = (() => {
+    const map = new Map<string, { id: string; label: string; keywords?: string; count: number }>();
+    for (const s of sales) {
+      if (!s.client) continue;
+      const o = map.get(s.clientId) ?? { id: s.clientId, label: s.client.fullName, keywords: s.client.phone ?? '', count: 0 };
+      o.count += 1;
+      map.set(s.clientId, o);
+    }
+    return [...map.values()].sort((a, b) => a.label.localeCompare(b.label));
+  })();
+  const hotelOptions = (() => {
+    const map = new Map<string, { id: string; label: string; count: number }>();
+    for (const s of sales) {
+      for (const h of hotelsOf(s)) {
+        const o = map.get(h.id) ?? { id: h.id, label: h.name, count: 0 };
+        o.count += 1;
+        map.set(h.id, o);
+      }
+    }
+    return [...map.values()].sort((a, b) => a.label.localeCompare(b.label));
+  })();
+
+  // Agente = a quien pertenece la venta ("none" = sin agente)
+  const agentKey = (s: Sale) => s.createdBy || 'none';
+  const agentOptions = (() => {
+    const map = new Map<string, { id: string; label: string; count: number }>();
+    for (const s of sales) {
+      const id = agentKey(s);
+      const o = map.get(id) ?? { id, label: s.creatorName || 'Sin agente', count: 0 };
+      o.count += 1;
+      map.set(id, o);
+    }
+    return [...map.values()].sort((a, b) => a.label.localeCompare(b.label));
+  })();
+
+  const filteredSales = sales.filter(
+    (s) =>
+      (filterClientIds.length === 0 || filterClientIds.includes(s.clientId)) &&
+      (filterHotelIds.length === 0 || hotelsOf(s).some((h) => filterHotelIds.includes(h.id))) &&
+      (filterAgentIds.length === 0 || filterAgentIds.includes(agentKey(s)))
+  );
+
   // Orden de la lista (en el navegador: la lista ya viene completa del periodo)
   const { sorted: sortedSales, sort: saleSort, setSort: setSaleSort, toggle: toggleSaleSort } = useListSort<Sale, SaleSortField>(
-    sales,
+    filteredSales,
     {
       createdAt: (s) => (s.createdAt ? new Date(s.createdAt) : null),
       client: (s) => s.client?.fullName,
@@ -328,10 +395,12 @@ export default function SalesPage() {
   const totalPages = Math.ceil(sortedSales.length / itemsPerPage);
   const paginatedSales = sortedSales.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-  const hasActiveFilters = filterClientId || folioSearch.trim();
+  const hasActiveFilters = filterClientIds.length > 0 || filterHotelIds.length > 0 || filterAgentIds.length > 0 || folioSearch.trim();
 
   const clearFilters = () => {
-    setFilterClientId('');
+    setFilterClientIds([]);
+    setFilterHotelIds([]);
+    setFilterAgentIds([]);
     setFolioSearch('');
     setDateRange({ from: startOfMonth(new Date()), to: endOfMonth(new Date()) });
   };
@@ -717,7 +786,7 @@ export default function SalesPage() {
             <div className="relative w-full lg:w-56 lg:shrink-0">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
               <Input data-tour="page-filters"
-                placeholder="Buscar folio..."
+                placeholder="Folio o reservación..."
                 value={folioSearch}
                 onChange={(e) => setFolioSearch(e.target.value)}
                 className="pl-10 h-9"
@@ -725,37 +794,32 @@ export default function SalesPage() {
             </div>
           {/* Cliente, orden y limpiar */}
           <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3">
-            {/* Client filter */}
-            <Popover open={filterClientOpen} onOpenChange={setFilterClientOpen}>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className={cn('justify-between gap-2 w-full sm:w-auto sm:min-w-[160px] h-9', filterClientId && 'border-blue-500 bg-blue-50 dark:bg-blue-950/20')}>
-                  <span className="truncate max-w-[120px]">
-                    {filterClientId ? clients.find((c) => c.id === filterClientId)?.fullName || 'Cliente' : 'Cliente'}
-                  </span>
-                  {filterClientId ? (
-                    <X className="h-3 w-3 shrink-0 opacity-50 hover:opacity-100" onClick={(e) => { e.stopPropagation(); setFilterClientId(''); }} />
-                  ) : (
-                    <ChevronsUpDown className="h-3 w-3 shrink-0 opacity-50" />
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[250px] p-0" align="start">
-                <Command>
-                  <CommandInput placeholder="Buscar cliente..." />
-                  <CommandList>
-                    <CommandEmpty>No se encontraron clientes.</CommandEmpty>
-                    <CommandGroup>
-                      {clients.map((c) => (
-                        <CommandItem key={c.id} value={`${c.fullName} ${c.phone}`} onSelect={() => { setFilterClientId(c.id); setFilterClientOpen(false); }}>
-                          <Check className={cn('mr-2 h-4 w-4', filterClientId === c.id ? 'opacity-100' : 'opacity-0')} />
-                          {c.fullName}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
+            {/* Clientes y hoteles (seleccion multiple) */}
+            <MultiSelectFilter
+              label="Cliente"
+              icon={Users}
+              options={clientOptions}
+              value={filterClientIds}
+              onChange={setFilterClientIds}
+              placeholder="Buscar cliente…"
+            />
+            <MultiSelectFilter
+              label="Hotel"
+              icon={Hotel}
+              options={hotelOptions}
+              value={filterHotelIds}
+              onChange={setFilterHotelIds}
+              placeholder="Buscar hotel…"
+              emptyText="No hay hoteles en estas ventas"
+            />
+            <MultiSelectFilter
+              label="Agente"
+              icon={UserCheck}
+              options={agentOptions}
+              value={filterAgentIds}
+              onChange={setFilterAgentIds}
+              placeholder="Buscar agente…"
+            />
             <SortSelect
               options={SALE_SORT_OPTIONS}
               sort={saleSort}
@@ -779,6 +843,14 @@ export default function SalesPage() {
       {/* Table */}
       {sales.length > 0 ? (
         <Card>
+          {sortedSales.length === 0 && (
+            <div className="flex flex-col items-center gap-2 p-10 text-center text-sm text-muted-foreground">
+              Ninguna venta coincide con los filtros.
+              <Button variant="outline" size="sm" onClick={clearFilters}>
+                Limpiar filtros
+              </Button>
+            </div>
+          )}
           {/* Mobile/tablet: stacked cards (no horizontal scroll) */}
           <div data-tour="page-list" className="lg:hidden divide-y divide-border">
             {paginatedSales.map((sale) => (
@@ -789,6 +861,9 @@ export default function SalesPage() {
                       <span className="font-mono text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
                         {sale.id.slice(-8).toUpperCase()}
                       </span>
+                      {reservationsOf(sale).length > 0 && (
+                        <span className="font-mono text-xs font-semibold">Res. {reservationsOf(sale).join(', ')}</span>
+                      )}
                       <Badge variant={sale.paymentType === 'CASH' ? 'default' : 'secondary'}>
                         {sale.paymentType === 'CASH' ? 'Contado' : 'Crédito'}
                       </Badge>
@@ -840,6 +915,7 @@ export default function SalesPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Folio</TableHead>
+                <TableHead>Reservación</TableHead>
                 <SortableHead label="Fecha Creación" field="createdAt" sort={saleSort} onSort={onSaleSort} />
                 <SortableHead label="Cliente" field="client" sort={saleSort} onSort={onSaleSort} />
                 <TableHead>Servicios</TableHead>
@@ -858,6 +934,18 @@ export default function SalesPage() {
                     <span className="font-mono text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
                       {sale.id.slice(-8).toUpperCase()}
                     </span>
+                  </TableCell>
+                  <TableCell>
+                    {(() => {
+                      const res = reservationsOf(sale);
+                      if (!res.length) return <span className="text-sm text-muted-foreground">—</span>;
+                      return (
+                        <span className="whitespace-nowrap font-mono text-xs font-semibold" title={res.join(', ')}>
+                          {res[0]}
+                          {res.length > 1 && <span className="ml-1 font-sans font-normal text-muted-foreground">+{res.length - 1}</span>}
+                        </span>
+                      );
+                    })()}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
                     {sale.createdAt ? format(new Date(sale.createdAt), "d MMM yyyy", { locale: es }) : '—'}

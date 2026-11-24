@@ -61,9 +61,15 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: 'desc' },
     });
 
-    // Filter by folio (last 8 chars of ID)
-    const filteredBookings = folio
-      ? bookings.filter((b) => b.id.slice(-8).toUpperCase().includes(folio.toUpperCase()))
+    // Buscar por folio (ultimos 8 del id) o por numero de reservacion (de la venta o de sus servicios)
+    const term = folio?.trim().toUpperCase() ?? '';
+    const filteredBookings = term
+      ? bookings.filter(
+          (b) =>
+            b.id.slice(-8).toUpperCase().includes(term) ||
+            (b.reservationNumber ?? '').toUpperCase().includes(term) ||
+            b.items.some((i) => (i.reservationNumber ?? '').toUpperCase().includes(term))
+        )
       : bookings;
 
     // Fetch creator names
