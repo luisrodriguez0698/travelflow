@@ -89,7 +89,7 @@ export function DashboardSections({ sections }: { sections: DashboardSection[] }
         <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Análisis del negocio</p>
         <Popover>
           <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
+            <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" data-tour="dash-customize">
               <SlidersHorizontal className="h-3.5 w-3.5" />
               Personalizar
               {hidden.size > 0 && <span className="rounded-full bg-primary/15 px-1.5 text-[10px] font-bold text-primary">{hidden.size} oculta{hidden.size === 1 ? '' : 's'}</span>}

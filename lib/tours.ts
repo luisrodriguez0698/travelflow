@@ -45,7 +45,7 @@ export const GENERAL_TOUR: TourDef = {
     {
       element: 'nav-group-Finanzas',
       title: 'Finanzas',
-      description: '<b>Proveedores</b>, lo que les <b>debes</b> por cada venta y tus <b>cuentas bancarias</b> con sus movimientos.',
+      description: '<b>Proveedores</b>, lo que les <b>debes</b> por cada venta, tus <b>cuentas bancarias</b>, los <b>gastos fijos</b> y las <b>comisiones</b> y sueldos de tu equipo.',
     },
     {
       element: 'nav-group-Administración',
@@ -87,9 +87,37 @@ export const SECTION_TOURS: TourDef[] = [
     path: '/dashboard',
     module: 'dashboard',
     steps: [
-      { element: 'dash-metrics', title: 'Indicadores del mes', description: 'Ventas, clientes activos y pagos pendientes, actualizados al momento.' },
-      { element: 'dash-chart', title: 'Tendencia', description: 'Compara lo vendido y la ganancia de cada mes; el margen aparece al pasar el mouse.' },
-      { element: 'dash-activity', title: 'Lo urgente', description: 'Revisa aquí cada mañana los abonos vencidos o por vencer para dar seguimiento a tus clientes.' },
+      {
+        element: 'dash-today',
+        title: 'Qué hago hoy',
+        description: 'Tu lista del día: a quién <b>cobrar</b>, a qué proveedor <b>pagar</b>, qué cotización da <b>seguimiento</b> y quién viaja mañana. Cada una trae su botón de <b>WhatsApp</b> con el mensaje listo; palomea las que vayas terminando.',
+      },
+      {
+        element: 'dash-metrics',
+        title: 'Indicadores del mes',
+        description: 'Ventas, clientes activos y pagos pendientes. La flecha compara contra el <b>mismo tramo del mes pasado</b> (por ejemplo, del 1 al 24).',
+      },
+      {
+        element: 'dash-cockpit',
+        title: 'Cabina de vuelo',
+        description: 'Cuánto llevas de tu <b>meta</b>, tu <b>margen</b> y cómo va la <b>cobranza</b> del mes. Si no hay meta, se sugiere tu promedio de 3 meses.',
+      },
+      {
+        element: 'dash-net',
+        title: 'Utilidad neta',
+        description: 'Lo que <b>te queda</b> del mes: ganancia de ventas menos gastos fijos, comisiones y gastos varios capturados en Bancos.',
+      },
+      {
+        element: 'dash-chart',
+        title: 'Ventas por mes',
+        description: 'Lo vendido y la ganancia de cada mes. La línea punteada es el <b>año pasado</b>; pasa el mouse para ver si vas arriba o abajo.',
+      },
+      {
+        element: 'dash-customize',
+        title: 'Análisis del negocio',
+        description: 'Cobranza por semana, ranking de agentes, destinos top, embudo de cotizaciones y más. Con <b>Personalizar</b> ocultas o reordenas las secciones a tu gusto.',
+      },
+      { element: 'dash-activity', title: 'Lo urgente', description: 'Abonos vencidos o por vencer. Si son muchos, ábrelos todos en la <b>Torre de control</b>.' },
     ],
   },
   {
@@ -268,6 +296,63 @@ export const SECTION_TOURS: TourDef[] = [
     ],
   },
   {
+    id: 'commissions',
+    title: 'Comisiones y sueldos',
+    path: '/commissions',
+    module: 'comisiones',
+    steps: [
+      {
+        title: 'Comisiones de tu equipo 💸',
+        description:
+          'Aquí se calcula <b>solo</b> la comisión de cada venta según la regla de cada agente, y registras lo que les pagas (comisiones, sueldo, bonos). No tienes que capturar nada venta por venta.',
+      },
+      {
+        element: 'page-summary',
+        title: 'Resumen',
+        description:
+          '<b>Por pagar</b>: ya se ganó y falta pagarla. <b>Por ganar</b>: falta que el cliente pague. <b>Generado este mes</b>: comisión de las ventas del mes. <b>A descontar</b>: comisiones pagadas de ventas que después se cancelaron.',
+      },
+      {
+        element: 'comm-agent',
+        title: 'Cada agente',
+        description: 'Su regla, su sueldo y cuánto lleva <b>por pagar</b>, <b>por ganar</b> y <b>pagado</b>. Si dice <b>Sin configurar</b>, todavía no genera comisiones.',
+      },
+      {
+        element: 'comm-configure',
+        title: '1. Configura sueldo y %',
+        description:
+          'Pon su <b>sueldo base</b> (y cada cuándo), el <b>% de comisión</b> y si es sobre la <b>ganancia</b> o el <b>total vendido</b>. Elige <b>cuándo se gana</b>: cuando el cliente liquida (recomendado), según lo cobrado o al vender.',
+      },
+      {
+        title: '2. ¿Desde qué fecha?',
+        description:
+          'En <b>Comisiona ventas desde</b> eliges desde cuándo cuentan sus ventas. Las anteriores a esa fecha <b>no</b> generan comisión; si quieres incluir meses pasados, elige una fecha más atrás.',
+      },
+      {
+        element: 'comm-tabs',
+        title: '3. Revisa por venta',
+        description:
+          'En <b>Por venta</b> ves cada venta con su comisión, cuánto ha pagado el cliente y su estado. Con el lápiz ✏️ le pones <b>otro %</b> o un <b>monto fijo</b> solo a esa venta (venta compartida, grupo, promoción).',
+      },
+      {
+        element: 'comm-pay',
+        title: '4. Paga al agente',
+        description:
+          'Con <b>Pagar</b> eliges las comisiones a pagar, agregas su <b>sueldo</b>, un <b>bono</b> o un <b>descuento</b> y la cuenta de donde sale el dinero. Se registra el egreso en Bancos.',
+      },
+      {
+        title: '5. Historial y correcciones',
+        description:
+          'En la pestaña <b>Pagos</b> está cada pago con su desglose. Si te equivocas, <b>Anular</b> regresa el dinero a la cuenta y las comisiones vuelven a quedar pendientes. Si una venta se cancela, su comisión se ajusta sola.',
+      },
+      {
+        title: '¿Y los agentes?',
+        description:
+          'Con permiso de <b>ver</b> y la opción <b>solo lo mío</b>, cada agente ve únicamente <b>sus</b> comisiones: cuánto le deben y cuánto le falta por ganar. Solo el admin configura y paga.',
+      },
+    ],
+  },
+  {
     id: 'suppliers',
     title: 'Proveedores',
     path: '/suppliers',
@@ -303,6 +388,11 @@ export const SECTION_TOURS: TourDef[] = [
         element: 'page-summary',
         title: 'Saldo total',
         description: 'Entra a una cuenta para ver y registrar <b>ingresos</b>, <b>egresos</b> y <b>transferencias</b>. Los abonos de clientes llegan aquí solos.',
+      },
+      {
+        title: 'Categoría de los egresos',
+        description:
+          'Al registrar un egreso elige su <b>categoría</b> (oficina, publicidad y diseño, mantenimiento…). Así se resta en la <b>utilidad neta</b> del Dashboard. Un <b>retiro del dueño</b> o algo que <b>no es gasto</b> no se resta. Puedes cambiarla después desde el detalle del movimiento.',
       },
     ],
   },

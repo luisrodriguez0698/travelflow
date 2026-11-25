@@ -262,15 +262,23 @@ export default async function DashboardPage() {
       <LiveRefresh entities={['sales', 'clients']} />
 
       {/* Lista de trabajo del dia: cobrar, pagar, dar seguimiento */}
-      <TodayTasks tasks={today.tasks} more={today.more} />
+      <div data-tour="dash-today">
+        <TodayTasks tasks={today.tasks} more={today.more} />
+      </div>
 
       <div data-tour="dash-metrics">
         <MetricsCards metrics={metrics} />
       </div>
 
-      <CockpitGauges data={cockpit} />
+      <div data-tour="dash-cockpit">
+        <CockpitGauges data={cockpit} />
+      </div>
 
-      {netProfit && <NetProfitCard data={netProfit} />}
+      {netProfit && (
+        <div data-tour="dash-net">
+          <NetProfitCard data={netProfit} />
+        </div>
+      )}
 
       <div data-tour="dash-chart">
         <SalesChart data={chartData} />

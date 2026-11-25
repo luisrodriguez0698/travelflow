@@ -679,7 +679,7 @@ export default function CommissionsPage() {
         <RowsSkeleton rows={6} />
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div data-tour="page-summary" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             {[
               { label: data?.ownOnly ? 'Te deben' : 'Por pagar', hint: 'Ganado y sin pagar', value: totals.pending, icon: Wallet, cls: 'text-amber-600 dark:text-amber-400' },
               { label: 'Por ganar', hint: 'Falta que los clientes paguen', value: totals.waiting, icon: Hourglass, cls: 'text-sky-600 dark:text-sky-400' },
@@ -700,7 +700,7 @@ export default function CommissionsPage() {
           </div>
 
           <Tabs value={tab} onValueChange={setTab}>
-            <TabsList>
+            <TabsList data-tour="comm-tabs">
               <TabsTrigger value="agents">{data?.ownOnly ? 'Mi resumen' : 'Agentes'}</TabsTrigger>
               <TabsTrigger value="sales">Por venta</TabsTrigger>
               <TabsTrigger value="payouts">Pagos</TabsTrigger>
@@ -712,8 +712,8 @@ export default function CommissionsPage() {
                 <EmptyState icon={HandCoins} title="Sin agentes" description="Agrega usuarios en Usuarios para configurar sus comisiones." />
               ) : (
                 <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                  {agents.map((a) => (
-                    <Card key={a.userId} data-agent className={cn('flex flex-col p-4', a.setting && !a.setting.isActive && 'opacity-60')}>
+                  {agents.map((a, i) => (
+                    <Card key={a.userId} data-agent data-tour={i === 0 ? 'comm-agent' : undefined} className={cn('flex flex-col p-4', a.setting && !a.setting.isActive && 'opacity-60')}>
                       <div className="flex items-start gap-3">
                         {a.avatar ? (
                           // eslint-disable-next-line @next/next/no-img-element
@@ -757,7 +757,7 @@ export default function CommissionsPage() {
 
                       <div className="mt-auto flex flex-wrap gap-2 pt-4">
                         {data?.canEdit && (
-                          <Button size="sm" variant="outline" onClick={() => setConfiguring(a)}>
+                          <Button size="sm" variant="outline" data-tour={i === 0 ? 'comm-configure' : undefined} onClick={() => setConfiguring(a)}>
                             <Settings2 className="mr-1.5 h-3.5 w-3.5" />
                             {a.setting ? 'Configurar' : 'Configurar sueldo y %'}
                           </Button>
@@ -773,7 +773,7 @@ export default function CommissionsPage() {
                           Ver ventas
                         </Button>
                         {data?.canPay && (a.pending > 0 || (a.setting?.baseSalary ?? 0) > 0) && (
-                          <Button size="sm" variant="gradient" className="ml-auto" onClick={() => setPaying(a)}>
+                          <Button size="sm" variant="gradient" className="ml-auto" data-tour="comm-pay" onClick={() => setPaying(a)}>
                             <HandCoins className="mr-1.5 h-3.5 w-3.5" />
                             Pagar
                           </Button>
