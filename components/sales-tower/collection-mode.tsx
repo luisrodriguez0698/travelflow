@@ -21,6 +21,8 @@ import { STATUS_META, longDate, money, prefersReducedMotion, whenLabel, type Tow
 // o Despues. Se puede deslizar: derecha = recordar, izquierda = despues.
 
 type Action = 'remind' | 'paid' | 'skip';
+/** Pixeles que hay que deslizar para que cuente */
+const SWIPE = 110;
 
 function reminderText(s: TowerSale) {
   const first = s.client.split(/\s+/)[0];
@@ -38,6 +40,10 @@ export function CollectionMode({ open, onOpenChange, sales }: { open: boolean; o
   const busy = useRef(false);
   const drag = useRef<{ x: number; dx: number } | null>(null);
   const summaryRef = useRef<HTMLDivElement>(null);
+  // Sellos que aparecen al deslizar: derecha = WhatsApp (verde), izquierda = despues
+  const remindStamp = useRef<HTMLDivElement>(null);
+  const skipStamp = useRef<HTMLDivElement>(null);
+  const [leaning, setLeaning] = useState<'remind' | 'skip' | null>(null);
 
   // Al abrir: atrasados primero, luego los de pago cercano (el mas proximo primero).
   // Solo al abrir: si la lista se actualiza en vivo no se reinicia la ronda.
@@ -63,7 +69,8 @@ export function CollectionMode({ open, onOpenChange, sales }: { open: boolean; o
   // Entrada de cada tarjeta
   useEffect(() => {
     if (!card.current || prefersReducedMotion()) return;
-    gsap.fromTo(card.current, { y: 40, scale: 0.92, opacity: 0, rotation: 0, x: 0 }, { y: 0, scale: 1, opacity: 1, duration: 0.45, ease: 'back.out(1.6)' });
+    gsap.fromTo(card.current, { y: 20, scale: 0.95, opacity: 0.6, rotation: 0, x: 0, transformOrigin: '50% 100%' }, { y: 0, scale: 1, opacity: 1, duration: 0.4, ease: 'back.out(1.6)' });
+    gsap.set([remindStamp.current, skipStamp.current], { opacity: 0 });
   }, [index, current?.id]);
 
   // Resumen final con confeti
@@ -89,6 +96,8 @@ export function CollectionMode({ open, onOpenChange, sales }: { open: boolean; o
       };
       if (!card.current || prefersReducedMotion()) return advance();
       const dir = action === 'skip' ? -1 : 1;
+      setLeaning(null);
+      if (action !== 'paid') gsap.to(action === 'remind' ? remindStamp.current : skipStamp.current, { opacity: 1, duration: 0.12 });
       gsap.to(card.current, {
         x: action === 'paid' ? 0 : dir * 520,
         y: action === 'paid' ? -420 : 40,
@@ -122,18 +131,32 @@ export function CollectionMode({ open, onOpenChange, sales }: { open: boolean; o
   };
   const onPointerMove = (e: React.PointerEvent) => {
     if (!drag.current || !card.current) return;
-    drag.current.dx = e.clientX - drag.current.x;
-    gsap.set(card.current, { x: drag.current.dx, rotation: drag.current.dx / 18 });
+    const dx = (drag.current.dx = e.clientX - drag.current.x);
+    gsap.set(card.current, { x: dx, rotation: dx / 18 });
+    // El sello se va llenando; al pasar el umbral crece ("suelta para...")
+    const p = Math.min(1, Math.abs(dx) / SWIPE);
+    const over = Math.abs(dx) >= SWIPE;
+    gsap.set(remindStamp.current, { opacity: dx > 0 ? p : 0 });
+    gsap.set(skipStamp.current, { opacity: dx < 0 ? p : 0 });
+    gsap.to(dx > 0 ? '[data-stamp-icon="remind"]' : '[data-stamp-icon="skip"]', { scale: over ? 1.15 : 0.85 + p * 0.15, duration: 0.15, overwrite: true });
+    setLeaning(dx > 20 ? 'remind' : dx < -20 ? 'skip' : null);
   };
   const onPointerUp = () => {
     if (!drag.current || !card.current) return;
     const { dx } = drag.current;
     drag.current = null;
-    if (dx > 110) act('remind');
-    else if (dx < -110) act('skip');
-    else gsap.to(card.current, { x: 0, rotation: 0, duration: 0.35, ease: 'back.out(2)' });
+    setLeaning(null);
+    if (dx > SWIPE && current?.phone) act('remind');
+    else if (dx < -SWIPE) act('skip');
+    else {
+      gsap.to(card.current, { x: 0, rotation: 0, duration: 0.35, ease: 'back.out(2)' });
+      gsap.to([remindStamp.current, skipStamp.current], { opacity: 0, duration: 0.2 });
+    }
   };
 
+  const amountOf = (x: TowerSale) => x.overdueAmount || x.next?.pending || 0;
+  const remaining = queue.slice(index);
+  const remainingAmount = remaining.reduce((t, x) => t + amountOf(x), 0);
   const contactedAmount = [...done.remind, ...done.paid].reduce((s, x) => s + (x.overdueAmount || x.next?.pending || 0), 0);
 
   return (
@@ -159,19 +182,49 @@ export function CollectionMode({ open, onOpenChange, sales }: { open: boolean; o
             <div className="h-full rounded-full bg-gradient-to-r from-amber-400 to-emerald-500 transition-all duration-500" style={{ width: `${(Math.min(index, queue.length) / queue.length) * 100}%` }} />
           </div>
         )}
+        {queue.length > 0 && !finished && (
+          <p className="-mt-1 flex justify-between text-xs text-muted-foreground">
+            <span>
+              Faltan <b className="text-foreground">{remaining.length}</b> cliente{remaining.length === 1 ? '' : 's'}
+            </span>
+            <span>
+              <b className="tabular-nums text-foreground">{money(remainingAmount)}</b> por cobrar
+            </span>
+          </p>
+        )}
 
         {current && !finished && (
-          <div className="relative py-2">
-            {/* Tarjetas de atras (pila) */}
-            {queue[index + 1] && <div className="absolute inset-x-6 top-4 h-full rounded-3xl border bg-card opacity-50" />}
-            <div
-              ref={card}
-              onPointerDown={onPointerDown}
-              onPointerMove={onPointerMove}
-              onPointerUp={onPointerUp}
-              onPointerCancel={onPointerUp}
-              className="relative cursor-grab touch-pan-y select-none rounded-3xl border bg-card p-5 shadow-xl active:cursor-grabbing"
-            >
+          <div className="py-2">
+            {/* Mazo: la tarjeta actual y asoman las siguientes (con su monto) */}
+            <div className="relative pb-11">
+              {[2, 1].map((offset) => {
+                const next = queue[index + offset];
+                if (!next) return null;
+                return (
+                  <div
+                    key={next.id}
+                    aria-hidden
+                    className="absolute inset-x-0 bottom-11 top-0 flex items-end justify-between rounded-3xl border bg-card px-5 pb-1 text-[11px] text-muted-foreground shadow-md"
+                    style={{ transform: `translateY(${offset * 20}px) scale(${1 - offset * 0.05})`, transformOrigin: 'bottom center', opacity: offset === 1 ? 0.9 : 0.5, zIndex: 3 - offset }}
+                  >
+                    {offset === 1 && (
+                      <>
+                        <span className="truncate pr-2">Sigue: {next.client}</span>
+                        <b className={cn('shrink-0 tabular-nums', next.status === 'OVERDUE' ? 'text-red-500' : 'text-amber-500')}>{money(amountOf(next))}</b>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+
+              <div
+                ref={card}
+                onPointerDown={onPointerDown}
+                onPointerMove={onPointerMove}
+                onPointerUp={onPointerUp}
+                onPointerCancel={onPointerUp}
+                className="relative z-10 cursor-grab touch-pan-y select-none overflow-hidden rounded-3xl border bg-card p-5 shadow-xl active:cursor-grabbing"
+              >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p className="truncate text-xl font-bold">{current.client}</p>
@@ -220,10 +273,28 @@ export function CollectionMode({ open, onOpenChange, sales }: { open: boolean; o
                 )}
                 {current.agent && <span>Agente: {current.agent}</span>}
               </div>
+
+                {/* Sello derecha: WhatsApp */}
+                <div ref={remindStamp} className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 bg-emerald-500/90 text-white opacity-0">
+                  <span data-stamp-icon="remind" className="flex h-20 w-20 items-center justify-center rounded-full bg-white/20 ring-4 ring-white/60">
+                    <MessageCircle className="h-11 w-11" />
+                  </span>
+                  <span className="text-lg font-black tracking-wide">{current.phone ? 'RECORDAR POR WHATSAPP' : 'SIN TELÉFONO'}</span>
+                  <span className="text-xs opacity-90">{current.phone ? 'Suelta para enviar' : 'No se puede enviar'}</span>
+                </div>
+                {/* Sello izquierda: despues */}
+                <div ref={skipStamp} className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 bg-slate-600/90 text-white opacity-0">
+                  <span data-stamp-icon="skip" className="flex h-20 w-20 items-center justify-center rounded-full bg-white/15 ring-4 ring-white/50">
+                    <SkipForward className="h-11 w-11" />
+                  </span>
+                  <span className="text-lg font-black tracking-wide">SALTAR · DESPUÉS</span>
+                  <span className="text-xs opacity-90">Suelta para dejarlo al final</span>
+                </div>
+              </div>
             </div>
 
-            <div className="mt-4 grid grid-cols-3 gap-2">
-              <Button variant="outline" onClick={() => act('skip')}>
+            <div className="relative z-20 mt-2 grid grid-cols-3 gap-2">
+              <Button variant="outline" onClick={() => act('skip')} className={cn('transition-all', leaning === 'skip' && 'scale-105 bg-slate-600 text-white ring-2 ring-slate-400')}>
                 <SkipForward className="mr-1.5 h-4 w-4" />
                 Después
               </Button>
@@ -231,7 +302,11 @@ export function CollectionMode({ open, onOpenChange, sales }: { open: boolean; o
                 <Receipt className="mr-1.5 h-4 w-4" />
                 Ya pagó
               </Button>
-              <Button onClick={() => act('remind')} disabled={!current.phone} className="bg-emerald-600 text-white hover:bg-emerald-700">
+              <Button
+                onClick={() => act('remind')}
+                disabled={!current.phone}
+                className={cn('bg-emerald-600 text-white transition-all hover:bg-emerald-700', leaning === 'remind' && 'scale-105 ring-2 ring-emerald-300')}
+              >
                 <MessageCircle className="mr-1.5 h-4 w-4" />
                 Recordar
               </Button>
