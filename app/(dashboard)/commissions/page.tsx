@@ -53,6 +53,8 @@ import {
 const money = (n: number) => `${n < 0 ? '-' : ''}$${Math.abs(n).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const shortDate = (iso: string) => new Date(iso).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'America/Mexico_City' });
 const todayStr = () => format(new Date(), 'yyyy-MM-dd');
+/** Dia 1 del mes actual: fecha sugerida para empezar a comisionar */
+const monthStartStr = () => format(new Date(new Date().getFullYear(), new Date().getMonth(), 1), 'yyyy-MM-dd');
 
 const STATUS: Record<CommissionStatus, { label: string; cls: string }> = {
   WAITING: { label: 'Por ganar', cls: 'bg-slate-500/15 text-slate-600 dark:text-slate-300' },
@@ -103,7 +105,7 @@ function SettingDialog({ agent, onClose, onSaved }: { agent: AgentSummary | null
     commissionRate: '',
     commissionBase: 'PROFIT' as CommissionBase,
     earnedWhen: 'PAID' as EarnedWhen,
-    startDate: todayStr(),
+    startDate: monthStartStr(),
     isActive: true,
     notes: '',
   });
@@ -118,7 +120,7 @@ function SettingDialog({ agent, onClose, onSaved }: { agent: AgentSummary | null
       commissionRate: s ? String(s.commissionRate || '') : '',
       commissionBase: s?.commissionBase ?? 'PROFIT',
       earnedWhen: s?.earnedWhen ?? 'PAID',
-      startDate: s?.startDate ?? todayStr(),
+      startDate: s?.startDate ?? monthStartStr(),
       isActive: s?.isActive ?? true,
       notes: s?.notes ?? '',
     });
@@ -233,13 +235,17 @@ function SettingDialog({ agent, onClose, onSaved }: { agent: AgentSummary | null
           <div className="grid grid-cols-2 items-end gap-3">
             <div>
               <Label>Comisiona ventas desde</Label>
-              <DatePicker value={form.startDate ? parseISO(form.startDate) : null} onChange={(d) => setForm({ ...form, startDate: d ? format(d, 'yyyy-MM-dd') : todayStr() })} />
+              <DatePicker value={form.startDate ? parseISO(form.startDate) : null} onChange={(d) => setForm({ ...form, startDate: d ? format(d, 'yyyy-MM-dd') : monthStartStr() })} />
             </div>
             <label className="flex items-center justify-between gap-2 rounded-lg border p-2.5 text-sm">
               Activo
               <Switch checked={form.isActive} onCheckedChange={(v) => setForm({ ...form, isActive: v })} />
             </label>
           </div>
+
+          <p className="-mt-2 text-xs text-muted-foreground">
+            Solo las ventas desde esta fecha generan comisión. Si quieres incluir ventas de meses anteriores, elige una fecha más atrás.
+          </p>
 
           <div>
             <Label>Notas</Label>
