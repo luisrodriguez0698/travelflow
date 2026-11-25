@@ -135,12 +135,15 @@ export function RecontactCard({ people }: { people: Recontact[] }) {
 export function MonthCashFlowCard({ flow }: { flow: MonthCashFlow }) {
   const ref = useReveal(`${flow.income}-${flow.net}`);
   const [hover, setHover] = useState<string | null>(null);
-  const out = flow.suppliers + flow.fixed + flow.other;
+  const out = flow.suppliers + flow.fixed + flow.commissions + flow.variable + flow.withdrawals + flow.other;
   const max = Math.max(1, flow.income, out);
   const outs = [
     { key: 'suppliers', label: 'Proveedores', value: flow.suppliers, color: 'bg-violet-500' },
     { key: 'fixed', label: 'Gastos fijos', value: flow.fixed, color: 'bg-amber-400' },
-    { key: 'other', label: 'Otros egresos', value: flow.other, color: 'bg-slate-400' },
+    { key: 'commissions', label: 'Comisiones y sueldos', value: flow.commissions, color: 'bg-fuchsia-400' },
+    { key: 'variable', label: 'Gastos varios', value: flow.variable, color: 'bg-orange-400' },
+    { key: 'withdrawals', label: 'Retiros', value: flow.withdrawals, color: 'bg-cyan-500' },
+    { key: 'other', label: 'No es gasto', value: flow.other, color: 'bg-slate-400' },
   ].filter((o) => o.value > 0);
   const positive = flow.net >= 0;
 

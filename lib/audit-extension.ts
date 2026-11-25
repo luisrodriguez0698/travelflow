@@ -45,6 +45,9 @@ const TRACKED: Record<string, TrackConfig> = {
   FixedExpense: { entity: () => 'fixed_expenses', ignore: ['lastReminderDue', 'lastReminderStage', 'lastReminderAt'] },
   Raffle: { entity: () => 'raffles', ignore: ['termsAcceptedAt'] },
   SpecialEvent: { entity: () => 'special_events' },
+  AgentPaySetting: { entity: () => 'commissions', context: () => 'Configuración de agente' },
+  SaleCommissionOverride: { entity: () => 'commissions', context: () => 'Ajuste de comisión de una venta' },
+  CommissionPayout: { entity: () => 'commissions', context: () => 'Pago a agente' },
   EventGuest: {
     entity: () => 'special_events',
     entityId: (r) => r.eventId,

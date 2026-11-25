@@ -76,6 +76,12 @@ import { Switch } from '@/components/ui/switch';
 import { UsersRound, CreditCard as CreditCardIcon, Copy as CopyIcon, ArrowLeftRight as MoveIcon } from 'lucide-react';
 import { toast as sonnerToast } from 'sonner';
 import { PageSkeleton, RowsSkeleton } from '@/components/skeletons';
+import { EXPENSE_CATEGORIES, categoryInfo, type ExpenseCategory } from '@/lib/bank-categories';
+
+// Egresos que vienen de otro apartado (no llevan categoria propia)
+const AUTO_EXPENSE_REFS = ['Gasto fijo', 'Comisiones y sueldos', 'Pago a proveedor desde cobro'];
+const isManualExpense = (tx: { type: string; reference?: string | null; description: string }) =>
+  tx.type === 'EXPENSE' && !AUTO_EXPENSE_REFS.includes(tx.reference ?? '') && !tx.description.startsWith('Pago a proveedor') && !tx.description.startsWith('Ajuste de cierre');
 
 const MEXICAN_BANKS = [
   'BBVA', 'Banorte', 'Santander', 'HSBC', 'Scotiabank', 'Citibanamex',
@@ -118,6 +124,7 @@ interface BankTransaction {
   amount: number;
   description: string;
   reference?: string;
+  category?: string | null;
   date: string;
   bookingId?: string;
   destinationAccountId?: string;
@@ -198,6 +205,8 @@ export default function BanksPage() {
   const [txAmount, setTxAmount] = useState('');
   const [txDescription, setTxDescription] = useState('');
   const [txReference, setTxReference] = useState('');
+  const [txCategory, setTxCategory] = useState<ExpenseCategory>('OTRO');
+  const [savingCategory, setSavingCategory] = useState(false);
   const [txDestAccountId, setTxDestAccountId] = useState('');
   const [confirmTx, setConfirmTx] = useState(false);
 
@@ -448,8 +457,31 @@ export default function BanksPage() {
     setTxAmount('');
     setTxDescription('');
     setTxReference('');
+    setTxCategory('OTRO');
     setTxDestAccountId('');
     setConfirmTx(false);
+  };
+
+  // Cambiar la categoria de un egreso ya registrado
+  const changeCategory = async (tx: BankTransaction, category: ExpenseCategory) => {
+    if (!selectedAccount) return;
+    setSavingCategory(true);
+    try {
+      const res = await fetch(`/api/bank-accounts/${selectedAccount.id}/transactions/category`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transactionId: tx.id, category }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'No se pudo cambiar');
+      setSelectedTx({ ...tx, category });
+      setTransactions((list) => list.map((t) => (t.id === tx.id ? { ...t, category } : t)));
+      toast({ title: 'Categoría actualizada', description: categoryInfo(category).label });
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message || 'No se pudo cambiar', variant: 'destructive' });
+    } finally {
+      setSavingCategory(false);
+    }
   };
 
   const handleCreateTransaction = async () => {
@@ -481,6 +513,7 @@ export default function BanksPage() {
           amount,
           description: txDescription,
           reference: txReference || null,
+          category: txModalType === 'EXPENSE' ? txCategory : null,
           destinationAccountId: txDestAccountId || null,
         }),
       });
@@ -751,6 +784,9 @@ export default function BanksPage() {
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <p className={`font-medium truncate ${isCancelled ? 'line-through' : ''}`}>{tx.description}</p>
+                          {isManualExpense(tx) && (
+                            <p className="text-xs text-muted-foreground">{categoryInfo(tx.category).emoji} {categoryInfo(tx.category).label}</p>
+                          )}
                           {tx.booking?.client && (
                             <p className="text-xs text-muted-foreground">Cliente: {tx.booking.client.fullName}</p>
                           )}
@@ -816,6 +852,9 @@ export default function BanksPage() {
                         <TableCell>
                           <div>
                             <p className={isCancelled ? 'line-through' : ''}>{tx.description}</p>
+                            {isManualExpense(tx) && (
+                              <p className="text-xs text-muted-foreground">{categoryInfo(tx.category).emoji} {categoryInfo(tx.category).label}</p>
+                            )}
                             {tx.booking?.client && (
                               <p className="text-xs text-muted-foreground">Cliente: {tx.booking.client.fullName}</p>
                             )}
@@ -908,6 +947,29 @@ export default function BanksPage() {
                   placeholder="0.00"
                 />
               </div>
+
+              {txModalType === 'EXPENSE' && (
+                <div className="space-y-2">
+                  <Label>Categoría</Label>
+                  <Select value={txCategory} onValueChange={(v) => setTxCategory(v as ExpenseCategory)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(Object.keys(EXPENSE_CATEGORIES) as ExpenseCategory[]).map((k) => (
+                        <SelectItem key={k} value={k}>
+                          {EXPENSE_CATEGORIES[k].emoji} {EXPENSE_CATEGORIES[k].label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    {EXPENSE_CATEGORIES[txCategory].isExpense
+                      ? 'Se resta en la utilidad neta del mes (Dashboard).'
+                      : 'No es gasto del negocio: no se resta en la utilidad neta.'}
+                  </p>
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label>Descripción *</Label>
@@ -1107,6 +1169,31 @@ export default function BanksPage() {
                   <p className="text-xs text-muted-foreground">Descripción</p>
                   <p className="text-sm">{selectedTx.description}</p>
                 </div>
+                {isManualExpense(selectedTx) && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Categoría</p>
+                    {can('bancos', 'edit') && selectedTx.status !== 'CANCELLED' ? (
+                      <Select
+                        value={(selectedTx.category as ExpenseCategory) || 'OTRO'}
+                        onValueChange={(v) => changeCategory(selectedTx, v as ExpenseCategory)}
+                        disabled={savingCategory}
+                      >
+                        <SelectTrigger className="h-9">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(Object.keys(EXPENSE_CATEGORIES) as ExpenseCategory[]).map((k) => (
+                            <SelectItem key={k} value={k}>
+                              {EXPENSE_CATEGORIES[k].emoji} {EXPENSE_CATEGORIES[k].label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <p className="text-sm">{categoryInfo(selectedTx.category).emoji} {categoryInfo(selectedTx.category).label}</p>
+                    )}
+                  </div>
+                )}
 
                 {/* Booking info */}
                 {selectedTx.booking && (

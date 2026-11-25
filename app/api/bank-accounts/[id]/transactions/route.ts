@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { isExpenseCategory } from '@/lib/bank-categories';
 import { getSessionUser } from '@/lib/get-tenant';
 import { requireAccess, accessErrorResponse } from '@/lib/access';
 import { decryptAccountFields } from '@/lib/bank-fields';
@@ -128,6 +129,8 @@ export async function POST(
     const body = await request.json();
 
     const { type, amount, description, reference, bookingId, destinationAccountId } = body;
+    // Categoria del egreso (para la utilidad neta); sin categoria = "Otro gasto"
+    const category = type === 'EXPENSE' && isExpenseCategory(body.category) ? body.category : null;
 
     if (!type || !amount || amount <= 0 || !description) {
       return NextResponse.json(
@@ -163,6 +166,8 @@ export async function POST(
             description,
             reference: reference || null,
             bookingId: bookingId || null,
+            category,
+            createdBy: access.userId,
             date: body.date ? new Date(body.date) : new Date(),
           },
         }),
@@ -173,7 +178,7 @@ export async function POST(
       ]);
 
       const su = await getSessionUser();
-      if (su) await logAudit({ tenantId, userId: su.id, userName: su.name, action: 'CREATE', entity: 'bank_transactions', entityId: transaction.id, changes: { type: 'EXPENSE', amount, description } });
+      if (su) await logAudit({ tenantId, userId: su.id, userName: su.name, action: 'CREATE', entity: 'bank_transactions', entityId: transaction.id, changes: { type: 'EXPENSE', amount, description, category } });
 
       return NextResponse.json(transaction, { status: 201 });
     }
@@ -404,6 +409,13 @@ export async function PATCH(
       operations.push(
         prisma.supplierPayment.updateMany({
           where: { bankTransactionId: transaction.id, status: 'ACTIVE' },
+          data: { status: 'CANCELLED' },
+        })
+      );
+      // Igual con un pago de comisiones/sueldo: las comisiones vuelven a quedar pendientes
+      operations.push(
+        prisma.commissionPayout.updateMany({
+          where: { bankTransactionId: transaction.id, tenantId: transaction.tenantId, status: 'ACTIVE' },
           data: { status: 'CANCELLED' },
         })
       );

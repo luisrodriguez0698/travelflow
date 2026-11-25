@@ -12,6 +12,7 @@ export const ALL_MODULES = [
   'rifas',
   'gastos',
   'eventos',
+  'comisiones',
 ] as const;
 
 export type ModulePermission = (typeof ALL_MODULES)[number];
@@ -30,6 +31,7 @@ export const MODULE_LABELS: Record<ModulePermission, string> = {
   rifas: 'Rifas',
   gastos: 'Gastos fijos',
   eventos: 'Eventos',
+  comisiones: 'Comisiones',
 };
 
 export const ROUTE_TO_MODULE: Record<string, ModulePermission> = {
@@ -53,6 +55,7 @@ export const ROUTE_TO_MODULE: Record<string, ModulePermission> = {
   '/sorteo': 'rifas',
   '/expenses': 'gastos',
   '/events': 'eventos',
+  '/commissions': 'comisiones',
   '/audit': 'usuarios',
 };
 
@@ -71,6 +74,7 @@ export const DEFAULT_ROLES = [
       'clientes:view', 'clientes:create', 'clientes:edit',
       'destinos:view',
       'temporadas:view',
+      'comisiones:view',
     ],
     isDefault: true,
   },
@@ -148,6 +152,9 @@ export const MODULE_ACTIONS: Record<ModulePermission, PermissionAction[]> = {
   gastos: ['view', 'create', 'edit', 'delete', 'payments'],
   // edit incluye registrar la llegada (escanear el QR en la entrada)
   eventos: ['view', 'create', 'edit', 'delete'],
+  // edit: configurar sueldo/% de cada agente y ajustar la comision de una venta
+  // payments: registrar el pago de comisiones y sueldos
+  comisiones: ['view', 'edit', 'payments'],
 };
 
 /** Que significa "Pagos" en cada apartado (para la pantalla de roles). */
@@ -155,6 +162,7 @@ export const PAYMENTS_LABEL: Partial<Record<ModulePermission, string>> = {
   ventas: 'Registrar abonos de clientes',
   proveedores: 'Registrar pagos a proveedores',
   gastos: 'Registrar el pago de un gasto fijo',
+  comisiones: 'Pagar comisiones y sueldos',
 };
 
 /** Lo guardado en el rol -> conjunto efectivo para la sesion. */

@@ -57,6 +57,9 @@ model Tenant {
   fixedExpenses    FixedExpense[]
   fixedExpensePayments FixedExpensePayment[]
   specialEvents    SpecialEvent[]
+  agentPaySettings       AgentPaySetting[]
+  saleCommissionOverrides SaleCommissionOverride[]
+  commissionPayouts      CommissionPayout[]
 
   @@map("tenants")
 }
@@ -318,6 +321,8 @@ model Booking {
   supplierPayments SupplierPayment[]
   passengers       BookingPassenger[]
   items            BookingItem[]
+  commissionOverride SaleCommissionOverride?
+  commissionItems    CommissionPayoutItem[]
 
   @@index([tenantId])
   @@index([clientId])
@@ -718,6 +723,8 @@ model BankTransaction {
   // Cobros: quien lo registro y como pago el cliente (TRANSFER, CASH, DEPOSIT, CARD, OTHER)
   createdBy            String?
   paymentMethod        String?
+  // Egresos capturados a mano: OFICINA, PUBLICIDAD, MANTENIMIENTO, PAPELERIA, TRANSPORTE, OTRO, RETIRO, NO_GASTO
+  category             String?
   status               String   @default("ACTIVE") // ACTIVE, CANCELLED
   date                 DateTime @default(now())
   createdAt            DateTime @default(now())
@@ -1013,4 +1020,89 @@ model EventGuest {
   @@index([tenantId])
   @@index([eventId])
   @@map("event_guests")
+}
+
+// ─── Comisiones y sueldos de agentes ─────────────────────────────────────────
+
+// Sueldo base y regla de comision de cada agente (lo edita el admin)
+model AgentPaySetting {
+  id              String   @id @default(cuid())
+  tenantId        String
+  userId          String
+  baseSalary      Float    @default(0)
+  salaryFrequency String   @default("QUINCENAL") // SEMANAL, QUINCENAL, MENSUAL
+  commissionRate  Float    @default(0)            // porcentaje (10 = 10%)
+  commissionBase  String   @default("PROFIT")     // PROFIT (ganancia: precio - costo) | SALE (total vendido)
+  earnedWhen      String   @default("PAID")       // SALE (al vender) | PAID (al liquidar) | PROPORTIONAL (segun lo cobrado)
+  startDate       DateTime @default(now())        // solo las ventas desde esta fecha generan comision
+  isActive        Boolean  @default(true)
+  notes           String?  @db.Text
+  createdBy       String?
+  updatedBy       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, userId])
+  @@map("agent_pay_settings")
+}
+
+// Ajuste de la comision de una venta en particular (otro % o un monto fijo)
+model SaleCommissionOverride {
+  id        String   @id @default(cuid())
+  tenantId  String
+  bookingId String   @unique
+  rate      Float?   // % solo para esta venta
+  amount    Float?   // monto fijo (gana sobre rate)
+  note      String?  @db.Text
+  createdBy String?
+  updatedBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("sale_commission_overrides")
+}
+
+// Pago a un agente: comisiones de varias ventas + sueldo + bono - descuentos
+model CommissionPayout {
+  id                String   @id @default(cuid())
+  tenantId          String
+  userId            String
+  commissionAmount  Float    @default(0)
+  salaryAmount      Float    @default(0)
+  bonusAmount       Float    @default(0)
+  deductionAmount   Float    @default(0)
+  total             Float
+  bankAccountId     String?
+  bankTransactionId String?
+  paidAt            DateTime @default(now())
+  notes             String?  @db.Text
+  status            String   @default("ACTIVE") // ACTIVE, CANCELLED
+  createdBy         String?
+  createdAt         DateTime @default(now())
+
+  tenant Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  items  CommissionPayoutItem[]
+
+  @@index([tenantId, userId])
+  @@map("commission_payouts")
+}
+
+model CommissionPayoutItem {
+  id        String @id @default(cuid())
+  payoutId  String
+  bookingId String
+  amount    Float
+
+  payout  CommissionPayout @relation(fields: [payoutId], references: [id], onDelete: Cascade)
+  booking Booking          @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([payoutId])
+  @@index([bookingId])
+  @@map("commission_payout_items")
 }

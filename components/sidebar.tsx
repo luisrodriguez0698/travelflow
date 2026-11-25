@@ -26,6 +26,7 @@ import {
   Target,
   LayoutTemplate,
   ReceiptText,
+  HandCoins,
   Ticket,
   History,
   PartyPopper,
@@ -80,6 +81,7 @@ const menuGroups: MenuGroup[] = [
       { title: 'Deudas', icon: Wallet, href: '/suppliers/debts', module: 'proveedores' },
       { title: 'Bancos', icon: Landmark, href: '/banks', module: 'bancos' },
       { title: 'Gastos fijos', icon: ReceiptText, href: '/expenses', module: 'gastos' },
+      { title: 'Comisiones', icon: HandCoins, href: '/commissions', module: 'comisiones' },
     ],
   },
   {

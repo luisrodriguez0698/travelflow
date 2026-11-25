@@ -1,6 +1,38 @@
 import { prisma } from '@/lib/prisma';
 import type { Access } from '@/lib/access';
 import { monthlyEquivalent } from '@/lib/fixed-expense-rules';
+import { monthCommissions } from '@/lib/commissions';
+import { EXPENSE_CATEGORIES, isExpenseCategory, type ExpenseCategory } from '@/lib/bank-categories';
+
+// ─── Clasificacion de egresos de Bancos ───
+type ExpenseKind = 'suppliers' | 'fixed' | 'commissions' | 'variable' | 'withdrawals' | 'other';
+interface ExpenseTx {
+  id: string;
+  description: string;
+  reference: string | null;
+  category: string | null;
+  supplierPayment: { id: string } | null;
+}
+const EXPENSE_SELECT = { id: true, type: true, amount: true, description: true, reference: true, category: true, supplierPayment: { select: { id: true } } } as const;
+
+function classifyExpense(t: ExpenseTx, fixedIds: Set<string | null>): ExpenseKind {
+  if (t.supplierPayment || t.reference === 'Pago a proveedor desde cobro' || t.description.startsWith('Pago a proveedor')) return 'suppliers';
+  if (fixedIds.has(t.id) || t.reference === 'Gasto fijo') return 'fixed';
+  if (t.reference === 'Comisiones y sueldos') return 'commissions';
+  // Cierre de una cuenta archivada: no es gasto
+  if (t.description.startsWith('Ajuste de cierre')) return 'other';
+  if (t.category === 'RETIRO') return 'withdrawals';
+  if (t.category === 'NO_GASTO') return 'other';
+  return 'variable'; // capturado a mano (sin categoria = "Otro gasto")
+}
+
+async function monthFixedPaymentIds(tenantId: string, monthStart: Date) {
+  const rows = await prisma.fixedExpensePayment.findMany({
+    where: { tenantId, status: 'ACTIVE', paidAt: { gte: monthStart }, bankTransactionId: { not: null } },
+    select: { bankTransactionId: true },
+  });
+  return new Set(rows.map((r) => r.bankTransactionId));
+}
 
 // "Que hago hoy" (acciones concretas del dia, cada una con su boton) y la
 // utilidad neta del mes (ganancia de ventas - gastos fijos).
@@ -220,19 +252,36 @@ export interface NetProfit {
   grossProfit: number;
   fixedExpenses: number; // gasto fijo mensual (equivalente)
   fixedPaid: number; // pagado este mes
+  commissions: number; // comision generada por las ventas del mes
+  variableExpenses: number; // egresos capturados a mano en Bancos (oficina, publicidad...)
+  variableByCategory: { label: string; emoji: string; amount: number }[];
   net: number;
 }
 
 /** Solo para quien ve todo el negocio y tiene acceso a Gastos (null si no). */
 export async function getNetProfit(access: Access, month: { sales: number; profit: number }, monthStart: Date): Promise<NetProfit | null> {
   if (access.ownOnly || !access.can('gastos')) return null;
-  const [expenses, paid] = await Promise.all([
+  const [expenses, paid, commissions, bankExpenses, fixedIds] = await Promise.all([
     prisma.fixedExpense.findMany({ where: { tenantId: access.tenantId, isActive: true }, select: { amount: true, frequency: true } }),
     prisma.fixedExpensePayment.aggregate({
       where: { tenantId: access.tenantId, status: 'ACTIVE', paidAt: { gte: monthStart } },
       _sum: { amount: true },
     }),
+    monthCommissions(access, monthStart),
+    prisma.bankTransaction.findMany({
+      where: { tenantId: access.tenantId, status: 'ACTIVE', type: 'EXPENSE', date: { gte: monthStart } },
+      select: EXPENSE_SELECT,
+    }),
+    monthFixedPaymentIds(access.tenantId, monthStart),
   ]);
+  // Gastos variables del mes: lo capturado a mano en Bancos que si es gasto del negocio
+  const byCat = new Map<ExpenseCategory, number>();
+  for (const t of bankExpenses) {
+    if (classifyExpense(t, fixedIds) !== 'variable') continue;
+    const cat: ExpenseCategory = isExpenseCategory(t.category) ? t.category : 'OTRO';
+    byCat.set(cat, (byCat.get(cat) ?? 0) + t.amount);
+  }
+  const variable = Math.round([...byCat.values()].reduce((a, b) => a + b, 0) * 100) / 100;
   const fixed = Math.round(expenses.reduce((t, e) => t + monthlyEquivalent(e.amount, e.frequency), 0) * 100) / 100;
   return {
     sales: month.sales,
@@ -240,7 +289,12 @@ export async function getNetProfit(access: Access, month: { sales: number; profi
     grossProfit: month.profit,
     fixedExpenses: fixed,
     fixedPaid: paid._sum.amount ?? 0,
-    net: Math.round((month.profit - fixed) * 100) / 100,
+    commissions,
+    variableExpenses: variable,
+    variableByCategory: [...byCat.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([k, amount]) => ({ label: EXPENSE_CATEGORIES[k].label, emoji: EXPENSE_CATEGORIES[k].emoji, amount: Math.round(amount * 100) / 100 })),
+    net: Math.round((month.profit - fixed - commissions - variable) * 100) / 100,
   };
 }
 
@@ -338,37 +392,41 @@ export interface MonthCashFlow {
   income: number;
   suppliers: number;
   fixed: number;
-  other: number;
+  commissions: number;
+  variable: number; // gastos varios capturados a mano
+  withdrawals: number; // retiros del dueño/socio
+  other: number; // no es gasto (devoluciones, ajustes)
   net: number;
 }
 
 /** Lo que entro y salio de las cuentas que el usuario puede ver (sin transferencias). */
 export async function getMonthCashFlow(access: Access, monthStart: Date): Promise<MonthCashFlow | null> {
   if (!access.can('bancos')) return null;
-  const [txs, fixedTx] = await Promise.all([
+  const [txs, fixedIds] = await Promise.all([
     prisma.bankTransaction.findMany({
       where: { tenantId: access.tenantId, status: 'ACTIVE', date: { gte: monthStart }, type: { in: ['INCOME', 'EXPENSE'] }, bankAccount: access.bankScope },
-      select: { id: true, type: true, amount: true, supplierPayment: { select: { id: true } } },
+      select: EXPENSE_SELECT,
     }),
-    prisma.fixedExpensePayment.findMany({
-      where: { tenantId: access.tenantId, status: 'ACTIVE', paidAt: { gte: monthStart }, bankTransactionId: { not: null } },
-      select: { bankTransactionId: true },
-    }),
+    monthFixedPaymentIds(access.tenantId, monthStart),
   ]);
-  const fixedIds = new Set(fixedTx.map((f) => f.bankTransactionId));
-  const flow = { income: 0, suppliers: 0, fixed: 0, other: 0, net: 0 };
+  const flow = { income: 0, suppliers: 0, fixed: 0, commissions: 0, variable: 0, withdrawals: 0, other: 0 };
   for (const t of txs) {
-    if (t.type === 'INCOME') flow.income += t.amount;
-    else if (t.supplierPayment) flow.suppliers += t.amount;
-    else if (fixedIds.has(t.id)) flow.fixed += t.amount;
-    else flow.other += t.amount;
+    if (t.type === 'INCOME') {
+      // La entrada de una transferencia entre cuentas propias no es dinero nuevo
+      if (!t.description.startsWith('Transferencia desde')) flow.income += t.amount;
+      continue;
+    }
+    flow[classifyExpense(t, fixedIds)] += t.amount;
   }
   const r = (n: number) => Math.round(n * 100) / 100;
   return {
     income: r(flow.income),
     suppliers: r(flow.suppliers),
     fixed: r(flow.fixed),
+    commissions: r(flow.commissions),
+    variable: r(flow.variable),
+    withdrawals: r(flow.withdrawals),
     other: r(flow.other),
-    net: r(flow.income - flow.suppliers - flow.fixed - flow.other),
+    net: r(flow.income - flow.suppliers - flow.fixed - flow.commissions - flow.variable - flow.withdrawals - flow.other),
   };
 }

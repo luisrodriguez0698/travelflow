@@ -11,7 +11,7 @@ import type { NetProfit } from '@/lib/dashboard-today';
 
 if (typeof window !== 'undefined') gsap.registerPlugin(ScrollTrigger);
 
-// Utilidad neta del mes en cascada: Ventas - Proveedores = Ganancia - Gastos fijos = Utilidad neta.
+// Utilidad neta del mes en cascada: Ventas - Proveedores = Ganancia - Gastos fijos - Comisiones = Utilidad neta.
 
 const money = (n: number) => `${n < 0 ? '-' : ''}$${Math.abs(Math.round(n)).toLocaleString('es-MX')}`;
 
@@ -25,7 +25,39 @@ export function NetProfitCard({ data }: { data: NetProfit }) {
     { label: 'Ventas del mes', value: data.sales, from: 0, size: data.sales, color: 'bg-sky-500', sign: '' },
     { label: 'Costo de proveedores', value: -data.supplierCost, from: Math.max(0, data.grossProfit), size: data.supplierCost, color: 'bg-rose-400', sign: '−' },
     { label: 'Ganancia de ventas', value: data.grossProfit, from: 0, size: Math.max(0, data.grossProfit), color: 'bg-emerald-500', sign: '' },
-    { label: 'Gastos fijos del mes', value: -data.fixedExpenses, from: Math.max(0, data.net), size: Math.min(data.fixedExpenses, Math.max(0, data.grossProfit)) || data.fixedExpenses, color: 'bg-amber-400', sign: '−' },
+    {
+      label: 'Gastos fijos del mes',
+      value: -data.fixedExpenses,
+      from: Math.max(0, data.grossProfit - data.fixedExpenses),
+      size: Math.min(data.fixedExpenses, Math.max(0, data.grossProfit)) || data.fixedExpenses,
+      color: 'bg-amber-400',
+      sign: '−',
+    },
+    ...(data.commissions > 0
+      ? [
+          {
+            label: 'Comisiones de agentes',
+            value: -data.commissions,
+            from: Math.max(0, data.grossProfit - data.fixedExpenses - data.commissions),
+            size: Math.min(data.commissions, Math.max(0, data.grossProfit - data.fixedExpenses)) || data.commissions,
+            color: 'bg-fuchsia-400',
+            sign: '−',
+          },
+        ]
+      : []),
+    ...(data.variableExpenses > 0
+      ? [
+          {
+            label: 'Gastos varios del mes',
+            value: -data.variableExpenses,
+            from: Math.max(0, data.net),
+            size: Math.min(data.variableExpenses, Math.max(0, data.grossProfit - data.fixedExpenses - data.commissions)) || data.variableExpenses,
+            color: 'bg-orange-400',
+            sign: '−',
+            detail: data.variableByCategory.map((c) => `${c.emoji} ${c.label} ${money(c.amount)}`).join(' · '),
+          },
+        ]
+      : []),
   ];
 
   useEffect(() => {
@@ -75,6 +107,7 @@ export function NetProfitCard({ data }: { data: NetProfit }) {
                     style={{ left: `${(s.from / max) * 100}%`, width: `${Math.max(0.5, (s.size / max) * 100)}%` }}
                   />
                 </div>
+                {'detail' in s && s.detail && <p className="mt-0.5 truncate text-[10px] text-muted-foreground" title={s.detail}>{s.detail}</p>}
               </li>
             ))}
           </ul>
