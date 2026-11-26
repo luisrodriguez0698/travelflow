@@ -53,6 +53,16 @@ import {
 const money = (n: number) => `${n < 0 ? '-' : ''}$${Math.abs(n).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const shortDate = (iso: string) => new Date(iso).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'America/Mexico_City' });
 const todayStr = () => format(new Date(), 'yyyy-MM-dd');
+// Mes (en Mexico) de una fecha: "2026-11" y su nombre "noviembre 2026"
+const monthKeyOf = (iso: string) =>
+  new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Mexico_City', year: 'numeric', month: '2-digit' }).format(new Date(iso)).slice(0, 7);
+const monthName = (key: string) => {
+  const [y, m] = key.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, 15)).toLocaleDateString('es-MX', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+};
+const monthsOf = (rows: CommissionRow[]) =>
+  [...new Set(rows.map((r) => (r.earnedAt ? monthKeyOf(r.earnedAt) : null)).filter((k): k is string => !!k))].sort().reverse();
+
 /** Dia 1 del mes actual: fecha sugerida para empezar a comisionar */
 const monthStartStr = () => format(new Date(new Date().getFullYear(), new Date().getMonth(), 1), 'yyyy-MM-dd');
 
@@ -234,7 +244,7 @@ function SettingDialog({ agent, onClose, onSaved }: { agent: AgentSummary | null
 
           <div className="grid grid-cols-2 items-end gap-3">
             <div>
-              <Label>Comisiona ventas desde</Label>
+              <Label>Comisiona desde</Label>
               <DatePicker value={form.startDate ? parseISO(form.startDate) : null} onChange={(d) => setForm({ ...form, startDate: d ? format(d, 'yyyy-MM-dd') : monthStartStr() })} />
             </div>
             <label className="flex items-center justify-between gap-2 rounded-lg border p-2.5 text-sm">
@@ -244,7 +254,7 @@ function SettingDialog({ agent, onClose, onSaved }: { agent: AgentSummary | null
           </div>
 
           <p className="-mt-2 text-xs text-muted-foreground">
-            Solo las ventas desde esta fecha generan comisión. Si quieres incluir ventas de meses anteriores, elige una fecha más atrás.
+            {EARNED_WHEN[form.earnedWhen].since} Cada comisión cuenta en el mes en que se gana.
           </p>
 
           <div>
@@ -404,6 +414,8 @@ function PayDialog({
 }) {
   const payable = useMemo(() => rows.filter((r) => agent && r.agentId === agent.userId && Math.abs(r.pending) > 0.005), [rows, agent]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [payMonth, setPayMonth] = useState('all');
+  const payMonths = useMemo(() => monthsOf(payable), [payable]);
   const [includeSalary, setIncludeSalary] = useState(false);
   const [salary, setSalary] = useState('');
   const [bonus, setBonus] = useState('');
@@ -416,6 +428,7 @@ function PayDialog({
   useEffect(() => {
     if (!agent) return;
     setSelected(new Set(payable.map((r) => r.bookingId)));
+    setPayMonth('all');
     const base = agent.setting?.baseSalary ?? 0;
     setIncludeSalary(base > 0);
     setSalary(base > 0 ? String(base) : '');
@@ -478,7 +491,31 @@ function PayDialog({
         </DialogHeader>
         <div className="space-y-4">
           <div>
-            <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Comisiones ganadas sin pagar</p>
+            <div className="mb-1.5 flex items-center justify-between gap-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Comisiones ganadas sin pagar</p>
+              {payMonths.length > 1 && (
+                <Select
+                  value={payMonth}
+                  onValueChange={(v) => {
+                    setPayMonth(v);
+                    // Palomea solo las ganadas en ese mes (y siempre los descuentos pendientes)
+                    setSelected(new Set(payable.filter((r) => v === 'all' || r.pending < 0 || (r.earnedAt && monthKeyOf(r.earnedAt) === v)).map((r) => r.bookingId)));
+                  }}
+                >
+                  <SelectTrigger className="h-8 w-44 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos los meses</SelectItem>
+                    {payMonths.map((k) => (
+                      <SelectItem key={k} value={k}>
+                        <span className="capitalize">Ganadas en {monthName(k)}</span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
             {payable.length === 0 ? (
               <p className="rounded-lg bg-muted p-3 text-sm text-muted-foreground">No tiene comisiones pendientes por pagar.</p>
             ) : (
@@ -490,7 +527,8 @@ function PayDialog({
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm">{r.client}</span>
                         <span className="block text-[11px] text-muted-foreground">
-                          Folio {r.folio} · {shortDate(r.saleDate)}
+                          Folio {r.folio} · vendida {shortDate(r.saleDate)}
+                          {r.earnedAt && r.pending > 0 && ` · ganada ${shortDate(r.earnedAt)}`}
                           {r.pending < 0 && ' · venta cancelada, se descuenta'}
                         </span>
                       </span>
@@ -587,6 +625,7 @@ export default function CommissionsPage() {
   const [tab, setTab] = useState('agents');
   const [agentFilter, setAgentFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState<'all' | CommissionStatus>('all');
+  const [monthFilter, setMonthFilter] = useState('all');
   const [configuring, setConfiguring] = useState<AgentSummary | null>(null);
   const [adjusting, setAdjusting] = useState<CommissionRow | null>(null);
   const [paying, setPaying] = useState<AgentSummary | null>(null);
@@ -628,11 +667,18 @@ export default function CommissionsPage() {
       pending: agents.reduce((t, a) => t + a.pending, 0),
       waiting: agents.reduce((t, a) => t + a.waiting, 0),
       toDeduct: agents.reduce((t, a) => t + a.toDeduct, 0),
-      monthGenerated: agents.reduce((t, a) => t + a.monthGenerated, 0),
+      monthEarned: agents.reduce((t, a) => t + a.monthEarned, 0),
     }),
     [agents]
   );
-  const filteredRows = rows.filter((r) => (agentFilter === 'all' || r.agentId === agentFilter) && (statusFilter === 'all' || r.status === statusFilter));
+  const earnedMonths = useMemo(() => monthsOf(rows), [rows]);
+  const filteredRows = rows.filter(
+    (r) =>
+      (agentFilter === 'all' || r.agentId === agentFilter) &&
+      (statusFilter === 'all' || r.status === statusFilter) &&
+      (monthFilter === 'all' || (r.earnedAt && monthKeyOf(r.earnedAt) === monthFilter))
+  );
+  const filteredEarned = filteredRows.reduce((t, r) => t + r.earned, 0);
 
   // Entrada: tarjetas en cascada y montos contando
   useEffect(() => {
@@ -683,7 +729,7 @@ export default function CommissionsPage() {
             {[
               { label: data?.ownOnly ? 'Te deben' : 'Por pagar', hint: 'Ganado y sin pagar', value: totals.pending, icon: Wallet, cls: 'text-amber-600 dark:text-amber-400' },
               { label: 'Por ganar', hint: 'Falta que los clientes paguen', value: totals.waiting, icon: Hourglass, cls: 'text-sky-600 dark:text-sky-400' },
-              { label: 'Generado este mes', hint: 'Comisión de las ventas del mes', value: totals.monthGenerated, icon: Coins, cls: 'text-emerald-600 dark:text-emerald-400' },
+              { label: 'Ganado este mes', hint: 'Comisiones que se ganaron este mes', value: totals.monthEarned, icon: Coins, cls: 'text-emerald-600 dark:text-emerald-400' },
               { label: 'A descontar', hint: 'Pagadas de ventas canceladas', value: totals.toDeduct, icon: Ban, cls: totals.toDeduct > 0 ? 'text-red-600 dark:text-red-400' : '' },
             ].map((k) => (
               <Card key={k.label} data-kpi className="p-4">
@@ -817,6 +863,24 @@ export default function CommissionsPage() {
                     ))}
                   </SelectContent>
                 </Select>
+                <Select value={monthFilter} onValueChange={setMonthFilter}>
+                  <SelectTrigger className="w-52">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Ganadas en cualquier mes</SelectItem>
+                    {earnedMonths.map((k) => (
+                      <SelectItem key={k} value={k}>
+                        <span className="capitalize">Ganadas en {monthName(k)}</span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {monthFilter !== 'all' && (
+                  <span className="self-center text-sm text-muted-foreground">
+                    Total ganado: <b className="tabular-nums text-foreground">{money(filteredEarned)}</b>
+                  </span>
+                )}
               </div>
               {filteredRows.length === 0 ? (
                 <EmptyState
@@ -869,6 +933,7 @@ export default function CommissionsPage() {
                           <td className={cn('p-3 text-right font-semibold tabular-nums', r.pending < 0 && 'text-red-600 dark:text-red-400')}>{money(r.pending)}</td>
                           <td className="p-3">
                             <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-semibold', STATUS[r.status].cls)}>{STATUS[r.status].label}</span>
+                            {r.earnedAt && r.earned > 0 && <p className="mt-1 text-[10px] text-muted-foreground">Ganada el {shortDate(r.earnedAt)}</p>}
                           </td>
                           {data?.canEdit && (
                             <td className="p-3 text-right">

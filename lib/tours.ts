@@ -310,7 +310,7 @@ export const SECTION_TOURS: TourDef[] = [
         element: 'page-summary',
         title: 'Resumen',
         description:
-          '<b>Por pagar</b>: ya se ganó y falta pagarla. <b>Por ganar</b>: falta que el cliente pague. <b>Generado este mes</b>: comisión de las ventas del mes. <b>A descontar</b>: comisiones pagadas de ventas que después se cancelaron.',
+          '<b>Por pagar</b>: ya se ganó y falta pagarla. <b>Por ganar</b>: falta que el cliente pague. <b>Ganado este mes</b>: comisiones que se ganaron este mes (cuando el cliente pagó). <b>A descontar</b>: comisiones pagadas de ventas que después se cancelaron.',
       },
       {
         element: 'comm-agent',
@@ -326,7 +326,7 @@ export const SECTION_TOURS: TourDef[] = [
       {
         title: '2. ¿Desde qué fecha?',
         description:
-          'En <b>Comisiona ventas desde</b> eliges desde cuándo cuentan sus ventas. Las anteriores a esa fecha <b>no</b> generan comisión; si quieres incluir meses pasados, elige una fecha más atrás.',
+          'En <b>Comisiona desde</b> eliges desde cuándo cuenta. Con <b>cuando el cliente liquida</b> entran las ventas que se liquiden desde esa fecha, aunque se hayan vendido antes. Cada comisión cuenta en el <b>mes en que se gana</b>, y en <b>Por venta</b> puedes filtrar por ese mes.',
       },
       {
         element: 'comm-tabs',

@@ -7,9 +7,21 @@ export const COMMISSION_BASES = {
 export type CommissionBase = keyof typeof COMMISSION_BASES;
 
 export const EARNED_WHEN = {
-  PAID: { label: 'Cuando el cliente liquida', hint: 'Se gana completa cuando la venta queda pagada.' },
-  PROPORTIONAL: { label: 'Según lo cobrado', hint: 'Si el cliente lleva 50%, ya ganó el 50% de su comisión.' },
-  SALE: { label: 'Al vender', hint: 'Se gana completa desde que se registra la venta.' },
+  PAID: {
+    label: 'Cuando el cliente liquida',
+    hint: 'Se gana completa el mes en que la venta queda pagada.',
+    since: 'Cuentan las ventas que el cliente liquide desde esta fecha, aunque se hayan vendido antes.',
+  },
+  PROPORTIONAL: {
+    label: 'Según lo cobrado',
+    hint: 'Se va ganando con cada abono, en el mes en que el cliente paga.',
+    since: 'Cuentan los abonos cobrados desde esta fecha, aunque la venta sea de antes.',
+  },
+  SALE: {
+    label: 'Al vender',
+    hint: 'Se gana completa el mes en que se registra la venta.',
+    since: 'Solo cuentan las ventas registradas desde esta fecha.',
+  },
 } as const;
 export type EarnedWhen = keyof typeof EARNED_WHEN;
 
@@ -35,6 +47,8 @@ export interface CommissionRow {
   commission: number; // comision completa de la venta
   collectedPct: number;
   earned: number; // lo ya ganado segun la regla
+  earnedAt: string | null; // cuando se gano (liquidacion, venta o ultimo abono)
+  earnedInMonth: number; // parte ganada en el mes actual
   paid: number;
   pending: number; // earned - paid (negativo = se pago de mas: a descontar)
   status: CommissionStatus;
@@ -63,7 +77,7 @@ export interface AgentSummary {
   pending: number; // ganado y sin pagar
   toDeduct: number; // pagado de mas (ventas canceladas)
   waiting: number; // por ganar (falta que el cliente pague)
-  monthGenerated: number; // comision de las ventas de este mes
+  monthEarned: number; // comision ganada este mes (cuando el cliente pago)
   lastPayoutAt: string | null;
 }
 

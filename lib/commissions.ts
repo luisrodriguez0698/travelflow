@@ -64,15 +64,47 @@ function statusOf(r: { cancelled: boolean; commission: number; earned: number; p
  * Comisiones de las ventas de los agentes con regla configurada.
  * Con "solo lo mio" solo las del usuario. `userId` filtra a un agente.
  */
-export async function computeCommissions(access: Access, opts: { userId?: string } = {}) {
+/** 00:00 (Mexico) del dia 1 del mes actual */
+export function currentMonthStart(now: Date = new Date()) {
+  const [y, m] = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Mexico_City', year: 'numeric', month: '2-digit' })
+    .format(now)
+    .split('-')
+    .map(Number);
+  return new Date(Date.UTC(y, m - 1, 1, 6));
+}
+
+/**
+ * Comisiones de las ventas de los agentes con regla configurada.
+ * Con "solo lo mio" solo las del usuario. `userId` filtra a un agente.
+ *
+ * La fecha "desde" de cada agente depende de cuando se gana la comision:
+ *  - Al vender: cuentan las ventas registradas desde esa fecha.
+ *  - Cuando el cliente liquida: cuentan las ventas que se liquidan desde esa
+ *    fecha (aunque se hayan vendido antes) y las que siguen pendientes.
+ *  - Segun lo cobrado: cuentan los abonos cobrados desde esa fecha.
+ * Cada comision se asigna al mes en que se gana (earnedAt / earnedInMonth).
+ */
+export async function computeCommissions(access: Access, opts: { userId?: string; monthStart?: Date } = {}) {
   const onlyUser = access.ownOnly ? access.userId : opts.userId;
+  const monthStart = opts.monthStart ?? currentMonthStart();
+  const monthEnd = new Date(Date.UTC(monthStart.getUTCFullYear(), monthStart.getUTCMonth() + 1, 1, 6));
   const settings = await prisma.agentPaySetting.findMany({
     where: { tenantId: access.tenantId, ...(onlyUser && { userId: onlyUser }) },
   });
   const settingByUser = new Map(settings.map((s) => [s.userId, s]));
 
-  // Ventas desde la fecha de inicio de cada agente, mas cualquier venta con pagos de comision
-  const agentConditions = settings.map((s) => ({ createdBy: s.userId, saleDate: { gte: s.startDate } }));
+  const agentConditions = settings.map((s) =>
+    s.earnedWhen === 'SALE'
+      ? { createdBy: s.userId, saleDate: { gte: s.startDate } }
+      : {
+          createdBy: s.userId,
+          OR: [
+            { saleDate: { gte: s.startDate } },
+            { status: 'ACTIVE' }, // aun no se liquida: se ganara despues
+            { bankTransactions: { some: { type: 'INCOME', status: 'ACTIVE', date: { gte: s.startDate } } } },
+          ],
+        }
+  );
   const paidBookingIds = (
     await prisma.commissionPayoutItem.findMany({
       where: { payout: { tenantId: access.tenantId, status: 'ACTIVE', ...(onlyUser && { userId: onlyUser }) } },
@@ -98,7 +130,9 @@ export async function computeCommissions(access: Access, opts: { userId?: string
       status: true,
       downPayment: true,
       client: { select: { fullName: true } },
-      payments: { select: { paidAmount: true } },
+      payments: { select: { paidAmount: true, paidDate: true } },
+      // Cobros con su fecha (anticipo y abonos que entraron a Bancos)
+      bankTransactions: { where: { type: 'INCOME', status: 'ACTIVE' }, select: { date: true, amount: true } },
       commissionOverride: { select: { rate: true, amount: true, note: true } },
       commissionItems: { where: { payout: { status: 'ACTIVE' } }, select: { amount: true, payout: { select: { userId: true } } } },
     },
@@ -114,16 +148,78 @@ export async function computeCommissions(access: Access, opts: { userId?: string
     const total = b.totalPrice;
     const cost = b.netCost;
     const base = setting?.commissionBase === 'SALE' ? total : Math.max(0, total - cost);
-    const inRange = !!setting && b.saleDate >= setting.startDate;
+    const when = setting?.earnedWhen ?? 'PAID';
+    const startDate = setting?.startDate ?? new Date(8.64e15);
+
+    // ─── Linea de tiempo de cobros ───
+    const collected = (b.downPayment || 0) + b.payments.reduce((t, p) => t + (p.paidAmount || 0), 0);
+    const fullyPaid = b.status === 'COMPLETED' || total <= 0 || collected >= total - 0.01;
+    const collectedPct = fullyPaid ? 1 : Math.min(1, collected / total);
+    const events = b.bankTransactions.map((t) => ({ date: t.date, amount: t.amount })).sort((x, y) => x.date.getTime() - y.date.getTime());
+    const known = events.reduce((t, e) => t + e.amount, 0);
+    const target = fullyPaid ? total : collected;
+    if (target - known > 0.01) {
+      // Lo cobrado sin movimiento en Bancos: a la fecha del ultimo abono liquidado o de la venta
+      const lastPaid = b.payments.map((p) => p.paidDate).filter((d): d is Date => !!d).sort((x, y) => y.getTime() - x.getTime())[0];
+      events.push({ date: fullyPaid && lastPaid ? lastPaid : b.saleDate, amount: target - known });
+      events.sort((x, y) => x.date.getTime() - y.date.getTime());
+    }
+    // Fecha en que el cliente termino de pagar
+    let paidOffAt: Date | null = null;
+    if (fullyPaid) {
+      let acc = 0;
+      for (const e of events) {
+        acc += e.amount;
+        if (acc >= total - 0.01) {
+          paidOffAt = e.date;
+          break;
+        }
+      }
+      paidOffAt = paidOffAt ?? events[events.length - 1]?.date ?? b.saleDate;
+    }
+    const cobradoDesde = (from: Date, to?: Date) =>
+      Math.min(total, events.filter((e) => e.date >= from && (!to || e.date < to)).reduce((t, e) => t + e.amount, 0));
+
+    // ─── ¿Entra esta venta? ───
+    const soldInRange = b.saleDate >= startDate;
+    const inRange =
+      !!setting &&
+      (when === 'SALE'
+        ? soldInRange
+        : when === 'PAID'
+          ? soldInRange || !fullyPaid || (paidOffAt !== null && paidOffAt >= startDate)
+          : soldInRange || !fullyPaid || cobradoDesde(startDate) > 0.01);
+
     const rate = b.commissionOverride?.rate ?? (inRange ? setting!.commissionRate : 0);
     const commission = cancelled
       ? 0
       : round2(b.commissionOverride?.amount ?? (inRange || b.commissionOverride?.rate != null ? (base * rate) / 100 : 0));
 
-    const collected = (b.downPayment || 0) + b.payments.reduce((t, p) => t + (p.paidAmount || 0), 0);
-    const collectedPct = b.status === 'COMPLETED' || total <= 0 ? 1 : Math.min(1, collected / total);
-    const when = setting?.earnedWhen ?? 'PAID';
-    const earned = cancelled ? 0 : round2(when === 'SALE' ? commission : when === 'PAID' ? (collectedPct >= 0.999 ? commission : 0) : commission * collectedPct);
+    // ─── Lo ganado y cuando ───
+    let earned = 0;
+    let earnedAt: Date | null = null;
+    let earnedInMonth = 0;
+    if (!cancelled && commission > 0) {
+      if (when === 'SALE') {
+        earned = commission;
+        earnedAt = b.saleDate;
+        if (b.saleDate >= monthStart && b.saleDate < monthEnd) earnedInMonth = commission;
+      } else if (when === 'PAID') {
+        if (fullyPaid) {
+          earned = commission;
+          earnedAt = paidOffAt;
+          if (paidOffAt && paidOffAt >= monthStart && paidOffAt < monthEnd) earnedInMonth = commission;
+        }
+      } else if (total > 0) {
+        // Segun lo cobrado: solo los abonos desde la fecha de inicio (o todo si se vendio despues)
+        const from = soldInRange ? new Date(0) : startDate;
+        earned = commission * Math.min(1, cobradoDesde(from) / total);
+        earnedAt = events.filter((e) => e.date >= from).pop()?.date ?? null;
+        const monthFrom = monthStart > from ? monthStart : from;
+        earnedInMonth = commission * Math.min(1, cobradoDesde(monthFrom, monthEnd) / total);
+      }
+    }
+    earned = round2(earned);
     const paid = round2(b.commissionItems.reduce((t, i) => t + i.amount, 0));
     const pending = round2(earned - paid);
     if (commission === 0 && paid === 0) continue;
@@ -141,6 +237,8 @@ export async function computeCommissions(access: Access, opts: { userId?: string
       commission,
       collectedPct: Math.round(collectedPct * 100),
       earned,
+      earnedAt: earnedAt ? earnedAt.toISOString() : null,
+      earnedInMonth: round2(earnedInMonth),
       paid,
       pending,
       status: statusOf({ cancelled, commission, earned, paid, pending }),
@@ -153,7 +251,7 @@ export async function computeCommissions(access: Access, opts: { userId?: string
 
 /** Resumen por agente (todos los usuarios activos de la agencia, o solo el propio). */
 export async function agentSummaries(access: Access, monthStart: Date): Promise<{ agents: AgentSummary[]; rows: CommissionRow[] }> {
-  const { rows, settingByUser } = await computeCommissions(access);
+  const { rows, settingByUser } = await computeCommissions(access, { monthStart });
   const users = await prisma.user.findMany({
     where: { tenantId: access.tenantId, deletedAt: null, ...(access.ownOnly && { id: access.userId }) },
     select: { id: true, name: true, email: true, avatar: true, isActive: true },
@@ -196,15 +294,15 @@ export async function agentSummaries(access: Access, monthStart: Date): Promise<
         pending: sum((r) => Math.max(0, r.pending)),
         toDeduct: sum((r) => Math.max(0, -r.pending)),
         waiting: sum((r) => Math.max(0, r.commission - r.earned)),
-        monthGenerated: sum((r) => (new Date(r.saleDate) >= monthStart ? r.commission : 0)),
+        monthEarned: sum((r) => r.earnedInMonth),
         lastPayoutAt: lastByUser.get(u.id)?.toISOString() ?? null,
       };
     });
   return { agents, rows };
 }
 
-/** Comision generada por las ventas del mes (para la utilidad neta del Dashboard). */
+/** Comision ganada en el mes (para la utilidad neta del Dashboard). */
 export async function monthCommissions(access: Access, monthStart: Date) {
-  const { rows } = await computeCommissions(access);
-  return round2(rows.reduce((t, r) => t + (new Date(r.saleDate) >= monthStart ? r.commission : 0), 0));
+  const { rows } = await computeCommissions(access, { monthStart });
+  return round2(rows.reduce((t, r) => t + r.earnedInMonth, 0));
 }
