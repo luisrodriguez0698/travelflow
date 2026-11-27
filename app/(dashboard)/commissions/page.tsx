@@ -41,6 +41,7 @@ import { cn } from '@/lib/utils';
 import {
   COMMISSION_BASES,
   EARNED_WHEN,
+  PREVIOUS_PAYOUT_NOTE,
   SALARY_FREQUENCIES,
   type AgentSummary,
   type CommissionBase,
@@ -423,10 +424,12 @@ function PayDialog({
   const [accountId, setAccountId] = useState<string>('none');
   const [paidAt, setPaidAt] = useState(todayStr());
   const [notes, setNotes] = useState('');
+  const [previous, setPrevious] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!agent) return;
+    setPrevious(false);
     setSelected(new Set(payable.map((r) => r.bookingId)));
     setPayMonth('all');
     const base = agent.setting?.baseSalary ?? 0;
@@ -441,9 +444,11 @@ function PayDialog({
   }, [agent]);
 
   const commission = payable.filter((r) => selected.has(r.bookingId)).reduce((t, r) => t + r.pending, 0);
-  const salaryN = includeSalary ? Number(salary) || 0 : 0;
-  const total = Math.round((commission + salaryN + (Number(bonus) || 0) - (Number(deduction) || 0)) * 100) / 100;
-  const account = accounts.find((a) => a.id === accountId);
+  const salaryN = !previous && includeSalary ? Number(salary) || 0 : 0;
+  const bonusN = previous ? 0 : Number(bonus) || 0;
+  const deductionN = previous ? 0 : Number(deduction) || 0;
+  const total = Math.round((commission + salaryN + bonusN - deductionN) * 100) / 100;
+  const account = previous ? undefined : accounts.find((a) => a.id === accountId);
 
   const toggle = (id: string) => {
     const next = new Set(selected);
@@ -463,16 +468,17 @@ function PayDialog({
           userId: agent.userId,
           items: payable.filter((r) => selected.has(r.bookingId)).map((r) => ({ bookingId: r.bookingId, amount: r.pending })),
           salaryAmount: salaryN,
-          bonusAmount: Number(bonus) || 0,
-          deductionAmount: Number(deduction) || 0,
-          bankAccountId: accountId === 'none' ? null : accountId,
+          bonusAmount: bonusN,
+          deductionAmount: deductionN,
+          bankAccountId: previous || accountId === 'none' ? null : accountId,
           paidAt,
           notes,
+          previous,
         }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'No se pudo registrar el pago');
-      toast.success(`Pago de ${money(total)} a ${agent.name} registrado`);
+      toast.success(previous ? `${money(total)} marcados como ya pagados a ${agent.name}` : `Pago de ${money(total)} a ${agent.name} registrado`);
       onSaved();
       onClose();
     } catch (e) {
@@ -490,6 +496,21 @@ function PayDialog({
           <DialogDescription>Elige las comisiones que pagas y, si toca, su sueldo.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
+          <label
+            className={cn(
+              'flex cursor-pointer items-start justify-between gap-3 rounded-lg border p-3 transition-colors',
+              previous && 'border-amber-400 bg-amber-50 dark:border-amber-500/60 dark:bg-amber-500/10'
+            )}
+          >
+            <span className="text-sm">
+              <span className="font-medium">Ya se pagaron antes del sistema</span>
+              <span className="block text-xs text-muted-foreground">
+                Para comisiones que pagaste antes de usar este módulo. Quedan como pagadas y no se mueve ningún saldo en Bancos.
+              </span>
+            </span>
+            <Switch checked={previous} onCheckedChange={setPrevious} />
+          </label>
+
           <div>
             <div className="mb-1.5 flex items-center justify-between gap-2">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Comisiones ganadas sin pagar</p>
@@ -540,6 +561,8 @@ function PayDialog({
             )}
           </div>
 
+          {!previous && (
+          <>
           <div className="space-y-2 rounded-lg border p-3">
             <label className="flex items-center justify-between gap-2 text-sm">
               <span>
@@ -566,7 +589,11 @@ function PayDialog({
             </div>
           </div>
 
+          </>
+          )}
+
           <div className="grid grid-cols-2 gap-3">
+            {!previous && (
             <div>
               <Label>Sale de la cuenta</Label>
               <Select value={accountId} onValueChange={setAccountId}>
@@ -583,22 +610,24 @@ function PayDialog({
                 </SelectContent>
               </Select>
             </div>
+            )}
             <div>
-              <Label>Fecha</Label>
+              <Label>{previous ? 'Fecha en que se pagaron' : 'Fecha'}</Label>
               <DatePicker value={parseISO(paidAt)} onChange={(d) => setPaidAt(d ? format(d, 'yyyy-MM-dd') : todayStr())} />
             </div>
           </div>
           <div>
             <Label>Notas</Label>
-            <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Ej: quincena del 1 al 15 de noviembre" />
+            <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={previous ? 'Ej: comisiones de octubre pagadas en efectivo' : 'Ej: quincena del 1 al 15 de noviembre'} />
           </div>
 
           <div className="space-y-1 rounded-xl bg-primary/5 p-3 text-sm">
             <p className="flex justify-between"><span className="text-muted-foreground">Comisiones</span><span className="tabular-nums">{money(commission)}</span></p>
             {salaryN > 0 && <p className="flex justify-between"><span className="text-muted-foreground">Sueldo</span><span className="tabular-nums">{money(salaryN)}</span></p>}
-            {Number(bonus) > 0 && <p className="flex justify-between"><span className="text-muted-foreground">Bono</span><span className="tabular-nums">{money(Number(bonus))}</span></p>}
-            {Number(deduction) > 0 && <p className="flex justify-between"><span className="text-muted-foreground">Descuento</span><span className="tabular-nums text-red-600">-{money(Number(deduction))}</span></p>}
-            <p className="flex justify-between border-t pt-1 text-base font-bold"><span>Total a pagar</span><span className="tabular-nums">{money(total)}</span></p>
+            {bonusN > 0 && <p className="flex justify-between"><span className="text-muted-foreground">Bono</span><span className="tabular-nums">{money(bonusN)}</span></p>}
+            {deductionN > 0 && <p className="flex justify-between"><span className="text-muted-foreground">Descuento</span><span className="tabular-nums text-red-600">-{money(deductionN)}</span></p>}
+            <p className="flex justify-between border-t pt-1 text-base font-bold"><span>{previous ? 'Total ya pagado' : 'Total a pagar'}</span><span className="tabular-nums">{money(total)}</span></p>
+            {previous && <p className="text-xs text-muted-foreground">No se registra ningún egreso en Bancos.</p>}
             {account && account.currentBalance < total && <p className="text-xs font-medium text-red-600">Saldo insuficiente en {account.referenceName}.</p>}
           </div>
         </div>
@@ -608,7 +637,7 @@ function PayDialog({
           </Button>
           <Button variant="gradient" onClick={save} disabled={saving || total <= 0 || (!!account && account.currentBalance < total)}>
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Registrar pago
+            {previous ? 'Marcar como pagadas' : 'Registrar pago'}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -965,13 +994,20 @@ export default function CommissionsPage() {
                           <p className="font-semibold">
                             {p.agent}
                             {p.status === 'CANCELLED' && <Badge variant="outline" className="ml-2">Anulado</Badge>}
+                            {p.notes?.startsWith(PREVIOUS_PAYOUT_NOTE) && (
+                              <Badge variant="outline" className="ml-2 border-amber-400 text-amber-700 dark:text-amber-300">
+                                Pago previo
+                              </Badge>
+                            )}
                           </p>
                           <p className="text-xs text-muted-foreground">
                             {shortDate(p.paidAt)}
-                            {p.account ? ` · desde ${p.account}` : ' · sin movimiento en Bancos'}
+                            {p.account ? ` · desde ${p.account}` : p.notes?.startsWith(PREVIOUS_PAYOUT_NOTE) ? ' · pagado antes del sistema' : ' · sin movimiento en Bancos'}
                             {p.createdBy && ` · registró ${p.createdBy}`}
                           </p>
-                          {p.notes && <p className="mt-1 text-xs">{p.notes}</p>}
+                          {p.notes && p.notes !== PREVIOUS_PAYOUT_NOTE && (
+                            <p className="mt-1 text-xs">{p.notes.startsWith(`${PREVIOUS_PAYOUT_NOTE}: `) ? p.notes.slice(PREVIOUS_PAYOUT_NOTE.length + 2) : p.notes}</p>
+                          )}
                         </div>
                         <div className="text-right">
                           <p className={cn('text-lg font-bold tabular-nums', p.status === 'CANCELLED' && 'line-through')}>{money(p.total)}</p>

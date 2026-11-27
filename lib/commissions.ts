@@ -43,6 +43,8 @@ export const payoutSchema = z.object({
   bankAccountId: z.string().min(1).nullable(),
   paidAt: dayStr.optional(),
   notes: z.string().max(1000).optional().nullable(),
+  /** Comisiones que ya se pagaron antes de usar el modulo: no mueve Bancos */
+  previous: z.boolean().optional(),
 });
 
 /** "2026-11-25" -> Date a las 12:00 de Mexico (no se corre de dia por la zona horaria) */

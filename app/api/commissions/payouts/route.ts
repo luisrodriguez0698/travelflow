@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAccess, accessErrorResponse } from '@/lib/access';
 import { prisma } from '@/lib/prisma';
-import { computeCommissions, dayToDate, payoutSchema } from '@/lib/commissions';
+import { computeCommissions, dayToDate, payoutSchema, PREVIOUS_PAYOUT_NOTE } from '@/lib/commissions';
 
 export const dynamic = 'force-dynamic';
 
@@ -63,7 +63,16 @@ export async function POST(request: NextRequest) {
     if (access.ownOnly) return NextResponse.json({ error: 'No puedes registrar pagos de comisiones' }, { status: 403 });
     const parsed = payoutSchema.safeParse(await request.json());
     if (!parsed.success) return NextResponse.json({ error: parsed.error.errors[0].message }, { status: 400 });
-    const { userId, items, salaryAmount, bonusAmount, deductionAmount, bankAccountId, paidAt, notes } = parsed.data;
+    const previous = parsed.data.previous === true;
+    const { userId, items, paidAt } = parsed.data;
+    // Pago previo: solo comisiones que ya se pagaron fuera del sistema, sin mover Bancos
+    const salaryAmount = previous ? 0 : parsed.data.salaryAmount;
+    const bonusAmount = previous ? 0 : parsed.data.bonusAmount;
+    const deductionAmount = previous ? 0 : parsed.data.deductionAmount;
+    const bankAccountId = previous ? null : parsed.data.bankAccountId;
+    const extra = parsed.data.notes?.trim();
+    const notes = previous ? (extra ? `${PREVIOUS_PAYOUT_NOTE}: ${extra}` : PREVIOUS_PAYOUT_NOTE) : extra;
+    if (previous && items.length === 0) return NextResponse.json({ error: 'Elige las comisiones que ya se pagaron' }, { status: 400 });
 
     const agent = await prisma.user.findFirst({ where: { id: userId, tenantId: access.tenantId }, select: { id: true, name: true, email: true } });
     if (!agent) return NextResponse.json({ error: 'Agente no encontrado' }, { status: 404 });
@@ -135,7 +144,7 @@ export async function POST(request: NextRequest) {
           bankAccountId: bank?.id ?? null,
           bankTransactionId,
           paidAt: date,
-          notes: notes?.trim() || null,
+          notes: notes || null,
           createdBy: access.userId,
           items: { create: items.map((i) => ({ bookingId: i.bookingId, amount: round2(i.amount) })) },
         },

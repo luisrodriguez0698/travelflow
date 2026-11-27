@@ -6,6 +6,9 @@ export const COMMISSION_BASES = {
 } as const;
 export type CommissionBase = keyof typeof COMMISSION_BASES;
 
+/** Nota con la que se marcan los pagos previos al sistema (ya pagados, sin Bancos) */
+export const PREVIOUS_PAYOUT_NOTE = 'Pago previo al sistema';
+
 export const EARNED_WHEN = {
   PAID: {
     label: 'Cuando el cliente liquida',
